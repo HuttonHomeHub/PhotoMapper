@@ -1,0 +1,120 @@
+import express from 'express'
+import multer from 'multer'
+import cors from 'cors'
+import { join, dirname, extname } from 'path'
+import { fileURLToPath } from 'url'
+import { mkdirSync } from 'fs'
+import { v4 as uuidv4 } from 'uuid'
+import exifr from 'exifr'
+import { insertPhoto, getAllPhotos } from './db.js'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const uploadsDir = join(__dirname, 'uploads')
+mkdirSync(uploadsDir, { recursive: true })
+
+const app = express()
+app.use(cors())
+app.use(express.json())
+
+const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/heic', 'image/webp'])
+
+const storage = multer.diskStorage({
+  destination: uploadsDir,
+  filename: (_req, file, cb) => {
+    const ext = extname(file.originalname).toLowerCase() || '.jpg'
+    cb(null, uuidv4() + ext)
+  }
+})
+
+const upload = multer({
+  storage,
+  fileFilter: (_req, file, cb) => {
+    if (ALLOWED_TYPES.has(file.mimetype)) {
+      cb(null, true)
+    } else {
+      cb(new Error(`Unsupported file type: ${file.mimetype}`))
+    }
+  },
+  limits: { fileSize: 100 * 1024 * 1024 } // 100 MB
+})
+
+app.post('/api/photos', upload.single('photo'), async (req, res) => {
+  const file = req.file
+  if (!file) {
+    return res.status(400).json({ error: 'No file uploaded' })
+  }
+
+  let exif = {}
+  try {
+    exif = await exifr.parse(file.path, {
+      pick: [
+        'latitude', 'longitude',
+        'GPSAltitude', 'GPSImgDirection',
+        'DateTimeOriginal',
+        'Make', 'Model',
+        'FocalLength', 'FNumber', 'ISO', 'ExposureTime'
+      ]
+    }) || {}
+  } catch {
+    // EXIF parse failure is non-fatal
+  }
+
+  const hasGps = exif.latitude != null && exif.longitude != null
+
+  let exposureTime = null
+  if (exif.ExposureTime != null) {
+    const et = exif.ExposureTime
+    exposureTime = et < 1 ? `1/${Math.round(1 / et)}s` : `${et}s`
+  }
+
+  let dateTaken = null
+  if (exif.DateTimeOriginal) {
+    dateTaken = exif.DateTimeOriginal instanceof Date
+      ? exif.DateTimeOriginal.toISOString()
+      : String(exif.DateTimeOriginal)
+  }
+
+  const record = {
+    id: uuidv4(),
+    filename: file.filename,
+    originalName: file.originalname,
+    uploadedAt: new Date().toISOString(),
+    hasGps: hasGps ? 1 : 0,
+    lat: exif.latitude ?? null,
+    lng: exif.longitude ?? null,
+    altitude: exif.GPSAltitude ?? null,
+    imgDirection: exif.GPSImgDirection ?? null,
+    dateTaken,
+    cameraMake: exif.Make ?? null,
+    cameraModel: exif.Model ?? null,
+    focalLength: exif.FocalLength ?? null,
+    fNumber: exif.FNumber ?? null,
+    iso: exif.ISO ?? null,
+    exposureTime
+  }
+
+  insertPhoto(record)
+
+  res.status(201).json({
+    ...record,
+    hasGps: !!record.hasGps
+  })
+})
+
+app.get('/api/photos', (_req, res) => {
+  res.json(getAllPhotos())
+})
+
+app.use('/uploads', express.static(uploadsDir))
+
+// Serve built frontend in production
+const distDir = join(__dirname, '..', 'dist')
+app.use(express.static(distDir))
+app.get('*', (_req, res) => {
+  res.sendFile(join(distDir, 'index.html'))
+})
+
+const PORT = process.env.PORT || 3001
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`)
+})

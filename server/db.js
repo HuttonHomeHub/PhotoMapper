@@ -1,0 +1,68 @@
+import Database from 'better-sqlite3'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const db = new Database(join(__dirname, 'photos.db'))
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS photos (
+    id            TEXT PRIMARY KEY,
+    filename      TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    uploaded_at   TEXT NOT NULL,
+    has_gps       INTEGER NOT NULL DEFAULT 0,
+    lat           REAL,
+    lng           REAL,
+    altitude      REAL,
+    img_direction REAL,
+    date_taken    TEXT,
+    camera_make   TEXT,
+    camera_model  TEXT,
+    focal_length  REAL,
+    f_number      REAL,
+    iso           INTEGER,
+    exposure_time TEXT
+  )
+`)
+
+const insertStmt = db.prepare(`
+  INSERT INTO photos (
+    id, filename, original_name, uploaded_at, has_gps,
+    lat, lng, altitude, img_direction,
+    date_taken, camera_make, camera_model,
+    focal_length, f_number, iso, exposure_time
+  ) VALUES (
+    @id, @filename, @originalName, @uploadedAt, @hasGps,
+    @lat, @lng, @altitude, @imgDirection,
+    @dateTaken, @cameraMake, @cameraModel,
+    @focalLength, @fNumber, @iso, @exposureTime
+  )
+`)
+
+const selectAllStmt = db.prepare('SELECT * FROM photos ORDER BY uploaded_at DESC')
+
+export function insertPhoto(record) {
+  insertStmt.run(record)
+}
+
+export function getAllPhotos() {
+  return selectAllStmt.all().map(row => ({
+    id: row.id,
+    filename: row.filename,
+    originalName: row.original_name,
+    uploadedAt: row.uploaded_at,
+    hasGps: row.has_gps === 1,
+    lat: row.lat,
+    lng: row.lng,
+    altitude: row.altitude,
+    imgDirection: row.img_direction,
+    dateTaken: row.date_taken,
+    cameraMake: row.camera_make,
+    cameraModel: row.camera_model,
+    focalLength: row.focal_length,
+    fNumber: row.f_number,
+    iso: row.iso,
+    exposureTime: row.exposure_time
+  }))
+}
