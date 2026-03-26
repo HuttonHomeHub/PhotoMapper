@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export function PhotoList({ photos, onDelete }) {
+export function PhotoList({ photos, onDelete, onView }) {
   const [deletingId, setDeletingId] = useState(null)
 
   if (!photos.length) return null
@@ -21,12 +21,14 @@ export function PhotoList({ photos, onDelete }) {
     <div className="photo-list">
       {photos.map(photo => (
         <div key={photo.id} className="photo-list-item">
-          <img
-            src={`/uploads/${photo.filename}`}
-            alt=""
-            className="photo-list-thumb"
-            loading="lazy"
-          />
+          <button className="photo-list-thumb-btn" onClick={() => onView(photo)} aria-label={`View ${photo.originalName}`}>
+            <img
+              src={`/uploads/${photo.filename}`}
+              alt=""
+              className="photo-list-thumb"
+              loading="lazy"
+            />
+          </button>
           <div className="photo-list-info">
             <div className="photo-list-name">{photo.originalName}</div>
             <div className="photo-list-meta">{photo.hasGps ? 'On map' : 'No GPS'}</div>

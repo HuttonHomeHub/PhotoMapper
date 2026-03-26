@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
@@ -67,6 +67,7 @@ function buildPopupHtml(photo) {
       <div class="popup-title">${photo.originalName}</div>
       ${rowsHtml}
       <div class="popup-actions">
+        <button class="popup-view-btn" data-id="${photo.id}">View photo</button>
         <button class="popup-delete-btn" data-id="${photo.id}">Delete photo</button>
       </div>
     </div>
@@ -105,15 +106,20 @@ function createClusterIcon(cluster) {
   })
 }
 
-export function PhotoMap({ photos, onDelete }) {
+export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView }, ref) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const clusterGroupRef = useRef(null)
   const onDeleteRef = useRef(onDelete)
+  const onViewRef = useRef(onView)
 
   useEffect(() => {
     onDeleteRef.current = onDelete
   }, [onDelete])
+
+  useEffect(() => {
+    onViewRef.current = onView
+  }, [onView])
 
   // Initialise map once
   useEffect(() => {
@@ -150,6 +156,16 @@ export function PhotoMap({ photos, onDelete }) {
     }
   }, [])
 
+  // Expose flyTo and getBounds to parent via ref
+  useImperativeHandle(ref, () => ({
+    flyTo(lat, lng, zoom) {
+      mapInstanceRef.current?.flyTo([lat, lng], zoom)
+    },
+    getBounds() {
+      return mapInstanceRef.current?.getBounds() ?? null
+    }
+  }))
+
   // Rebuild markers when photos change
   useEffect(() => {
     const clusterGroup = clusterGroupRef.current
@@ -170,18 +186,28 @@ export function PhotoMap({ photos, onDelete }) {
       const popup = L.popup({ maxWidth: 280 }).setContent(buildPopupHtml(photo))
 
       popup.on('add', () => {
-        const btn = popup.getElement()?.querySelector('.popup-delete-btn')
-        if (!btn) return
-        btn.addEventListener('click', async () => {
+        const el = popup.getElement()
+        if (!el) return
+
+        const viewBtn = el.querySelector('.popup-view-btn')
+        if (viewBtn) {
+          viewBtn.addEventListener('click', () => {
+            onViewRef.current?.(photo)
+          })
+        }
+
+        const deleteBtn = el.querySelector('.popup-delete-btn')
+        if (!deleteBtn) return
+        deleteBtn.addEventListener('click', async () => {
           if (!window.confirm('Delete this photo? This cannot be undone.')) return
-          btn.disabled = true
-          btn.textContent = 'Deleting\u2026'
+          deleteBtn.disabled = true
+          deleteBtn.textContent = 'Deleting\u2026'
           try {
             await onDeleteRef.current(photo.id)
             marker.closePopup()
           } catch (err) {
-            btn.disabled = false
-            btn.textContent = 'Delete photo'
+            deleteBtn.disabled = false
+            deleteBtn.textContent = 'Delete photo'
             alert(`Could not delete: ${err.message}`)
           }
         })
@@ -199,4 +225,4 @@ export function PhotoMap({ photos, onDelete }) {
   }, [photos])
 
   return <div ref={mapRef} className="map-container" />
-}
+})
