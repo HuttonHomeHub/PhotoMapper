@@ -1,0 +1,39 @@
+{
+  "name": "fuzzy-guide",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"vite\"",
+    "server": "node server/index.js",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "lint": "eslint src server",
+    "format": "prettier --write src server"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.9.1",
+    "cors": "^2.8.5",
+    "exifr": "^7.1.3",
+    "express": "^4.21.2",
+    "heatmap.js": "^2.0.5",
+    "leaflet-heatmap": "^1.0.0",
+    "multer": "^2.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sharp": "^0.34.5",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.0.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "globals": "^15.0.0",
+    "leaflet": "^1.9.4",
+    "leaflet.markercluster": "^1.5.3",
+    "prettier": "^3.0.0",
+    "vite": "^6.2.4"
+  }
+}
