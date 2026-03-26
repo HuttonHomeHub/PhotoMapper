@@ -7,6 +7,7 @@ import { mkdirSync } from 'fs'
 import { unlink } from 'fs/promises'
 import { v4 as uuidv4 } from 'uuid'
 import exifr from 'exifr'
+import sharp from 'sharp'
 import { insertPhoto, getAllPhotos, getPhotoById, deletePhoto } from './db.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -75,9 +76,22 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
       : String(exif.DateTimeOriginal)
   }
 
+  const thumbFilename = `thumb_${file.filename.replace(/\.[^.]+$/, '.jpg')}`
+  let thumbnailFilename = null
+  try {
+    await sharp(file.path)
+      .resize(300, 300, { fit: 'cover' })
+      .jpeg({ quality: 80 })
+      .toFile(join(uploadsDir, thumbFilename))
+    thumbnailFilename = thumbFilename
+  } catch {
+    // Thumbnail generation failure is non-fatal
+  }
+
   const record = {
     id: uuidv4(),
     filename: file.filename,
+    thumbnailFilename,
     originalName: file.originalname,
     uploadedAt: new Date().toISOString(),
     hasGps: hasGps ? 1 : 0,
@@ -116,6 +130,14 @@ app.delete('/api/photos/:id', async (req, res) => {
     await unlink(join(uploadsDir, photo.filename))
   } catch (err) {
     if (err.code !== 'ENOENT') console.error('File delete failed:', err)
+  }
+
+  if (photo.thumbnail_filename) {
+    try {
+      await unlink(join(uploadsDir, photo.thumbnail_filename))
+    } catch (err) {
+      if (err.code !== 'ENOENT') console.error('Thumbnail delete failed:', err)
+    }
   }
 
   res.json({ id: photo.id })

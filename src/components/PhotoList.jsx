@@ -23,7 +23,7 @@ export function PhotoList({ photos, onDelete, onView }) {
         <div key={photo.id} className="photo-list-item">
           <button className="photo-list-thumb-btn" onClick={() => onView(photo)} aria-label={`View ${photo.originalName}`}>
             <img
-              src={`/uploads/${photo.filename}`}
+              src={`/uploads/${photo.thumbnailFilename ?? photo.filename}`}
               alt=""
               className="photo-list-thumb"
               loading="lazy"
