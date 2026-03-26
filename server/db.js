@@ -41,9 +41,19 @@ const insertStmt = db.prepare(`
 `)
 
 const selectAllStmt = db.prepare('SELECT * FROM photos ORDER BY uploaded_at DESC')
+const selectByIdStmt = db.prepare('SELECT id, filename FROM photos WHERE id = ?')
+const deleteStmt = db.prepare('DELETE FROM photos WHERE id = ?')
 
 export function insertPhoto(record) {
   insertStmt.run(record)
+}
+
+export function getPhotoById(id) {
+  return selectByIdStmt.get(id) ?? null
+}
+
+export function deletePhoto(id) {
+  return deleteStmt.run(id).changes
 }
 
 export function getAllPhotos() {

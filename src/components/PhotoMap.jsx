@@ -66,6 +66,9 @@ function buildPopupHtml(photo) {
     <div class="popup-content">
       <div class="popup-title">${photo.originalName}</div>
       ${rowsHtml}
+      <div class="popup-actions">
+        <button class="popup-delete-btn" data-id="${photo.id}">Delete photo</button>
+      </div>
     </div>
   `
 }
@@ -102,10 +105,15 @@ function createClusterIcon(cluster) {
   })
 }
 
-export function PhotoMap({ photos }) {
+export function PhotoMap({ photos, onDelete }) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const clusterGroupRef = useRef(null)
+  const onDeleteRef = useRef(onDelete)
+
+  useEffect(() => {
+    onDeleteRef.current = onDelete
+  }, [onDelete])
 
   // Initialise map once
   useEffect(() => {
@@ -158,7 +166,28 @@ export function PhotoMap({ photos }) {
       const marker = L.marker([photo.lat, photo.lng], {
         icon: createPhotoIcon(photo)
       })
-      marker.bindPopup(buildPopupHtml(photo), { maxWidth: 280 })
+
+      const popup = L.popup({ maxWidth: 280 }).setContent(buildPopupHtml(photo))
+
+      popup.on('add', () => {
+        const btn = popup.getElement()?.querySelector('.popup-delete-btn')
+        if (!btn) return
+        btn.addEventListener('click', async () => {
+          if (!window.confirm('Delete this photo? This cannot be undone.')) return
+          btn.disabled = true
+          btn.textContent = 'Deleting\u2026'
+          try {
+            await onDeleteRef.current(photo.id)
+            marker.closePopup()
+          } catch (err) {
+            btn.disabled = false
+            btn.textContent = 'Delete photo'
+            alert(`Could not delete: ${err.message}`)
+          }
+        })
+      })
+
+      marker.bindPopup(popup)
       clusterGroup.addLayer(marker)
     })
 

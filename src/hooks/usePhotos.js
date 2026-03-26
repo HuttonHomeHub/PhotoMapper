@@ -23,5 +23,14 @@ export function usePhotos() {
     refresh()
   }, [refresh])
 
-  return { photos, loading, error, refresh }
+  const deletePhoto = useCallback(async (id) => {
+    const res = await fetch(`/api/photos/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `HTTP ${res.status}`)
+    }
+    setPhotos(prev => prev.filter(p => p.id !== id))
+  }, [])
+
+  return { photos, loading, error, refresh, deletePhoto }
 }
