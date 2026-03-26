@@ -4,9 +4,10 @@ import cors from 'cors'
 import { join, dirname, extname } from 'path'
 import { fileURLToPath } from 'url'
 import { mkdirSync } from 'fs'
+import { unlink } from 'fs/promises'
 import { v4 as uuidv4 } from 'uuid'
 import exifr from 'exifr'
-import { insertPhoto, getAllPhotos } from './db.js'
+import { insertPhoto, getAllPhotos, getPhotoById, deletePhoto } from './db.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const uploadsDir = join(__dirname, 'uploads')
@@ -103,6 +104,21 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
 
 app.get('/api/photos', (_req, res) => {
   res.json(getAllPhotos())
+})
+
+app.delete('/api/photos/:id', async (req, res) => {
+  const photo = getPhotoById(req.params.id)
+  if (!photo) return res.status(404).json({ error: 'Photo not found' })
+
+  deletePhoto(photo.id)
+
+  try {
+    await unlink(join(uploadsDir, photo.filename))
+  } catch (err) {
+    if (err.code !== 'ENOENT') console.error('File delete failed:', err)
+  }
+
+  res.json({ id: photo.id })
 })
 
 app.use('/uploads', express.static(uploadsDir))

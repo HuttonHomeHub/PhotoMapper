@@ -1,9 +1,10 @@
 import { usePhotos } from './hooks/usePhotos.js'
 import { DropZone } from './components/DropZone.jsx'
 import { PhotoMap } from './components/PhotoMap.jsx'
+import { PhotoList } from './components/PhotoList.jsx'
 
 export function App() {
-  const { photos, loading, refresh } = usePhotos()
+  const { photos, loading, refresh, deletePhoto } = usePhotos()
   const gpsCount = photos.filter(p => p.hasGps).length
 
   return (
@@ -22,9 +23,11 @@ export function App() {
             {photos.length > gpsCount ? ` · ${photos.length - gpsCount} without GPS` : ''}
           </div>
         )}
+
+        <PhotoList photos={photos} onDelete={deletePhoto} />
       </aside>
 
-      <PhotoMap photos={photos} />
+      <PhotoMap photos={photos} onDelete={deletePhoto} />
     </div>
   )
 }
