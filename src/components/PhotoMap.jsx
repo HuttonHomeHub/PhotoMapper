@@ -84,7 +84,7 @@ function createPhotoIcon(photo) {
     html: `
       <div class="photo-pin">
         <div class="pin-thumbnail">
-          <img src="/uploads/${photo.filename}" alt="" loading="lazy" />
+          <img src="/uploads/${photo.thumbnailFilename ?? photo.filename}" alt="" loading="lazy" />
         </div>
         ${arrowHtml}
       </div>
