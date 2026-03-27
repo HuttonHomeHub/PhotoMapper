@@ -13,9 +13,11 @@ You handle all work inside `src/`. Do not modify `server/`.
 |------|---------------|
 | `src/App.jsx` | Root layout — sidebar + map; passes photos/deletePhoto down from usePhotos |
 | `src/hooks/usePhotos.js` | All API calls (`/api/photos` GET/DELETE) and photo state — extend here, never fetch elsewhere |
-| `src/components/DropZone.jsx` | Drag-and-drop upload; shows per-file status (uploading/success/error/no-gps) |
+| `src/components/DropZone.jsx` | Drag-and-drop upload; per-file status (uploading/success/error/no-gps/duplicate); client-side SHA-256 hash dedup |
 | `src/components/PhotoList.jsx` | Sidebar thumbnail list with delete confirmation |
-| `src/components/PhotoMap.jsx` | Leaflet map with custom pins, MarkerCluster, popups — all Leaflet refs and effects live here |
+| `src/components/PhotoMap.jsx` | Leaflet map with custom pins, MarkerCluster, popups — all Leaflet refs and effects live here; `forwardRef` exposes `flyTo(lat, lng, zoom)` and `getBounds()` to App.jsx via `mapRef` |
+| `src/components/UploadDrawer.jsx` | Slide-in drawer; receives `results` array + `onClose` + `onClear` from App; purely presentational |
+| `src/components/PhotoLightbox.jsx` | Full-screen image viewer; keyboard nav (Escape/arrows); receives `photos`, `viewingPhoto`, `onClose`, `onSetViewing` |
 | `src/styles/index.css` | Global dark theme styles |
 
 ## Conventions
@@ -27,9 +29,9 @@ You handle all work inside `src/`. Do not modify `server/`.
 
 ## Photo Object Shape (from API)
 
-`id`, `filename`, `originalName`, `hasGps`, `lat`, `lng`, `altitude`, `imgDirection`, `dateTaken`, `cameraMake`, `cameraModel`, `focalLength`, `fNumber`, `iso`, `exposureTime`, `uploadedAt`
+`id`, `filename`, `thumbnailFilename`, `originalName`, `hasGps`, `lat`, `lng`, `altitude`, `imgDirection`, `dateTaken`, `cameraMake`, `cameraModel`, `focalLength`, `fNumber`, `iso`, `exposureTime`, `uploadedAt`
 
-Photos without GPS have `hasGps: false`; `lat`/`lng` will be null — guard before rendering map pins.
+Photos without GPS have `hasGps: false`; `lat`/`lng` will be null — guard before rendering map pins. `thumbnailFilename` is a 300×300 JPEG generated server-side; may be null if thumbnail generation failed (fall back to `filename`).
 
 ## Rules
 

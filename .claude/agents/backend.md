@@ -27,15 +27,16 @@ You handle all work inside `server/`. Do not modify `src/`.
 
 ## API Shape
 
-| Method | Path | Field |
+| Method | Path | Notes |
 |--------|------|-------|
-| `POST` | `/api/photos` | multipart `photo` field |
+| `POST` | `/api/photos` | multipart `photo` field; returns 409 if file hash already exists |
 | `GET` | `/api/photos` | returns array ordered by `uploaded_at DESC` |
-| `DELETE` | `/api/photos/:id` | deletes DB record + file from disk |
+| `GET` | `/api/photos/check-hash?hash=<sha256>` | 200 + photo object if duplicate, 404 if new |
+| `DELETE` | `/api/photos/:id` | deletes DB record + original file + thumbnail from disk |
 
 ## DB Schema (table: `photos`)
 
-`id` (TEXT PK, UUID), `filename`, `original_name`, `uploaded_at`, `has_gps` (0/1), `lat`, `lng`, `altitude`, `img_direction`, `date_taken`, `camera_make`, `camera_model`, `focal_length`, `f_number`, `iso`, `exposure_time`
+`id` (TEXT PK, UUID), `filename`, `thumbnail_filename`, `original_name`, `uploaded_at`, `has_gps` (0/1), `lat`, `lng`, `altitude`, `img_direction`, `date_taken`, `camera_make`, `camera_model`, `focal_length`, `f_number`, `iso`, `exposure_time`, `file_hash` (TEXT UNIQUE)
 
 When adding a new column: add it to the `CREATE TABLE` statement in `db.js`, update `insertPhoto` params, and update the camelCase mapping in `getAllPhotos`.
 

@@ -12,7 +12,7 @@ Stack and scripts are in `package.json`. Backend listens on port `3001` (overrid
 
 - **Editor:** GitHub Codespaces + Claude Code VS Code plugin
 - **App access:** Vite and the API are accessed via Codespaces forwarded port URLs (`*.app.github.dev`), not `localhost`
-- **Dev server:** Start manually with `npm run dev`; a `.devcontainer` auto-start configuration is desired but not yet set up
+- **Dev server:** Start manually with `npm run dev`; `.devcontainer/` exists for Codespaces setup
 
 ## File Map
 
@@ -22,9 +22,11 @@ src/
   App.jsx               Root layout: sidebar + map
   hooks/usePhotos.js    ALL photo API calls live here — do not fetch elsewhere
   components/
-    DropZone.jsx        Drag-and-drop upload with per-file status
+    DropZone.jsx        Drag-and-drop upload with per-file status + client-side duplicate detection
     PhotoList.jsx       Sidebar list with thumbnails + delete
-    PhotoMap.jsx        Leaflet map — all refs and effects stay in this file
+    PhotoMap.jsx        Leaflet map — all refs and effects stay in this file; forwardRef exposes flyTo/getBounds to App.jsx
+    UploadDrawer.jsx    Slide-in drawer showing per-file upload results
+    PhotoLightbox.jsx   Full-screen image viewer with EXIF panel and keyboard nav
   styles/index.css      Global styles (dark theme)
 server/
   index.js              Express routes (POST/GET/DELETE /api/photos)

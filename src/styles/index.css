@@ -90,6 +90,51 @@ html, body, #root {
 .map-container {
   flex: 1;
   min-width: 0;
+  height: 100%;
+}
+
+.heatmap-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+}
+
+.heatmap-toggle {
+  background: #16213e;
+  color: #ccc;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.heatmap-toggle:hover {
+  border-color: #e94560;
+  color: #e94560;
+}
+
+.heatmap-toggle.active {
+  background: #e94560;
+  border-color: #e94560;
+  color: #fff;
+}
+
+.heatmap-metric-select {
+  background: #16213e;
+  color: #ccc;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.heatmap-metric-select:focus {
+  border-color: #e94560;
 }
 
 /* ── Error banner ────────────────────────────────────────────────────── */

@@ -1,9 +1,11 @@
-import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react'
+import { createPortal } from 'react-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import { MarkerClusterGroup } from 'leaflet.markercluster'
+import HeatmapOverlay from 'leaflet-heatmap'
 
 // Fix Leaflet's default icon path issues with bundlers
 delete L.Icon.Default.prototype._getIconUrl
@@ -12,6 +14,39 @@ L.Icon.Default.mergeOptions({
   iconUrl: new URL('leaflet/dist/images/marker-icon.png', import.meta.url).href,
   shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href
 })
+
+const METRICS = [
+  { key: 'density', label: 'Photo Density' },
+  { key: 'coverage', label: 'Coverage Density' },
+  { key: 'altitude', label: 'Altitude' },
+  { key: 'iso', label: 'ISO' },
+  { key: 'focalLength', label: 'Focal length' },
+  { key: 'fNumber', label: 'Aperture' },
+]
+
+function fovGroundRadius(photo) {
+  const DEFAULT_RADIUS = 100
+  const fl = photo.focalLength
+  if (!fl || fl <= 0) return DEFAULT_RADIUS
+  const hFovRad = 2 * Math.atan(18 / fl)
+  const height = photo.altitude != null && photo.altitude > 1.5 ? photo.altitude : 50
+  const groundRadius = Math.tan(hFovRad / 2) * height
+  return Math.max(10, Math.min(groundRadius, 5000))
+}
+
+function syntheticPoints(lat, lng, radiusMeters, n) {
+  const R = 6371000
+  const cosLat = Math.cos((lat * Math.PI) / 180)
+  const points = [{ lat, lng, value: 1 }]
+  const ringR = radiusMeters * 0.6
+  for (let i = 0; i < n - 1; i++) {
+    const angle = (2 * Math.PI * i) / (n - 1)
+    const dLat = ((ringR * Math.cos(angle)) / R) * (180 / Math.PI)
+    const dLng = ((ringR * Math.sin(angle)) / (R * cosLat)) * (180 / Math.PI)
+    points.push({ lat: lat + dLat, lng: lng + dLng, value: 1 })
+  }
+  return points
+}
 
 function escapeHtml(str) {
   if (!str) return str
@@ -125,9 +160,14 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const clusterGroupRef = useRef(null)
+  const heatmapLayerRef = useRef(null)
   const onDeleteRef = useRef(onDelete)
   const onViewRef = useRef(onView)
   const prevGeoCountRef = useRef(0)
+
+  const [heatmapActive, setHeatmapActive] = useState(false)
+  const [heatMetric, setHeatMetric] = useState('density')
+  const [heatControlEl, setHeatControlEl] = useState(null)
 
   useEffect(() => {
     onDeleteRef.current = onDelete
@@ -164,6 +204,17 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
 
     L.control.layers({ Satellite: satellite, Streets: streets }, {}, { position: 'topright' }).addTo(map)
 
+    const HeatmapControlClass = L.Control.extend({
+      onAdd() {
+        const el = L.DomUtil.create('div')
+        L.DomEvent.disableClickPropagation(el)
+        L.DomEvent.disableScrollPropagation(el)
+        setHeatControlEl(el)
+        return el
+      }
+    })
+    new HeatmapControlClass({ position: 'topright' }).addTo(map)
+
     const clusterGroup = new MarkerClusterGroup({
       maxClusterRadius: 80,
       spiderfyOnMaxZoom: false,
@@ -190,13 +241,28 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
     })
 
     map.addLayer(clusterGroup)
+
+    const heatmapLayer = new HeatmapOverlay({
+      radius: 30,
+      maxOpacity: 0.85,
+      scaleRadius: false,
+      useLocalExtrema: false,
+      latField: 'lat',
+      lngField: 'lng',
+      valueField: 'value',
+      gradient: { 0.0: 'rgba(15,52,96,0)', 0.2: '#0f3460', 0.5: '#e94560', 0.8: '#ff8c69', 1.0: '#ffffff' }
+    })
+
     mapInstanceRef.current = map
     clusterGroupRef.current = clusterGroup
+    heatmapLayerRef.current = heatmapLayer
 
     return () => {
+      setHeatControlEl(null)
       map.remove()
       mapInstanceRef.current = null
       clusterGroupRef.current = null
+      heatmapLayerRef.current = null
     }
   }, [])
 
@@ -209,6 +275,68 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
       return mapInstanceRef.current?.getBounds() ?? null
     }
   }))
+
+  // Toggle between markers and heatmap
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    const clusterGroup = clusterGroupRef.current
+    const heatmapLayer = heatmapLayerRef.current
+    if (!map || !clusterGroup || !heatmapLayer) return
+
+    if (heatmapActive) {
+      if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup)
+      if (!map.hasLayer(heatmapLayer)) heatmapLayer.addTo(map)
+    } else {
+      if (map.hasLayer(heatmapLayer)) map.removeLayer(heatmapLayer)
+      if (!map.hasLayer(clusterGroup)) map.addLayer(clusterGroup)
+    }
+  }, [heatmapActive])
+
+  // Update heatmap data when photos or metric changes
+  useEffect(() => {
+    const heatmapLayer = heatmapLayerRef.current
+    if (!heatmapLayer) return
+
+    const geoPhotos = photos.filter(p => p.hasGps && p.lat != null && p.lng != null)
+
+    if (heatMetric === 'density') {
+      if (!geoPhotos.length) {
+        heatmapLayer.setData({ max: 1, data: [] })
+        return
+      }
+      const data = geoPhotos.map(p => ({ lat: p.lat, lng: p.lng, value: 1 }))
+      heatmapLayer.setData({ max: 1, data })
+      return
+    }
+
+    if (heatMetric === 'coverage') {
+      if (!geoPhotos.length) {
+        heatmapLayer.setData({ max: 1, data: [] })
+        return
+      }
+      const data = geoPhotos.flatMap(p =>
+        syntheticPoints(p.lat, p.lng, fovGroundRadius(p), 7)
+      )
+      heatmapLayer.setData({ max: 1, data })
+      return
+    }
+
+    const metricPhotos = geoPhotos.filter(p => p[heatMetric] != null)
+
+    if (!metricPhotos.length) {
+      heatmapLayer.setData({ max: 1, data: [] })
+      return
+    }
+
+    const maxVal = Math.max(...metricPhotos.map(p => p[heatMetric]))
+    const data = metricPhotos.map(p => ({
+      lat: p.lat,
+      lng: p.lng,
+      value: maxVal > 0 ? p[heatMetric] / maxVal : 1,
+    }))
+
+    heatmapLayer.setData({ max: 1, data })
+  }, [photos, heatMetric])
 
   // Rebuild markers when photos change
   useEffect(() => {
@@ -273,5 +401,31 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
     prevGeoCountRef.current = geoPhotos.length
   }, [photos])
 
-  return <div ref={mapRef} className="map-container" />
+  return (
+    <>
+      <div ref={mapRef} className="map-container" />
+      {heatControlEl && createPortal(
+        <div className="heatmap-controls">
+          <button
+            className={`heatmap-toggle${heatmapActive ? ' active' : ''}`}
+            onClick={() => setHeatmapActive(h => !h)}
+          >
+            Heatmap
+          </button>
+          {heatmapActive && (
+            <select
+              className="heatmap-metric-select"
+              value={heatMetric}
+              onChange={e => setHeatMetric(e.target.value)}
+            >
+              {METRICS.map(m => (
+                <option key={m.key} value={m.key}>{m.label}</option>
+              ))}
+            </select>
+          )}
+        </div>,
+        heatControlEl
+      )}
+    </>
+  )
 })
