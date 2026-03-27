@@ -138,11 +138,27 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
 
     const clusterGroup = new MarkerClusterGroup({
       maxClusterRadius: 80,
-      spiderfyOnMaxZoom: true,
+      spiderfyOnMaxZoom: false,
       spiderfyDistanceMultiplier: 2,
       showCoverageOnHover: false,
-      zoomToBoundsOnClick: true,
+      zoomToBoundsOnClick: false,
       iconCreateFunction: createClusterIcon
+    })
+
+    clusterGroup.on('clusterclick', (e) => {
+      const cluster = e.layer
+      const currentZoom = map.getZoom()
+      const maxZoom = map.getMaxZoom()
+      const bounds = cluster.getBounds()
+      const ne = bounds.getNorthEast()
+      const sw = bounds.getSouthWest()
+      const isPoint = Math.abs(ne.lat - sw.lat) < 1e-5 && Math.abs(ne.lng - sw.lng) < 1e-5
+
+      if (currentZoom >= maxZoom || isPoint) {
+        cluster.spiderfy()
+      } else {
+        map.fitBounds(bounds, { padding: [40, 40] })
+      }
     })
 
     map.addLayer(clusterGroup)
