@@ -4,6 +4,7 @@ import { DropZone } from './components/DropZone.jsx'
 import { PhotoMap } from './components/PhotoMap.jsx'
 import { PhotoList } from './components/PhotoList.jsx'
 import { PhotoLightbox } from './components/PhotoLightbox.jsx'
+import { UploadDrawer } from './components/UploadDrawer.jsx'
 
 const TODAY = new Date().toISOString().slice(0, 10)
 const dateToMs = d => new Date(d + 'T12:00:00Z').getTime()
@@ -21,6 +22,8 @@ export function App() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [userTouchedFilter, setUserTouchedFilter] = useState(false)
+  const [results, setResults] = useState([])
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [viewingPhoto, setViewingPhoto] = useState(null)
   const [locationQuery, setLocationQuery] = useState('')
   const [locationSearching, setLocationSearching] = useState(false)
@@ -94,13 +97,22 @@ export function App() {
     <div className="app">
       <aside className="sidebar">
         <div className="sidebar-header">
-          <h1>Photo Map</h1>
-          <p>Upload photos with GPS EXIF data</p>
+          <div className="sidebar-header-text">
+            <h1>Photo Map</h1>
+            <p>Upload photos with GPS EXIF data</p>
+          </div>
+          <button
+            className={`log-toggle-btn${drawerOpen ? ' active' : ''}`}
+            onClick={() => setDrawerOpen(o => !o)}
+          >
+            Log
+            {results.length > 0 && !drawerOpen && <span className="log-toggle-dot" />}
+          </button>
         </div>
 
         {error && <div className="error-banner">Failed to load photos. Please refresh.</div>}
 
-        <DropZone onUploadComplete={refresh} />
+        <DropZone onUploadComplete={refresh} setResults={setResults} openDrawer={() => setDrawerOpen(true)} />
 
         {!loading && (
           <div className="photo-count">
@@ -200,6 +212,8 @@ export function App() {
       </aside>
 
       <PhotoMap ref={mapRef} photos={filteredPhotos} onDelete={deletePhoto} onView={setViewingPhoto} />
+
+      <UploadDrawer results={results} open={drawerOpen} onClose={() => setDrawerOpen(false)} onClear={() => setResults([])} />
 
       {viewingPhoto && (
         <PhotoLightbox

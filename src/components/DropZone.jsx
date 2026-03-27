@@ -8,9 +8,8 @@ async function hashFile(file) {
     .join('')
 }
 
-export function DropZone({ onUploadComplete }) {
+export function DropZone({ onUploadComplete, setResults, openDrawer }) {
   const [isDragOver, setIsDragOver] = useState(false)
-  const [results, setResults] = useState([])
   const inputRef = useRef(null)
 
   async function uploadFile(file) {
@@ -45,7 +44,8 @@ export function DropZone({ onUploadComplete }) {
 
     // Add pending entries
     const entries = files.map(f => ({ id: crypto.randomUUID(), name: f.name, status: 'uploading' }))
-    setResults(prev => [...entries, ...prev])
+    setResults(entries)
+    openDrawer()
 
     const updates = await Promise.all(
       files.map(async (file, i) => {
@@ -92,17 +92,8 @@ export function DropZone({ onUploadComplete }) {
     e.target.value = ''
   }
 
-  const statusIcon = {
-    uploading: '⏳',
-    success: '✓',
-    'no-gps': '⚠',
-    error: '✕',
-    duplicate: '⊘'
-  }
-
   return (
-    <>
-      <div
+    <div
         className={`dropzone${isDragOver ? ' active' : ''}`}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
@@ -125,21 +116,6 @@ export function DropZone({ onUploadComplete }) {
           accept="image/jpeg,image/png,image/heic,image/webp"
           onChange={onInputChange}
         />
-      </div>
-
-      {results.length > 0 && (
-        <div className="upload-results">
-          {results.map((r) => (
-            <div key={r.id} className={`upload-item ${r.status}`}>
-              <span className="status-icon">{statusIcon[r.status]}</span>
-              <div>
-                <div className="name">{r.name}</div>
-                {r.detail && <div className="detail">{r.detail}</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </>
+    </div>
   )
 }

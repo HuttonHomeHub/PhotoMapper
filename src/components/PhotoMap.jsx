@@ -142,8 +142,8 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
     if (mapInstanceRef.current) return
 
     const map = L.map(mapRef.current, {
-      center: [20, 0],
-      zoom: 2,
+      center: [54.5, -3],
+      zoom: 5,
       zoomControl: true
     })
 
@@ -222,7 +222,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
 
     if (!geoPhotos.length) {
       prevGeoCountRef.current = 0
-      map.setView([20, 0], 2)
+      map.setView([54.5, -3], 5)
       return
     }
 
