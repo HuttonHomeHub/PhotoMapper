@@ -8,6 +8,12 @@ Guidance for AI assistants working in this repository.
 
 Stack and scripts are in `package.json`. Backend listens on port `3001` (override with `PORT` env var). No `.env` file required.
 
+## Development Environment
+
+- **Editor:** GitHub Codespaces + Claude Code VS Code plugin
+- **App access:** Vite and the API are accessed via Codespaces forwarded port URLs (`*.app.github.dev`), not `localhost`
+- **Dev server:** Start manually with `npm run dev`; a `.devcontainer` auto-start configuration is desired but not yet set up
+
 ## File Map
 
 ```
@@ -46,9 +52,9 @@ Use these for focused work to avoid loading irrelevant context:
 
 ## Development Workflow
 
-- Branch: `claude/<description>-<id>` for AI tasks; never push directly to `master`
+- Branch: `claude/<description>-<id>` for AI tasks; never push directly to `main`
 - Commits: imperative, focused — `add deletion endpoint`, `fix map clustering on zoom`
-- All `master` changes go through a PR; AI assistants create the PR and notify the user
+- Claude makes file changes only — user handles all git operations (stage, commit, push, PR) via VS Code source control or terminal
 
 ## AI Assistant Rules
 
@@ -60,7 +66,7 @@ Use these for focused work to avoid loading irrelevant context:
 **Don't:**
 - Add error handling, comments, or refactors beyond what was asked
 - Introduce new dependencies without discussing first
-- Push to `master` directly or create a PR unless explicitly asked
+- Run any git commands — no `git add`, `git commit`, `git push`, or `gh pr create`; user owns all git operations
 - Create backup files, scratch files, or temporary docs
 
 ## Updating This File

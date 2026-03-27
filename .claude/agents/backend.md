@@ -45,3 +45,4 @@ When adding a new column: add it to the `CREATE TABLE` statement in `db.js`, upd
 - Match the code style already present in the file
 - Don't add error handling, comments, or refactors beyond what was asked
 - Don't introduce new dependencies without discussing first
+- Don't run any git commands — file changes only; user handles all git operations
