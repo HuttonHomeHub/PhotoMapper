@@ -49,13 +49,9 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
   let exif = {}
   try {
     exif = await exifr.parse(file.path, {
-      pick: [
-        'latitude', 'longitude',
-        'GPSAltitude', 'GPSImgDirection',
-        'DateTimeOriginal',
-        'Make', 'Model',
-        'FocalLength', 'FNumber', 'ISO', 'ExposureTime'
-      ]
+      gps: true,
+      ifd0: true,
+      exif: true
     }) || {}
   } catch {
     // EXIF parse failure is non-fatal
