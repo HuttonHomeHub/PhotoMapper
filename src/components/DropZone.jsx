@@ -1,17 +1,39 @@
 import { useState, useRef } from 'react'
 
+async function hashFile(file) {
+  const buffer = await file.arrayBuffer()
+  const digest = await crypto.subtle.digest('SHA-256', buffer)
+  return Array.from(new Uint8Array(digest))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
 export function DropZone({ onUploadComplete }) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [results, setResults] = useState([])
   const inputRef = useRef(null)
 
   async function uploadFile(file) {
+    const hash = await hashFile(file)
+
+    const checkRes = await fetch(`/api/photos/check-hash?hash=${hash}`)
+    if (checkRes.ok) {
+      const err = new Error('Already uploaded')
+      err.isDuplicate = true
+      throw err
+    }
+
     const formData = new FormData()
     formData.append('photo', file)
 
     const res = await fetch('/api/photos', { method: 'POST', body: formData })
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
+      if (res.status === 409) {
+        const err = new Error('Already uploaded')
+        err.isDuplicate = true
+        throw err
+      }
       throw new Error(body.error || `HTTP ${res.status}`)
     }
     return res.json()
@@ -31,6 +53,7 @@ export function DropZone({ onUploadComplete }) {
           const photo = await uploadFile(file)
           return { index: i, status: photo.hasGps ? 'success' : 'no-gps', detail: photo.hasGps ? null : 'No GPS data — pin not shown on map' }
         } catch (err) {
+          if (err.isDuplicate) return { index: i, status: 'duplicate', detail: 'Already uploaded' }
           return { index: i, status: 'error', detail: err.message }
         }
       })
@@ -46,7 +69,7 @@ export function DropZone({ onUploadComplete }) {
       return next
     })
 
-    onUploadComplete()
+    if (updates.some(u => u.status !== 'duplicate')) onUploadComplete()
   }
 
   function onDragOver(e) {
@@ -77,7 +100,8 @@ export function DropZone({ onUploadComplete }) {
     uploading: '⏳',
     success: '✓',
     'no-gps': '⚠',
-    error: '✕'
+    error: '✕',
+    duplicate: '⊘'
   }
 
   return (

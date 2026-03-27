@@ -34,26 +34,65 @@ try {
   // Column already exists — ignore
 }
 
+// Migrate: add file_hash column for duplicate detection
+try {
+  db.exec('ALTER TABLE photos ADD COLUMN file_hash TEXT')
+} catch {
+  // Column already exists — ignore
+}
+
+// Migrate: unique index on file_hash (SQLite UNIQUE indexes skip NULLs)
+try {
+  db.exec('CREATE UNIQUE INDEX idx_photos_file_hash ON photos (file_hash)')
+} catch {
+  // Index already exists — ignore
+}
+
 const insertStmt = db.prepare(`
   INSERT INTO photos (
     id, filename, thumbnail_filename, original_name, uploaded_at, has_gps,
     lat, lng, altitude, img_direction,
     date_taken, camera_make, camera_model,
-    focal_length, f_number, iso, exposure_time
+    focal_length, f_number, iso, exposure_time, file_hash
   ) VALUES (
     @id, @filename, @thumbnailFilename, @originalName, @uploadedAt, @hasGps,
     @lat, @lng, @altitude, @imgDirection,
     @dateTaken, @cameraMake, @cameraModel,
-    @focalLength, @fNumber, @iso, @exposureTime
+    @focalLength, @fNumber, @iso, @exposureTime, @fileHash
   )
 `)
 
 const selectAllStmt = db.prepare('SELECT * FROM photos ORDER BY uploaded_at DESC')
 const selectByIdStmt = db.prepare('SELECT id, filename, thumbnail_filename FROM photos WHERE id = ?')
+const selectByHashStmt = db.prepare('SELECT * FROM photos WHERE file_hash = ?')
 const deleteStmt = db.prepare('DELETE FROM photos WHERE id = ?')
 
 export function insertPhoto(record) {
   insertStmt.run(record)
+}
+
+export function getPhotoByHash(hash) {
+  const row = selectByHashStmt.get(hash)
+  if (!row) return null
+  return {
+    id: row.id,
+    filename: row.filename,
+    thumbnailFilename: row.thumbnail_filename ?? null,
+    originalName: row.original_name,
+    uploadedAt: row.uploaded_at,
+    hasGps: row.has_gps === 1,
+    lat: row.lat,
+    lng: row.lng,
+    altitude: row.altitude,
+    imgDirection: row.img_direction,
+    dateTaken: row.date_taken,
+    cameraMake: row.camera_make,
+    cameraModel: row.camera_model,
+    focalLength: row.focal_length,
+    fNumber: row.f_number,
+    iso: row.iso,
+    exposureTime: row.exposure_time
+  }
 }
 
 export function getPhotoById(id) {

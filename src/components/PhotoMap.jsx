@@ -3,7 +3,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
-import 'leaflet.markercluster'
+import { MarkerClusterGroup } from 'leaflet.markercluster'
 
 // Fix Leaflet's default icon path issues with bundlers
 delete L.Icon.Default.prototype._getIconUrl
@@ -136,10 +136,10 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
       maxZoom: 19
     }).addTo(map)
 
-    const clusterGroup = L.markerClusterGroup({
-      disableClusteringAtZoom: 16,
+    const clusterGroup = new MarkerClusterGroup({
       maxClusterRadius: 80,
       spiderfyOnMaxZoom: true,
+      spiderfyDistanceMultiplier: 2,
       showCoverageOnHover: false,
       zoomToBoundsOnClick: true,
       iconCreateFunction: createClusterIcon

@@ -126,6 +126,7 @@ html, body, #root {
 .upload-item.success .status-icon   { color: #4caf50; }
 .upload-item.no-gps .status-icon    { color: #ff9800; }
 .upload-item.error .status-icon     { color: #e94560; }
+.upload-item.duplicate .status-icon { color: #9c27b0; }
 
 .upload-item .detail {
   font-size: 11px;
