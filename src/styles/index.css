@@ -52,6 +52,17 @@ html, body, #root {
   min-width: 0;
 }
 
+/* ── Error banner ────────────────────────────────────────────────────── */
+
+.error-banner {
+  background: #e94560;
+  color: #fff;
+  padding: 10px 16px;
+  font-size: 13px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
 /* ── Drop Zone ───────────────────────────────────────────────────────── */
 
 .dropzone {
@@ -201,11 +212,15 @@ html, body, #root {
   font-weight: 700;
   color: #fff;
   font-size: 14px;
+  width: 36px;
+  height: 36px;
 }
 
-.cluster-small  { width: 36px; height: 36px; background: #e94560; }
-.cluster-medium { width: 44px; height: 44px; background: #c0392b; font-size: 13px; }
-.cluster-large  { width: 52px; height: 52px; background: #922b21; font-size: 12px; }
+.cluster-xs { background: #4caf50; }
+.cluster-sm { background: #8bc34a; }
+.cluster-md { background: #ffc107; font-size: 13px; }
+.cluster-lg { background: #ff5722; font-size: 13px; }
+.cluster-xl { background: #e94560; font-size: 12px; }
 
 /* ── Leaflet popup overrides ────────────────────────────────────────── */
 
@@ -394,6 +409,75 @@ html, body, #root {
 
 .date-filter-clear:hover {
   text-decoration: underline;
+}
+
+/* ── Date range slider ───────────────────────────────────────────────── */
+
+.date-slider-wrap {
+  padding: 6px 0 2px;
+}
+
+.date-slider-track {
+  position: relative;
+  height: 4px;
+  border-radius: 2px;
+  margin: 10px 0 6px;
+}
+
+.date-range-input {
+  position: absolute;
+  width: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 4px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: none;
+}
+
+.date-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e94560;
+  border: 2px solid #c8c8d8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  pointer-events: all;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.date-range-input::-webkit-slider-thumb:hover {
+  background: #ff6b84;
+}
+
+.date-range-input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e94560;
+  border: 2px solid #c8c8d8;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  pointer-events: all;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.date-range-input::-moz-range-thumb:hover {
+  background: #ff6b84;
+}
+
+.date-range-input::-webkit-slider-runnable-track {
+  background: transparent;
+}
+
+.date-range-input::-moz-range-track {
+  background: transparent;
 }
 
 /* ── Location search ─────────────────────────────────────────────────── */

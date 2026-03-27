@@ -96,7 +96,13 @@ export function getPhotoByHash(hash) {
 }
 
 export function getPhotoById(id) {
-  return selectByIdStmt.get(id) ?? null
+  const row = selectByIdStmt.get(id)
+  if (!row) return null
+  return {
+    id: row.id,
+    filename: row.filename,
+    thumbnailFilename: row.thumbnail_filename,
+  }
 }
 
 export function deletePhoto(id) {

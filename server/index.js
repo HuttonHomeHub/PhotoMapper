@@ -1,7 +1,7 @@
 import express from 'express'
 import multer from 'multer'
 import cors from 'cors'
-import { join, dirname, extname } from 'path'
+import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { mkdirSync, createReadStream } from 'fs'
 import { unlink } from 'fs/promises'
@@ -31,10 +31,19 @@ function hashFile(filePath) {
   })
 }
 
+const MIME_TO_EXT = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/heic': '.heic',
+  'image/heif': '.heif',
+  'image/webp': '.webp',
+  'image/tiff': '.tiff',
+}
+
 const storage = multer.diskStorage({
   destination: uploadsDir,
   filename: (_req, file, cb) => {
-    const ext = extname(file.originalname).toLowerCase() || '.jpg'
+    const ext = MIME_TO_EXT[file.mimetype] || '.jpg'
     cb(null, uuidv4() + ext)
   }
 })
@@ -57,15 +66,15 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
     return res.status(400).json({ error: 'No file uploaded' })
   }
 
-  const fileHash = await hashFile(file.path)
-  const existingByHash = getPhotoByHash(fileHash)
-  if (existingByHash) {
-    await unlink(file.path)
-    return res.status(409).json({ error: 'duplicate', message: 'This photo has already been uploaded', photo: existingByHash })
-  }
-
   let exif = {}
+  let fileHash
   try {
+    fileHash = await hashFile(file.path)
+    const existingByHash = getPhotoByHash(fileHash)
+    if (existingByHash) {
+      await unlink(file.path)
+      return res.status(409).json({ error: 'duplicate', message: 'This photo has already been uploaded', photo: existingByHash })
+    }
     exif = await exifr.parse(file.path, {
       gps: true,
       ifd0: true,
@@ -127,7 +136,7 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
     insertPhoto(record)
   } catch (err) {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      await unlink(file.path)
+      await unlink(file.path).catch(() => {})
       if (thumbnailFilename) await unlink(join(uploadsDir, thumbnailFilename)).catch(() => {})
       const existing = getPhotoByHash(fileHash)
       return res.status(409).json({ error: 'duplicate', message: 'This photo has already been uploaded', photo: existing })
@@ -165,9 +174,9 @@ app.delete('/api/photos/:id', async (req, res) => {
     if (err.code !== 'ENOENT') console.error('File delete failed:', err)
   }
 
-  if (photo.thumbnail_filename) {
+  if (photo.thumbnailFilename) {
     try {
-      await unlink(join(uploadsDir, photo.thumbnail_filename))
+      await unlink(join(uploadsDir, photo.thumbnailFilename))
     } catch (err) {
       if (err.code !== 'ENOENT') console.error('Thumbnail delete failed:', err)
     }
@@ -177,6 +186,12 @@ app.delete('/api/photos/:id', async (req, res) => {
 })
 
 app.use('/uploads', express.static(uploadsDir))
+
+app.use((err, req, res, _next) => {
+  console.error(err)
+  const status = err.status || err.statusCode || 500
+  res.status(status).json({ error: err.message || 'Internal server error' })
+})
 
 // Serve built frontend in production
 const distDir = join(__dirname, '..', 'dist')

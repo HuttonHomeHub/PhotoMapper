@@ -1,27 +1,58 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { usePhotos } from './hooks/usePhotos.js'
 import { DropZone } from './components/DropZone.jsx'
 import { PhotoMap } from './components/PhotoMap.jsx'
 import { PhotoList } from './components/PhotoList.jsx'
 import { PhotoLightbox } from './components/PhotoLightbox.jsx'
 
+const TODAY = new Date().toISOString().slice(0, 10)
+const dateToMs = d => new Date(d + 'T12:00:00Z').getTime()
+const msToDate = ms => new Date(ms).toISOString().slice(0, 10)
+
 export function App() {
-  const { photos, loading, refresh, deletePhoto } = usePhotos()
+  const { photos, loading, error, refresh, deletePhoto } = usePhotos()
   const gpsCount = photos.filter(p => p.hasGps).length
+
+  const minDate = useMemo(() => {
+    const dates = photos.map(p => p.dateTaken?.slice(0, 10)).filter(Boolean)
+    return dates.length ? dates.reduce((a, b) => (a < b ? a : b)) : ''
+  }, [photos])
+
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [userTouchedFilter, setUserTouchedFilter] = useState(false)
   const [viewingPhoto, setViewingPhoto] = useState(null)
   const [locationQuery, setLocationQuery] = useState('')
   const [locationSearching, setLocationSearching] = useState(false)
   const [mapBounds, setMapBounds] = useState(null)
   const mapRef = useRef(null)
 
+  useEffect(() => {
+    if (!userTouchedFilter) {
+      setDateFrom(minDate || '')
+      setDateTo(minDate ? TODAY : '')
+    }
+  }, [minDate, userTouchedFilter])
+
+  const minTs = minDate ? dateToMs(minDate) : 0
+  const maxTs = dateToMs(TODAY)
+  const fromTs = dateFrom ? dateToMs(dateFrom) : minTs
+  const toTs = dateTo ? dateToMs(dateTo) : maxTs
+  const sliderRange = maxTs - minTs
+  const fromPct = sliderRange > 0 ? ((fromTs - minTs) / sliderRange) * 100 : 0
+  const toPct = sliderRange > 0 ? ((toTs - minTs) / sliderRange) * 100 : 100
+
+  const isFiltered = minDate
+    ? (dateFrom !== minDate || dateTo !== TODAY)
+    : Boolean(dateFrom || dateTo)
+
   const filteredPhotos = photos.filter(p => {
     if (dateFrom || dateTo) {
-      if (!p.dateTaken) return false
-      const date = p.dateTaken.slice(0, 10)
-      if (dateFrom && date < dateFrom) return false
-      if (dateTo && date > dateTo) return false
+      if (p.dateTaken) {
+        const date = p.dateTaken.slice(0, 10)
+        if (dateFrom && date < dateFrom) return false
+        if (dateTo && date > dateTo) return false
+      }
     }
     if (mapBounds && p.hasGps && p.lat != null && p.lng != null) {
       if (p.lat < mapBounds.south || p.lat > mapBounds.north) return false
@@ -67,6 +98,8 @@ export function App() {
           <p>Upload photos with GPS EXIF data</p>
         </div>
 
+        {error && <div className="error-banner">Failed to load photos. Please refresh.</div>}
+
         <DropZone onUploadComplete={refresh} />
 
         {!loading && (
@@ -84,7 +117,7 @@ export function App() {
                 type="date"
                 className="date-filter-input"
                 value={dateFrom}
-                onChange={e => setDateFrom(e.target.value)}
+                onChange={e => { setDateFrom(e.target.value); setUserTouchedFilter(true) }}
               />
             </label>
             <label className="date-filter-label">
@@ -93,13 +126,48 @@ export function App() {
                 type="date"
                 className="date-filter-input"
                 value={dateTo}
-                onChange={e => setDateTo(e.target.value)}
+                onChange={e => { setDateTo(e.target.value); setUserTouchedFilter(true) }}
               />
             </label>
           </div>
-          {(dateFrom || dateTo) && (
-            <button className="date-filter-clear" onClick={() => { setDateFrom(''); setDateTo(''); }}>
-              Clear filter
+          {minDate && sliderRange > 0 && (
+            <div className="date-slider-wrap">
+              <div
+                className="date-slider-track"
+                style={{
+                  background: `linear-gradient(to right, #0f3460 ${fromPct}%, #e94560 ${fromPct}%, #e94560 ${toPct}%, #0f3460 ${toPct}%)`
+                }}
+              >
+                <input
+                  type="range"
+                  className="date-range-input"
+                  min={minTs}
+                  max={maxTs}
+                  value={fromTs}
+                  style={{ zIndex: fromTs >= toTs ? 3 : 1 }}
+                  onChange={e => {
+                    const v = Number(e.target.value)
+                    if (v <= toTs) { setDateFrom(msToDate(v)); setUserTouchedFilter(true) }
+                  }}
+                />
+                <input
+                  type="range"
+                  className="date-range-input"
+                  min={minTs}
+                  max={maxTs}
+                  value={toTs}
+                  style={{ zIndex: toTs <= fromTs ? 3 : 1 }}
+                  onChange={e => {
+                    const v = Number(e.target.value)
+                    if (v >= fromTs) { setDateTo(msToDate(v)); setUserTouchedFilter(true) }
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          {isFiltered && (
+            <button className="date-filter-clear" onClick={() => setUserTouchedFilter(false)}>
+              Reset range
             </button>
           )}
         </div>

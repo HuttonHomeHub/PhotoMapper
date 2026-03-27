@@ -44,30 +44,26 @@ export function DropZone({ onUploadComplete }) {
     if (!files.length) return
 
     // Add pending entries
-    const entries = files.map(f => ({ name: f.name, status: 'uploading' }))
+    const entries = files.map(f => ({ id: crypto.randomUUID(), name: f.name, status: 'uploading' }))
     setResults(prev => [...entries, ...prev])
 
     const updates = await Promise.all(
       files.map(async (file, i) => {
+        const id = entries[i].id
         try {
           const photo = await uploadFile(file)
-          return { index: i, status: photo.hasGps ? 'success' : 'no-gps', detail: photo.hasGps ? null : 'No GPS data — pin not shown on map' }
+          return { id, status: photo.hasGps ? 'success' : 'no-gps', detail: photo.hasGps ? null : 'No GPS data — pin not shown on map' }
         } catch (err) {
-          if (err.isDuplicate) return { index: i, status: 'duplicate', detail: 'Already uploaded' }
-          return { index: i, status: 'error', detail: err.message }
+          if (err.isDuplicate) return { id, status: 'duplicate', detail: 'Already uploaded' }
+          return { id, status: 'error', detail: err.message }
         }
       })
     )
 
-    setResults(prev => {
-      const next = [...prev]
-      const offset = prev.length - files.length // new entries are at the front
-      // The new entries are at indices 0..files.length-1 in `prev`
-      updates.forEach(({ index, status, detail }) => {
-        next[index] = { ...next[index], status, detail }
-      })
-      return next
-    })
+    setResults(prev => prev.map(e => {
+      const update = updates.find(u => u.id === e.id)
+      return update ? { ...e, status: update.status, detail: update.detail } : e
+    }))
 
     if (updates.some(u => u.status !== 'duplicate')) onUploadComplete()
   }
@@ -133,8 +129,8 @@ export function DropZone({ onUploadComplete }) {
 
       {results.length > 0 && (
         <div className="upload-results">
-          {results.map((r, i) => (
-            <div key={i} className={`upload-item ${r.status}`}>
+          {results.map((r) => (
+            <div key={r.id} className={`upload-item ${r.status}`}>
               <span className="status-icon">{statusIcon[r.status]}</span>
               <div>
                 <div className="name">{r.name}</div>

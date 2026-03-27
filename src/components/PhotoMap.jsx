@@ -13,9 +13,14 @@ L.Icon.Default.mergeOptions({
   shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href
 })
 
-function formatExposure(val) {
-  if (val == null) return null
-  return val
+function escapeHtml(str) {
+  if (!str) return str
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 function formatDate(iso) {
@@ -34,7 +39,7 @@ function buildPopupHtml(photo) {
     rows.push(['Taken', formatDate(photo.dateTaken)])
   }
   if (photo.cameraMake || photo.cameraModel) {
-    rows.push(['Camera', [photo.cameraMake, photo.cameraModel].filter(Boolean).join(' ')])
+    rows.push(['Camera', [photo.cameraMake, photo.cameraModel].filter(Boolean).map(escapeHtml).join(' ')])
   }
   if (photo.focalLength != null) {
     rows.push(['Focal len.', `${photo.focalLength}mm`])
@@ -46,7 +51,7 @@ function buildPopupHtml(photo) {
     rows.push(['ISO', photo.iso])
   }
   if (photo.exposureTime) {
-    rows.push(['Exposure', photo.exposureTime])
+    rows.push(['Exposure', escapeHtml(photo.exposureTime)])
   }
   if (photo.altitude != null) {
     rows.push(['Altitude', `${Math.round(photo.altitude)}m`])
@@ -64,7 +69,7 @@ function buildPopupHtml(photo) {
 
   return `
     <div class="popup-content">
-      <div class="popup-title">${photo.originalName}</div>
+      <div class="popup-title">${escapeHtml(photo.originalName)}</div>
       ${rowsHtml}
       <div class="popup-actions">
         <button class="popup-view-btn" data-id="${photo.id}">View photo</button>
@@ -97,12 +102,22 @@ function createPhotoIcon(photo) {
 
 function createClusterIcon(cluster) {
   const count = cluster.getChildCount()
-  const size = count < 10 ? 'small' : count < 100 ? 'medium' : 'large'
-  const px = size === 'small' ? 36 : size === 'medium' ? 44 : 52
+  let size
+  if (count < 5) {
+    size = 'xs'
+  } else if (count < 10) {
+    size = 'sm'
+  } else if (count < 25) {
+    size = 'md'
+  } else if (count < 100) {
+    size = 'lg'
+  } else {
+    size = 'xl'
+  }
   return L.divIcon({
-    html: `<div class="cluster-icon cluster-${size}"><span>${count}</span></div>`,
+    html: `<div class="cluster-icon cluster-${size}" style="width:36px;height:36px"><span>${count}</span></div>`,
     className: '',
-    iconSize: L.point(px, px)
+    iconSize: L.point(36, 36)
   })
 }
 
@@ -112,6 +127,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
   const clusterGroupRef = useRef(null)
   const onDeleteRef = useRef(onDelete)
   const onViewRef = useRef(onView)
+  const prevGeoCountRef = useRef(0)
 
   useEffect(() => {
     onDeleteRef.current = onDelete
@@ -131,10 +147,22 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
       zoomControl: true
     })
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const satellite = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+        maxZoom: 19
+      }
+    )
+
+    const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19
-    }).addTo(map)
+    })
+
+    satellite.addTo(map)
+
+    L.control.layers({ Satellite: satellite, Streets: streets }, {}, { position: 'topright' }).addTo(map)
 
     const clusterGroup = new MarkerClusterGroup({
       maxClusterRadius: 80,
@@ -192,7 +220,11 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
 
     const geoPhotos = photos.filter(p => p.hasGps && p.lat != null && p.lng != null)
 
-    if (!geoPhotos.length) return
+    if (!geoPhotos.length) {
+      prevGeoCountRef.current = 0
+      map.setView([20, 0], 2)
+      return
+    }
 
     geoPhotos.forEach(photo => {
       const marker = L.marker([photo.lat, photo.lng], {
@@ -233,11 +265,12 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
       clusterGroup.addLayer(marker)
     })
 
-    // On first load with photos, fit the map to show all pins
-    if (geoPhotos.length > 0 && map.getZoom() === 2) {
+    // Fit map to show all pins only when transitioning from no photos to some
+    if (prevGeoCountRef.current === 0) {
       const bounds = L.latLngBounds(geoPhotos.map(p => [p.lat, p.lng]))
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 })
     }
+    prevGeoCountRef.current = geoPhotos.length
   }, [photos])
 
   return <div ref={mapRef} className="map-container" />

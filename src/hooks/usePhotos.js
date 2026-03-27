@@ -6,6 +6,7 @@ export function usePhotos() {
   const [error, setError] = useState(null)
 
   const refresh = useCallback(async () => {
+    setLoading(true)
     try {
       const res = await fetch('/api/photos')
       if (!res.ok) throw new Error(`HTTP ${res.status}`)

@@ -16,7 +16,7 @@ function MetaRow({ label, value }) {
 }
 
 export function PhotoLightbox({ photo, photos, onClose }) {
-  const idx = photos.indexOf(photo)
+  const idx = photos.findIndex(p => p.id === photo.id)
 
   function prev() {
     const i = (idx - 1 + photos.length) % photos.length
@@ -36,7 +36,7 @@ export function PhotoLightbox({ photo, photos, onClose }) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  })
+  }, [photo, photos]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!photo) return null
 
