@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 export function usePhotos() {
   const [photos, setPhotos] = useState([])
   const [collections, setCollections] = useState([])
+  const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -33,9 +34,16 @@ export function usePhotos() {
     setCollections(data)
   }
 
+  async function fetchProjects() {
+    const res = await fetch('/api/projects')
+    const data = await res.json()
+    setProjects(data)
+  }
+
   useEffect(() => {
     refresh()
     fetchCollections()
+    fetchProjects()
   }, [refresh])
 
   const deletePhoto = useCallback(async (id) => {
@@ -125,10 +133,48 @@ export function usePhotos() {
     fetchPhotos()
   }
 
+  async function createProject(data) {
+    const res = await fetch('/api/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    const project = await res.json()
+    setProjects(prev => [project, ...prev])
+    return project
+  }
+
+  async function updateProject(id, changes) {
+    const res = await fetch(`/api/projects/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(changes)
+    })
+    const updated = await res.json()
+    setProjects(prev => prev.map(p => p.id === id ? updated : p))
+  }
+
+  async function deleteProject(id) {
+    await fetch(`/api/projects/${id}`, { method: 'DELETE' })
+    setProjects(prev => prev.filter(p => p.id !== id))
+    fetchPhotos()
+  }
+
+  async function assignToProject(projectId, photoIds) {
+    await fetch(`/api/projects/${projectId}/photos`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ photoIds })
+    })
+    fetchPhotos()
+    fetchProjects()
+  }
+
   return {
     photos, loading, error, refresh, deletePhoto, updatePhoto, exportPhotos,
     collections, createCollection, updateCollection, deleteCollection,
     addPhotosToCollection, removePhotoFromCollection,
-    batchUpdate, batchDelete
+    batchUpdate, batchDelete,
+    projects, createProject, updateProject, deleteProject, assignToProject
   }
 }

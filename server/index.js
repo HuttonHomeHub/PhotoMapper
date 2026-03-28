@@ -9,7 +9,7 @@ import { createHash } from 'crypto'
 import { v4 as uuidv4 } from 'uuid'
 import exifr from 'exifr'
 import sharp from 'sharp'
-import { insertPhoto, getAllPhotos, getPhotoById, deletePhoto, getPhotoByHash, updatePhoto, createCollection, getAllCollections, updateCollection, deleteCollection, addPhotosToCollection, removePhotoFromCollection, batchUpdatePhotos } from './db.js'
+import { insertPhoto, getAllPhotos, getPhotoById, deletePhoto, getPhotoByHash, updatePhoto, createCollection, getAllCollections, updateCollection, deleteCollection, addPhotosToCollection, removePhotoFromCollection, batchUpdatePhotos, createProject, getAllProjects, updateProject, deleteProject, assignPhotosToProject } from './db.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const uploadsDir = join(__dirname, 'uploads')
@@ -132,6 +132,8 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
     // Thumbnail generation failure is non-fatal
   }
 
+  const projectId = req.body?.projectId || null
+
   const record = {
     id: uuidv4(),
     filename: file.filename,
@@ -151,7 +153,8 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
     iso: exif.ISO ?? null,
     exposureTime,
     fileHash,
-    locationName
+    locationName,
+    projectId
   }
 
   try {
@@ -170,7 +173,8 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
     ...record,
     hasGps: !!record.hasGps,
     tags: [],
-    description: null
+    description: null,
+    collectionIds: []
   })
 })
 
@@ -359,6 +363,48 @@ app.post('/api/collections/:id/photos', (req, res) => {
 app.delete('/api/collections/:id/photos/:photoId', (req, res) => {
   removePhotoFromCollection(req.params.id, req.params.photoId)
   res.json({ success: true })
+})
+
+// Projects
+app.get('/api/projects', (_req, res) => {
+  res.json(getAllProjects())
+})
+
+app.post('/api/projects', (req, res) => {
+  const { name, client, status, color } = req.body
+  if (!name?.trim()) return res.status(400).json({ error: 'name required' })
+  const project = {
+    id: uuidv4(),
+    name: name.trim(),
+    client: client || null,
+    status: status || 'active',
+    color: color || '#e94560',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+  createProject(project)
+  res.status(201).json({ ...project, photoCount: 0 })
+})
+
+app.patch('/api/projects/:id', (req, res) => {
+  const { name, client, status, color } = req.body
+  updateProject(req.params.id, { name, client, status, color, updatedAt: new Date().toISOString() })
+  res.json(getAllProjects().find(p => p.id === req.params.id))
+})
+
+app.delete('/api/projects/:id', (req, res) => {
+  const changes = deleteProject(req.params.id)
+  if (!changes) return res.status(404).json({ error: 'not found' })
+  res.json({ id: req.params.id })
+})
+
+app.patch('/api/projects/:id/photos', (req, res) => {
+  const { photoIds } = req.body
+  if (!Array.isArray(photoIds) || photoIds.length === 0) {
+    return res.status(400).json({ error: 'photoIds array required' })
+  }
+  assignPhotosToProject(req.params.id, photoIds)
+  res.json({ assigned: photoIds.length })
 })
 
 app.use('/uploads', express.static(uploadsDir))
