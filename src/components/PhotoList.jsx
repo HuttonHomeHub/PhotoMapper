@@ -1,6 +1,12 @@
 import { useState } from 'react'
 
-export function PhotoList({ photos, onDelete, onView, activeTag, onTagClick }) {
+export function PhotoList({
+  photos, onDelete, onView, activeTag, onTagClick,
+  selectionMode, selectedPhotoIds, onToggleSelection,
+  onToggleSelectionMode, onBatchUpdate, onBatchDelete, onBatchAddToCollection,
+  collections, activeCollectionId,
+  comparingPhotoId, onCompareClick
+}) {
   const [deletingId, setDeletingId] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
 
@@ -25,16 +31,81 @@ export function PhotoList({ photos, onDelete, onView, activeTag, onTagClick }) {
 
   return (
     <>
+      <div className="photo-list-header-row">
+        <button
+          className={`select-mode-btn${selectionMode ? ' active' : ''}`}
+          onClick={onToggleSelectionMode}
+          title="Multi-select photos"
+        >
+          {selectionMode ? 'Cancel' : 'Select'}
+        </button>
+        {comparingPhotoId && (
+          <div className="comparing-hint">
+            Pick a second photo to compare
+          </div>
+        )}
+      </div>
+
+      {selectedPhotoIds?.size > 0 && (
+        <div className="selection-toolbar">
+          <span className="selection-count">{selectedPhotoIds.size} selected</span>
+          <button className="sel-action-btn" onClick={() => {
+            const tag = prompt('Tag to add to all selected photos:')
+            if (tag?.trim()) {
+              onBatchUpdate([...selectedPhotoIds], { tags: [tag.trim()], mergeTags: true })
+            }
+          }}>+ Tag</button>
+          <select
+            className="sel-collection-select"
+            defaultValue=""
+            onChange={e => {
+              if (e.target.value) {
+                onBatchAddToCollection(e.target.value, [...selectedPhotoIds])
+                e.target.value = ''
+              }
+            }}
+          >
+            <option value="">Add to collection…</option>
+            {collections?.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <button className="sel-action-btn sel-delete-btn" onClick={() => {
+            if (window.confirm(`Delete ${selectedPhotoIds.size} photos?`)) {
+              onBatchDelete([...selectedPhotoIds])
+            }
+          }}>Delete</button>
+        </div>
+      )}
+
       <div className="photo-list">
         {photos.map(photo => (
-          <div key={photo.id} className="photo-list-item">
-            <button className="photo-list-thumb-btn" onClick={() => onView(photo)} aria-label={`View ${photo.originalName}`}>
+          <div
+            key={photo.id}
+            className={`photo-list-item${selectedPhotoIds?.has(photo.id) ? ' selected' : ''}`}
+            onClick={() => selectionMode ? onToggleSelection(photo.id) : undefined}
+          >
+            <button
+              className="photo-list-thumb-btn"
+              onClick={() => selectionMode ? onToggleSelection(photo.id) : onView(photo)}
+              aria-label={`View ${photo.originalName}`}
+              style={{ position: 'relative' }}
+            >
               <img
                 src={`/uploads/${photo.thumbnailFilename ?? photo.filename}`}
                 alt=""
                 className="photo-list-thumb"
                 loading="lazy"
               />
+              {selectionMode && (
+                <input
+                  type="checkbox"
+                  className="photo-select-checkbox"
+                  checked={selectedPhotoIds?.has(photo.id) ?? false}
+                  onChange={() => onToggleSelection(photo.id)}
+                  onClick={e => e.stopPropagation()}
+                />
+              )}
             </button>
             <div className="photo-list-info">
               <div className="photo-list-name">{photo.originalName}</div>
@@ -56,7 +127,29 @@ export function PhotoList({ photos, onDelete, onView, activeTag, onTagClick }) {
                   ))}
                 </div>
               )}
+              {photo.collectionIds?.length > 0 && (
+                <div className="photo-collection-dots">
+                  {photo.collectionIds.slice(0, 3).map(cid => {
+                    const col = collections?.find(c => c.id === cid)
+                    return col ? (
+                      <span
+                        key={cid}
+                        className="photo-collection-dot"
+                        style={{ background: col.color }}
+                        title={col.name}
+                      />
+                    ) : null
+                  })}
+                </div>
+              )}
             </div>
+            <button
+              className={`photo-compare-btn${comparingPhotoId === photo.id ? ' active' : ''}`}
+              onClick={e => { e.stopPropagation(); onCompareClick(photo.id) }}
+              title={comparingPhotoId && comparingPhotoId !== photo.id ? 'Compare with this photo' : 'Start comparison'}
+            >
+              ⧉
+            </button>
             <button
               className="photo-list-delete"
               onClick={() => handleDelete(photo)}

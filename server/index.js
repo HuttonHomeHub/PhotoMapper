@@ -9,7 +9,7 @@ import { createHash } from 'crypto'
 import { v4 as uuidv4 } from 'uuid'
 import exifr from 'exifr'
 import sharp from 'sharp'
-import { insertPhoto, getAllPhotos, getPhotoById, deletePhoto, getPhotoByHash, updatePhoto } from './db.js'
+import { insertPhoto, getAllPhotos, getPhotoById, deletePhoto, getPhotoByHash, updatePhoto, createCollection, getAllCollections, updateCollection, deleteCollection, addPhotosToCollection, removePhotoFromCollection, batchUpdatePhotos } from './db.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const uploadsDir = join(__dirname, 'uploads')
@@ -179,8 +179,12 @@ app.get('/api/photos', (_req, res) => {
 })
 
 app.get('/api/photos/export', (req, res) => {
-  const format = req.query.format === 'kml' ? 'kml' : 'geojson'
-  const photos = getAllPhotos().filter(p => p.hasGps && p.lat != null && p.lng != null)
+  const { format: formatParam, collection_id } = req.query
+  const format = formatParam === 'kml' ? 'kml' : 'geojson'
+  let photos = getAllPhotos().filter(p => p.hasGps && p.lat != null && p.lng != null)
+  if (collection_id) {
+    photos = photos.filter(p => p.collectionIds?.includes(collection_id))
+  }
 
   if (format === 'geojson') {
     const fc = {
@@ -243,6 +247,29 @@ ${placemarks}
   res.send(kml)
 })
 
+app.patch('/api/photos/batch', (req, res) => {
+  const { ids, tags, description, mergeTags } = req.body
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'ids array required' })
+  }
+  const allPhotos = getAllPhotos()
+  const updates = ids.map(id => {
+    const existing = allPhotos.find(p => p.id === id)
+    if (!existing) return null
+    let finalTags = tags !== undefined ? tags : existing.tags
+    if (mergeTags && tags) {
+      finalTags = [...new Set([...existing.tags, ...tags])]
+    }
+    return {
+      id,
+      description: description !== undefined ? description : undefined,
+      tags: finalTags
+    }
+  }).filter(Boolean)
+  batchUpdatePhotos(updates)
+  res.json({ updated: updates.length })
+})
+
 app.patch('/api/photos/:id', (req, res) => {
   const photo = getPhotoById(req.params.id)
   if (!photo) return res.status(404).json({ error: 'Photo not found' })
@@ -281,6 +308,57 @@ app.delete('/api/photos/:id', async (req, res) => {
   }
 
   res.json({ id: photo.id })
+})
+
+// Collections
+app.get('/api/collections', (req, res) => {
+  res.json(getAllCollections())
+})
+
+app.post('/api/collections', (req, res) => {
+  const { name, description, color } = req.body
+  if (!name?.trim()) return res.status(400).json({ error: 'name required' })
+  const collection = {
+    id: uuidv4(),
+    name: name.trim(),
+    description: description || null,
+    color: color || '#e94560',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+  createCollection(collection)
+  res.status(201).json(collection)
+})
+
+app.patch('/api/collections/:id', (req, res) => {
+  const { name, description, color } = req.body
+  updateCollection(req.params.id, {
+    name,
+    description,
+    color,
+    updatedAt: new Date().toISOString()
+  })
+  res.json(getAllCollections().find(c => c.id === req.params.id))
+})
+
+app.delete('/api/collections/:id', (req, res) => {
+  const changes = deleteCollection(req.params.id)
+  if (!changes) return res.status(404).json({ error: 'not found' })
+  res.json({ id: req.params.id })
+})
+
+app.post('/api/collections/:id/photos', (req, res) => {
+  const { photoIds } = req.body
+  if (!Array.isArray(photoIds) || photoIds.length === 0) {
+    return res.status(400).json({ error: 'photoIds array required' })
+  }
+  addPhotosToCollection(req.params.id, photoIds, new Date().toISOString())
+  res.json({ added: photoIds.length })
+})
+
+app.delete('/api/collections/:id/photos/:photoId', (req, res) => {
+  removePhotoFromCollection(req.params.id, req.params.photoId)
+  res.json({ success: true })
 })
 
 app.use('/uploads', express.static(uploadsDir))

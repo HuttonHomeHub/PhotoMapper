@@ -48,6 +48,42 @@ function syntheticPoints(lat, lng, radiusMeters, n) {
   return points
 }
 
+function createFovConePolygon(photo) {
+  if (photo.imgDirection == null || !photo.focalLength) return null
+  const fl = photo.focalLength
+  const height = photo.altitude ?? 50
+  const hFovRad = 2 * Math.atan(18 / fl)
+  const groundRadius = Math.max(10, Math.min(Math.tan(hFovRad / 2) * height, 5000))
+  const halfAngle = hFovRad / 2
+  const dirRad = (photo.imgDirection * Math.PI) / 180
+  const R = 6371000
+  const lat1 = (photo.lat * Math.PI) / 180
+  const lng1 = (photo.lng * Math.PI) / 180
+  const numPoints = 20
+  const vertices = []
+  for (let i = 0; i <= numPoints; i++) {
+    const bearing = dirRad - halfAngle + (i / numPoints) * hFovRad
+    const lat2 = Math.asin(
+      Math.sin(lat1) * Math.cos(groundRadius / R) +
+      Math.cos(lat1) * Math.sin(groundRadius / R) * Math.cos(bearing)
+    )
+    const lng2 = lng1 + Math.atan2(
+      Math.sin(bearing) * Math.sin(groundRadius / R) * Math.cos(lat1),
+      Math.cos(groundRadius / R) - Math.sin(lat1) * Math.sin(lat2)
+    )
+    vertices.push([(lat2 * 180) / Math.PI, (lng2 * 180) / Math.PI])
+  }
+  return L.polygon([[photo.lat, photo.lng], ...vertices, [photo.lat, photo.lng]], {
+    color: '#87ceeb',
+    weight: 1,
+    opacity: 0.6,
+    fillColor: '#87ceeb',
+    fillOpacity: 0.12,
+    dashArray: '4 2',
+    interactive: false
+  })
+}
+
 function escapeHtml(str) {
   if (!str) return str
   return String(str)
@@ -169,6 +205,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
   const routeLayerRef = useRef(null)
   const regionLayerRef = useRef(null)
   const markersRef = useRef({})
+  const fovLayersRef = useRef({})
   const onDeleteRef = useRef(onDelete)
   const onViewRef = useRef(onView)
   const onRegionChangeRef = useRef(onRegionChange)
@@ -180,6 +217,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
   const [showRoute, setShowRoute] = useState(false)
   const [drawMode, setDrawMode] = useState(false)
   const [hasRegion, setHasRegion] = useState(false)
+  const [fovVisible, setFovVisible] = useState(false)
   const drawStateRef = useRef({ active: false, vertices: [], previewLayer: null })
 
   useEffect(() => { onDeleteRef.current = onDelete }, [onDelete])
@@ -410,6 +448,19 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
     routeLayerRef.current = polyline
   }, [showRoute, photos])
 
+  // Toggle FOV cone visibility
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map) return
+    Object.values(fovLayersRef.current).forEach(poly => {
+      if (fovVisible) {
+        if (!map.hasLayer(poly)) poly.addTo(map)
+      } else {
+        if (map.hasLayer(poly)) map.removeLayer(poly)
+      }
+    })
+  }, [fovVisible])
+
   // Draw region mode
   useEffect(() => {
     const map = mapInstanceRef.current
@@ -495,6 +546,11 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
     clusterGroup.clearLayers()
     markersRef.current = {}
 
+    Object.values(fovLayersRef.current).forEach(poly => {
+      if (map.hasLayer(poly)) map.removeLayer(poly)
+    })
+    fovLayersRef.current = {}
+
     const geoPhotos = photos.filter(p => p.hasGps && p.lat != null && p.lng != null)
 
     if (!geoPhotos.length) {
@@ -543,6 +599,12 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
       marker.on('mouseout', () => onPhotoHover?.(null))
       marker.bindPopup(popup)
       clusterGroup.addLayer(marker)
+
+      const fovPoly = createFovConePolygon(photo)
+      if (fovPoly) {
+        fovLayersRef.current[photo.id] = fovPoly
+        if (fovVisible) fovPoly.addTo(map)
+      }
     })
 
     // Fit map to show all pins only when transitioning from no photos to some
@@ -574,6 +636,13 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
             onClick={() => setShowRoute(r => !r)}
           >
             Route
+          </button>
+          <button
+            className={`heatmap-toggle${fovVisible ? ' active' : ''}`}
+            onClick={() => setFovVisible(v => !v)}
+            title="Toggle FOV cones"
+          >
+            FOV Cones
           </button>
           <button
             className={`heatmap-toggle${heatmapActive ? ' active' : ''}`}

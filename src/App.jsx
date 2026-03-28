@@ -6,6 +6,8 @@ import { PhotoList } from './components/PhotoList.jsx'
 import { PhotoLightbox } from './components/PhotoLightbox.jsx'
 import { UploadDrawer } from './components/UploadDrawer.jsx'
 import { ElevationProfile } from './components/ElevationProfile.jsx'
+import CollectionPanel from './components/CollectionPanel.jsx'
+import PhotoComparison from './components/PhotoComparison.jsx'
 
 const TODAY = new Date().toISOString().slice(0, 10)
 const dateToMs = d => new Date(d + 'T12:00:00Z').getTime()
@@ -25,7 +27,11 @@ function pointInPolygon([lat, lng], polygon) {
 }
 
 export function App() {
-  const { photos, loading, error, refresh, deletePhoto, updatePhoto, exportPhotos } = usePhotos()
+  const {
+    photos, loading, error, refresh, deletePhoto, updatePhoto, exportPhotos,
+    collections, createCollection, updateCollection, deleteCollection,
+    addPhotosToCollection, removePhotoFromCollection, batchUpdate, batchDelete
+  } = usePhotos()
   const gpsCount = photos.filter(p => p.hasGps).length
 
   const minDate = useMemo(() => {
@@ -46,6 +52,11 @@ export function App() {
   const [regionPolygon, setRegionPolygon] = useState(null)
   const [elevationOpen, setElevationOpen] = useState(false)
   const [hoveredPhotoId, setHoveredPhotoId] = useState(null)
+  const [activeCollectionId, setActiveCollectionId] = useState(null)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState(new Set())
+  const [comparingPhotoId, setComparingPhotoId] = useState(null)
+  const [comparisonPair, setComparisonPair] = useState(null)
   const mapRef = useRef(null)
 
   // Timeline state
@@ -92,7 +103,7 @@ export function App() {
       if (!pointInPolygon([p.lat, p.lng], regionPolygon)) return false
     }
     return true
-  })
+  }).filter(p => !activeCollectionId || (p.collectionIds && p.collectionIds.includes(activeCollectionId)))
 
   // Timeline: all photos sorted by date for chronological playback
   const timelineSorted = useMemo(() =>
@@ -131,6 +142,31 @@ export function App() {
     : ''
 
   const displayPhotos = timelineActive ? timelineSlicePhotos : filteredPhotos
+
+  function togglePhotoSelection(id) {
+    setSelectedPhotoIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function clearSelection() {
+    setSelectedPhotoIds(new Set())
+    setSelectionMode(false)
+  }
+
+  function handleCompareClick(photoId) {
+    if (!comparingPhotoId) {
+      setComparingPhotoId(photoId)
+    } else if (comparingPhotoId === photoId) {
+      setComparingPhotoId(null)
+    } else {
+      setComparisonPair([comparingPhotoId, photoId])
+      setComparingPhotoId(null)
+    }
+  }
 
   async function handleLocationSearch(e) {
     e.preventDefault()
@@ -342,12 +378,35 @@ export function App() {
           )}
         </div>
 
+        <CollectionPanel
+          collections={collections}
+          activeCollectionId={activeCollectionId}
+          onSelect={setActiveCollectionId}
+          onCreate={createCollection}
+          onUpdate={updateCollection}
+          onDelete={deleteCollection}
+        />
+
         <PhotoList
           photos={displayPhotos}
           onDelete={deletePhoto}
           onView={setViewingPhoto}
           activeTag={activeTag}
           onTagClick={tag => setActiveTag(prev => prev === tag ? null : tag)}
+          selectionMode={selectionMode}
+          selectedPhotoIds={selectedPhotoIds}
+          onToggleSelection={togglePhotoSelection}
+          onToggleSelectionMode={() => {
+            setSelectionMode(v => !v)
+            setSelectedPhotoIds(new Set())
+          }}
+          onBatchUpdate={batchUpdate}
+          onBatchDelete={batchDelete}
+          onBatchAddToCollection={addPhotosToCollection}
+          collections={collections}
+          activeCollectionId={activeCollectionId}
+          comparingPhotoId={comparingPhotoId}
+          onCompareClick={handleCompareClick}
         />
       </aside>
 
@@ -386,6 +445,17 @@ export function App() {
           photos={displayPhotos}
           onClose={setViewingPhoto}
           onUpdate={updatePhoto}
+        />
+      )}
+
+      {comparisonPair && (
+        <PhotoComparison
+          photos={photos}
+          leftId={comparisonPair[0]}
+          rightId={comparisonPair[1]}
+          onClose={() => setComparisonPair(null)}
+          onChangeLeft={id => setComparisonPair(([, r]) => [id, r])}
+          onChangeRight={id => setComparisonPair(([l]) => [l, id])}
         />
       )}
     </div>

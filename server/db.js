@@ -5,6 +5,8 @@ import { fileURLToPath } from 'url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const db = new Database(join(__dirname, 'photos.db'))
 
+db.pragma('foreign_keys = ON')
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS photos (
     id                 TEXT PRIMARY KEY,
@@ -68,6 +70,45 @@ try {
   // Column already exists — ignore
 }
 
+// Migrate: add collections table
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS collections (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT,
+      color TEXT DEFAULT '#e94560',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `)
+} catch {
+  // Table already exists — ignore
+}
+
+// Migrate: add photo_collections join table
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS photo_collections (
+      photo_id TEXT NOT NULL,
+      collection_id TEXT NOT NULL,
+      added_at TEXT NOT NULL,
+      PRIMARY KEY (photo_id, collection_id),
+      FOREIGN KEY (photo_id) REFERENCES photos(id) ON DELETE CASCADE,
+      FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
+    )
+  `)
+} catch {
+  // Table already exists — ignore
+}
+
+// Migrate: index on photo_collections.collection_id
+try {
+  db.exec('CREATE INDEX IF NOT EXISTS idx_photo_collections_collection_id ON photo_collections(collection_id)')
+} catch {
+  // Index already exists — ignore
+}
+
 const insertStmt = db.prepare(`
   INSERT INTO photos (
     id, filename, thumbnail_filename, original_name, uploaded_at, has_gps,
@@ -82,7 +123,13 @@ const insertStmt = db.prepare(`
   )
 `)
 
-const selectAllStmt = db.prepare('SELECT * FROM photos ORDER BY uploaded_at DESC')
+const selectAllStmt = db.prepare(`
+  SELECT p.*, GROUP_CONCAT(pc.collection_id) as collection_ids
+  FROM photos p
+  LEFT JOIN photo_collections pc ON p.id = pc.photo_id
+  GROUP BY p.id
+  ORDER BY p.uploaded_at DESC
+`)
 const selectByIdStmt = db.prepare('SELECT id, filename, thumbnail_filename FROM photos WHERE id = ?')
 const selectByHashStmt = db.prepare('SELECT * FROM photos WHERE file_hash = ?')
 const deleteStmt = db.prepare('DELETE FROM photos WHERE id = ?')
@@ -148,6 +195,85 @@ export function deletePhoto(id) {
   return deleteStmt.run(id).changes
 }
 
+export function batchUpdatePhotos(updates) {
+  const run = db.transaction(() => {
+    for (const u of updates) {
+      updatePhoto(u.id, { description: u.description, tags: u.tags })
+    }
+  })
+  run()
+}
+
+const insertCollectionStmt = db.prepare(`
+  INSERT INTO collections (id, name, description, color, created_at, updated_at)
+  VALUES (@id, @name, @description, @color, @createdAt, @updatedAt)
+`)
+
+const selectAllCollectionsStmt = db.prepare(`
+  SELECT c.*, COUNT(pc.photo_id) as photo_count
+  FROM collections c
+  LEFT JOIN photo_collections pc ON c.id = pc.collection_id
+  GROUP BY c.id
+  ORDER BY c.created_at DESC
+`)
+
+const updateCollectionStmt = db.prepare(`
+  UPDATE collections
+  SET name        = COALESCE(@name, name),
+      description = COALESCE(@description, description),
+      color       = COALESCE(@color, color),
+      updated_at  = @updatedAt
+  WHERE id = @id
+`)
+
+const deleteCollectionStmt = db.prepare('DELETE FROM collections WHERE id = ?')
+
+const addPhotoToCollectionStmt = db.prepare(`
+  INSERT OR IGNORE INTO photo_collections (photo_id, collection_id, added_at)
+  VALUES (@photoId, @collectionId, @addedAt)
+`)
+
+const removePhotoFromCollectionStmt = db.prepare(`
+  DELETE FROM photo_collections WHERE collection_id = ? AND photo_id = ?
+`)
+
+export function createCollection({ id, name, description, color, createdAt, updatedAt }) {
+  insertCollectionStmt.run({ id, name, description, color, createdAt, updatedAt })
+}
+
+export function getAllCollections() {
+  return selectAllCollectionsStmt.all().map(row => ({
+    id: row.id,
+    name: row.name,
+    description: row.description ?? null,
+    color: row.color,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    photoCount: row.photo_count
+  }))
+}
+
+export function updateCollection(id, { name, description, color, updatedAt }) {
+  updateCollectionStmt.run({ id, name: name ?? null, description: description ?? null, color: color ?? null, updatedAt })
+}
+
+export function deleteCollection(id) {
+  return deleteCollectionStmt.run(id).changes
+}
+
+export function addPhotosToCollection(collectionId, photoIds, addedAt) {
+  const run = db.transaction(() => {
+    for (const photoId of photoIds) {
+      addPhotoToCollectionStmt.run({ photoId, collectionId, addedAt })
+    }
+  })
+  run()
+}
+
+export function removePhotoFromCollection(collectionId, photoId) {
+  removePhotoFromCollectionStmt.run(collectionId, photoId)
+}
+
 export function getAllPhotos() {
   return selectAllStmt.all().map(row => ({
     id: row.id,
@@ -169,6 +295,7 @@ export function getAllPhotos() {
     exposureTime: row.exposure_time,
     locationName: row.location_name ?? null,
     description: row.description ?? null,
-    tags: row.tags ? JSON.parse(row.tags) : []
+    tags: row.tags ? JSON.parse(row.tags) : [],
+    collectionIds: row.collection_ids ? row.collection_ids.split(',') : []
   }))
 }
