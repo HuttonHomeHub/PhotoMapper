@@ -66,15 +66,15 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
     return res.status(400).json({ error: 'No file uploaded' })
   }
 
+  const fileHash = await hashFile(file.path)
+  const existingByHash = getPhotoByHash(fileHash)
+  if (existingByHash) {
+    await unlink(file.path)
+    return res.status(409).json({ error: 'duplicate', message: 'This photo has already been uploaded', photo: existingByHash })
+  }
+
   let exif = {}
-  let fileHash
   try {
-    fileHash = await hashFile(file.path)
-    const existingByHash = getPhotoByHash(fileHash)
-    if (existingByHash) {
-      await unlink(file.path)
-      return res.status(409).json({ error: 'duplicate', message: 'This photo has already been uploaded', photo: existingByHash })
-    }
     exif = await exifr.parse(file.path, {
       gps: true,
       ifd0: true,
@@ -330,7 +330,14 @@ app.post('/api/collections', (req, res) => {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }
-  createCollection(collection)
+  try {
+    createCollection(collection)
+  } catch (err) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return res.status(409).json({ error: 'A collection with that name already exists' })
+    }
+    throw err
+  }
   res.status(201).json(collection)
 })
 

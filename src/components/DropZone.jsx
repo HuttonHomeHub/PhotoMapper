@@ -67,7 +67,7 @@ export function DropZone({ onUploadComplete, setResults, openDrawer, projects = 
       return update ? { ...e, status: update.status, detail: update.detail } : e
     }))
 
-    if (updates.some(u => u.status !== 'duplicate')) onUploadComplete()
+    if (updates.some(u => u.status === 'success' || u.status === 'no-gps')) onUploadComplete()
   }
 
   function onDragOver(e) {

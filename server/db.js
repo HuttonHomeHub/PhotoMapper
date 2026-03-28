@@ -219,7 +219,7 @@ export function getPhotoByHash(hash) {
     exposureTime: row.exposure_time,
     locationName: row.location_name ?? null,
     description: row.description ?? null,
-    tags: row.tags ? JSON.parse(row.tags) : []
+    tags: row.tags ? (() => { try { return JSON.parse(row.tags) } catch { return [] } })() : []
   }
 }
 
@@ -346,7 +346,7 @@ export function getAllPhotos() {
     exposureTime: row.exposure_time,
     locationName: row.location_name ?? null,
     description: row.description ?? null,
-    tags: row.tags ? JSON.parse(row.tags) : [],
+    tags: row.tags ? (() => { try { return JSON.parse(row.tags) } catch { return [] } })() : [],
     collectionIds: row.collection_ids ? row.collection_ids.split(',') : [],
     projectId: row.project_id ?? null
   }))
