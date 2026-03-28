@@ -109,17 +109,41 @@ try {
   // Index already exists — ignore
 }
 
+// Migrate: add projects table
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS projects (
+      id         TEXT PRIMARY KEY,
+      name       TEXT NOT NULL UNIQUE,
+      client     TEXT,
+      status     TEXT NOT NULL DEFAULT 'active',
+      color      TEXT NOT NULL DEFAULT '#e94560',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `)
+} catch {
+  // Table already exists — ignore
+}
+
+// Migrate: add project_id FK to photos
+try {
+  db.exec('ALTER TABLE photos ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE SET NULL')
+} catch {
+  // Column already exists — ignore
+}
+
 const insertStmt = db.prepare(`
   INSERT INTO photos (
     id, filename, thumbnail_filename, original_name, uploaded_at, has_gps,
     lat, lng, altitude, img_direction,
     date_taken, camera_make, camera_model,
-    focal_length, f_number, iso, exposure_time, file_hash, location_name
+    focal_length, f_number, iso, exposure_time, file_hash, location_name, project_id
   ) VALUES (
     @id, @filename, @thumbnailFilename, @originalName, @uploadedAt, @hasGps,
     @lat, @lng, @altitude, @imgDirection,
     @dateTaken, @cameraMake, @cameraModel,
-    @focalLength, @fNumber, @iso, @exposureTime, @fileHash, @locationName
+    @focalLength, @fNumber, @iso, @exposureTime, @fileHash, @locationName, @projectId
   )
 `)
 
@@ -130,6 +154,33 @@ const selectAllStmt = db.prepare(`
   GROUP BY p.id
   ORDER BY p.uploaded_at DESC
 `)
+
+const selectAllProjectsStmt = db.prepare(`
+  SELECT pr.*, COUNT(p.id) as photo_count
+  FROM projects pr
+  LEFT JOIN photos p ON p.project_id = pr.id
+  GROUP BY pr.id
+  ORDER BY pr.created_at DESC
+`)
+
+const insertProjectStmt = db.prepare(`
+  INSERT INTO projects (id, name, client, status, color, created_at, updated_at)
+  VALUES (@id, @name, @client, @status, @color, @createdAt, @updatedAt)
+`)
+
+const updateProjectStmt = db.prepare(`
+  UPDATE projects
+  SET name       = COALESCE(@name, name),
+      client     = COALESCE(@client, client),
+      status     = COALESCE(@status, status),
+      color      = COALESCE(@color, color),
+      updated_at = @updatedAt
+  WHERE id = @id
+`)
+
+const deleteProjectStmt = db.prepare('DELETE FROM projects WHERE id = ?')
+
+const assignPhotosToProjectStmt = db.prepare('UPDATE photos SET project_id = @projectId WHERE id = @id')
 const selectByIdStmt = db.prepare('SELECT id, filename, thumbnail_filename FROM photos WHERE id = ?')
 const selectByHashStmt = db.prepare('SELECT * FROM photos WHERE file_hash = ?')
 const deleteStmt = db.prepare('DELETE FROM photos WHERE id = ?')
@@ -296,6 +347,41 @@ export function getAllPhotos() {
     locationName: row.location_name ?? null,
     description: row.description ?? null,
     tags: row.tags ? JSON.parse(row.tags) : [],
-    collectionIds: row.collection_ids ? row.collection_ids.split(',') : []
+    collectionIds: row.collection_ids ? row.collection_ids.split(',') : [],
+    projectId: row.project_id ?? null
   }))
+}
+
+export function getAllProjects() {
+  return selectAllProjectsStmt.all().map(row => ({
+    id: row.id,
+    name: row.name,
+    client: row.client ?? null,
+    status: row.status,
+    color: row.color,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    photoCount: row.photo_count
+  }))
+}
+
+export function createProject({ id, name, client, status, color, createdAt, updatedAt }) {
+  insertProjectStmt.run({ id, name, client: client ?? null, status, color, createdAt, updatedAt })
+}
+
+export function updateProject(id, { name, client, status, color, updatedAt }) {
+  updateProjectStmt.run({ id, name: name ?? null, client: client ?? null, status: status ?? null, color: color ?? null, updatedAt })
+}
+
+export function deleteProject(id) {
+  return deleteProjectStmt.run(id).changes
+}
+
+export function assignPhotosToProject(projectId, photoIds) {
+  const run = db.transaction(() => {
+    for (const id of photoIds) {
+      assignPhotosToProjectStmt.run({ projectId: projectId ?? null, id })
+    }
+  })
+  run()
 }

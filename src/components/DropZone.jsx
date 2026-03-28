@@ -8,8 +8,9 @@ async function hashFile(file) {
     .join('')
 }
 
-export function DropZone({ onUploadComplete, setResults, openDrawer }) {
+export function DropZone({ onUploadComplete, setResults, openDrawer, projects = [] }) {
   const [isDragOver, setIsDragOver] = useState(false)
+  const [selectedProjectId, setSelectedProjectId] = useState('')
   const inputRef = useRef(null)
 
   async function uploadFile(file) {
@@ -24,6 +25,7 @@ export function DropZone({ onUploadComplete, setResults, openDrawer }) {
 
     const formData = new FormData()
     formData.append('photo', file)
+    if (selectedProjectId) formData.append('projectId', selectedProjectId)
 
     const res = await fetch('/api/photos', { method: 'POST', body: formData })
     if (!res.ok) {
@@ -93,7 +95,22 @@ export function DropZone({ onUploadComplete, setResults, openDrawer }) {
   }
 
   return (
-    <div
+    <div className="dropzone-wrapper">
+      {projects.length > 0 && (
+        <div className="project-selector-row" onClick={e => e.stopPropagation()}>
+          <select
+            className="project-selector"
+            value={selectedProjectId}
+            onChange={e => setSelectedProjectId(e.target.value)}
+          >
+            <option value="">No project</option>
+            {projects.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      <div
         className={`dropzone${isDragOver ? ' active' : ''}`}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
@@ -116,6 +133,7 @@ export function DropZone({ onUploadComplete, setResults, openDrawer }) {
           accept="image/jpeg,image/png,image/heic,image/webp"
           onChange={onInputChange}
         />
+      </div>
     </div>
   )
 }

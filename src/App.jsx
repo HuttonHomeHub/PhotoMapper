@@ -7,6 +7,7 @@ import { PhotoLightbox } from './components/PhotoLightbox.jsx'
 import { UploadDrawer } from './components/UploadDrawer.jsx'
 import { ElevationProfile } from './components/ElevationProfile.jsx'
 import CollectionPanel from './components/CollectionPanel.jsx'
+import ProjectPanel from './components/ProjectPanel.jsx'
 import PhotoComparison from './components/PhotoComparison.jsx'
 
 const TODAY = new Date().toISOString().slice(0, 10)
@@ -30,7 +31,8 @@ export function App() {
   const {
     photos, loading, error, refresh, deletePhoto, updatePhoto, exportPhotos,
     collections, createCollection, updateCollection, deleteCollection,
-    addPhotosToCollection, removePhotoFromCollection, batchUpdate, batchDelete
+    addPhotosToCollection, removePhotoFromCollection, batchUpdate, batchDelete,
+    projects, createProject, updateProject, deleteProject, assignToProject
   } = usePhotos()
   const gpsCount = photos.filter(p => p.hasGps).length
 
@@ -53,6 +55,7 @@ export function App() {
   const [elevationOpen, setElevationOpen] = useState(false)
   const [hoveredPhotoId, setHoveredPhotoId] = useState(null)
   const [activeCollectionId, setActiveCollectionId] = useState(null)
+  const [activeProjectId, setActiveProjectId] = useState(null)
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedPhotoIds, setSelectedPhotoIds] = useState(new Set())
   const [comparingPhotoId, setComparingPhotoId] = useState(null)
@@ -104,6 +107,7 @@ export function App() {
     }
     return true
   }).filter(p => !activeCollectionId || (p.collectionIds && p.collectionIds.includes(activeCollectionId)))
+    .filter(p => !activeProjectId || p.projectId === activeProjectId)
 
   // Timeline: all photos sorted by date for chronological playback
   const timelineSorted = useMemo(() =>
@@ -216,7 +220,7 @@ export function App() {
 
         {error && <div className="error-banner">Failed to load photos. Please refresh.</div>}
 
-        <DropZone onUploadComplete={refresh} setResults={setResults} openDrawer={() => setDrawerOpen(true)} />
+        <DropZone onUploadComplete={refresh} setResults={setResults} openDrawer={() => setDrawerOpen(true)} projects={projects} />
 
         {!loading && (
           <div className="photo-count">
@@ -377,6 +381,15 @@ export function App() {
             </div>
           )}
         </div>
+
+        <ProjectPanel
+          projects={projects}
+          activeProjectId={activeProjectId}
+          onSelect={setActiveProjectId}
+          onCreate={createProject}
+          onUpdate={updateProject}
+          onDelete={deleteProject}
+        />
 
         <CollectionPanel
           collections={collections}
