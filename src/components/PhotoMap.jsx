@@ -102,6 +102,10 @@ function buildPopupHtml(photo) {
     </div>
   `).join('')
 
+  const mapsLink = (photo.hasGps && photo.lat != null && photo.lng != null)
+    ? `<a href="https://www.google.com/maps?q=${photo.lat},${photo.lng}" target="_blank" rel="noreferrer" class="popup-maps-link">Open in Google Maps ↗</a>`
+    : ''
+
   return `
     <div class="popup-content">
       <div class="popup-title">${escapeHtml(photo.originalName)}</div>
@@ -110,6 +114,7 @@ function buildPopupHtml(photo) {
         <button class="popup-view-btn" data-id="${photo.id}">View photo</button>
         <button class="popup-delete-btn" data-id="${photo.id}">Delete photo</button>
       </div>
+      ${mapsLink}
     </div>
   `
 }
@@ -161,6 +166,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
   const mapInstanceRef = useRef(null)
   const clusterGroupRef = useRef(null)
   const heatmapLayerRef = useRef(null)
+  const routeLayerRef = useRef(null)
   const onDeleteRef = useRef(onDelete)
   const onViewRef = useRef(onView)
   const prevGeoCountRef = useRef(0)
@@ -168,6 +174,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
   const [heatmapActive, setHeatmapActive] = useState(false)
   const [heatMetric, setHeatMetric] = useState('density')
   const [heatControlEl, setHeatControlEl] = useState(null)
+  const [showRoute, setShowRoute] = useState(false)
 
   useEffect(() => {
     onDeleteRef.current = onDelete
@@ -200,9 +207,29 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
       maxZoom: 19
     })
 
+    const dark = L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+        maxZoom: 19
+      }
+    )
+
+    const terrain = L.tileLayer(
+      'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+      {
+        attribution: 'Map data: © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, SRTM | Map style: © <a href="https://opentopomap.org">OpenTopoMap</a>',
+        maxZoom: 17
+      }
+    )
+
     satellite.addTo(map)
 
-    L.control.layers({ Satellite: satellite, Streets: streets }, {}, { position: 'topright' }).addTo(map)
+    L.control.layers(
+      { Satellite: satellite, Streets: streets, Dark: dark, Terrain: terrain },
+      {},
+      { position: 'topright' }
+    ).addTo(map)
 
     const HeatmapControlClass = L.Control.extend({
       onAdd() {
@@ -263,6 +290,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
       mapInstanceRef.current = null
       clusterGroupRef.current = null
       heatmapLayerRef.current = null
+      routeLayerRef.current = null
     }
   }, [])
 
@@ -338,6 +366,39 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
     heatmapLayer.setData({ max: 1, data })
   }, [photos, heatMetric])
 
+  // Draw or remove trip route polyline
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map) return
+
+    if (routeLayerRef.current) {
+      map.removeLayer(routeLayerRef.current)
+      routeLayerRef.current = null
+    }
+
+    if (!showRoute) return
+
+    const geoPhotos = photos
+      .filter(p => p.hasGps && p.lat != null && p.lng != null)
+      .sort((a, b) => {
+        const dateA = a.dateTaken || a.uploadedAt || ''
+        const dateB = b.dateTaken || b.uploadedAt || ''
+        return dateA.localeCompare(dateB)
+      })
+
+    if (geoPhotos.length < 2) return
+
+    const coords = geoPhotos.map(p => [p.lat, p.lng])
+    const polyline = L.polyline(coords, {
+      color: '#e94560',
+      weight: 2,
+      opacity: 0.65,
+      dashArray: '6 4'
+    })
+    polyline.addTo(map)
+    routeLayerRef.current = polyline
+  }, [showRoute, photos])
+
   // Rebuild markers when photos change
   useEffect(() => {
     const clusterGroup = clusterGroupRef.current
@@ -406,6 +467,12 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
       <div ref={mapRef} className="map-container" />
       {heatControlEl && createPortal(
         <div className="heatmap-controls">
+          <button
+            className={`heatmap-toggle${showRoute ? ' active' : ''}`}
+            onClick={() => setShowRoute(r => !r)}
+          >
+            Route
+          </button>
           <button
             className={`heatmap-toggle${heatmapActive ? ' active' : ''}`}
             onClick={() => setHeatmapActive(h => !h)}
