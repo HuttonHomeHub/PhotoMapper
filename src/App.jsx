@@ -5,13 +5,27 @@ import { PhotoMap } from './components/PhotoMap.jsx'
 import { PhotoList } from './components/PhotoList.jsx'
 import { PhotoLightbox } from './components/PhotoLightbox.jsx'
 import { UploadDrawer } from './components/UploadDrawer.jsx'
+import { ElevationProfile } from './components/ElevationProfile.jsx'
 
 const TODAY = new Date().toISOString().slice(0, 10)
 const dateToMs = d => new Date(d + 'T12:00:00Z').getTime()
 const msToDate = ms => new Date(ms).toISOString().slice(0, 10)
 
+// Ray-casting point-in-polygon; polygon is array of {lat, lng}
+function pointInPolygon([lat, lng], polygon) {
+  let inside = false
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].lat, yi = polygon[i].lng
+    const xj = polygon[j].lat, yj = polygon[j].lng
+    if (((yi > lng) !== (yj > lng)) && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi)) {
+      inside = !inside
+    }
+  }
+  return inside
+}
+
 export function App() {
-  const { photos, loading, error, refresh, deletePhoto } = usePhotos()
+  const { photos, loading, error, refresh, deletePhoto, updatePhoto, exportPhotos } = usePhotos()
   const gpsCount = photos.filter(p => p.hasGps).length
 
   const minDate = useMemo(() => {
@@ -28,6 +42,10 @@ export function App() {
   const [locationQuery, setLocationQuery] = useState('')
   const [locationSearching, setLocationSearching] = useState(false)
   const [mapBounds, setMapBounds] = useState(null)
+  const [activeTag, setActiveTag] = useState(null)
+  const [regionPolygon, setRegionPolygon] = useState(null)
+  const [elevationOpen, setElevationOpen] = useState(false)
+  const [hoveredPhotoId, setHoveredPhotoId] = useState(null)
   const mapRef = useRef(null)
 
   // Timeline state
@@ -66,6 +84,12 @@ export function App() {
     if (mapBounds && p.hasGps && p.lat != null && p.lng != null) {
       if (p.lat < mapBounds.south || p.lat > mapBounds.north) return false
       if (p.lng < mapBounds.west || p.lng > mapBounds.east) return false
+    }
+    if (activeTag) {
+      if (!p.tags?.includes(activeTag)) return false
+    }
+    if (regionPolygon && p.hasGps && p.lat != null && p.lng != null) {
+      if (!pointInPolygon([p.lat, p.lng], regionPolygon)) return false
     }
     return true
   })
@@ -252,6 +276,24 @@ export function App() {
           )}
         </div>
 
+        {activeTag && (
+          <div className="map-filter-row">
+            <span className="active-tag-label">Tag: <strong>{activeTag}</strong></span>
+            <button className="date-filter-clear" onClick={() => setActiveTag(null)}>
+              Clear
+            </button>
+          </div>
+        )}
+
+        <div className="export-row">
+          <button className="export-btn" onClick={() => exportPhotos('geojson')} disabled={photos.filter(p => p.hasGps).length === 0}>
+            ↓ GeoJSON
+          </button>
+          <button className="export-btn" onClick={() => exportPhotos('kml')} disabled={photos.filter(p => p.hasGps).length === 0}>
+            ↓ KML
+          </button>
+        </div>
+
         {/* Timeline Player */}
         <div className="timeline-section">
           <button
@@ -300,10 +342,41 @@ export function App() {
           )}
         </div>
 
-        <PhotoList photos={displayPhotos} onDelete={deletePhoto} onView={setViewingPhoto} />
+        <PhotoList
+          photos={displayPhotos}
+          onDelete={deletePhoto}
+          onView={setViewingPhoto}
+          activeTag={activeTag}
+          onTagClick={tag => setActiveTag(prev => prev === tag ? null : tag)}
+        />
       </aside>
 
-      <PhotoMap ref={mapRef} photos={displayPhotos} onDelete={deletePhoto} onView={setViewingPhoto} />
+      <div className="map-panel">
+        <PhotoMap
+          ref={mapRef}
+          photos={displayPhotos}
+          onDelete={deletePhoto}
+          onView={setViewingPhoto}
+          hoveredPhotoId={hoveredPhotoId}
+          onPhotoHover={setHoveredPhotoId}
+          onRegionChange={setRegionPolygon}
+        />
+        {elevationOpen && (
+          <ElevationProfile
+            photos={displayPhotos}
+            hoveredPhotoId={hoveredPhotoId}
+            onHover={setHoveredPhotoId}
+          />
+        )}
+        {displayPhotos.filter(p => p.hasGps && p.altitude != null).length >= 2 && (
+          <button
+            className={`elevation-toggle-btn${elevationOpen ? ' active' : ''}`}
+            onClick={() => setElevationOpen(o => !o)}
+          >
+            {elevationOpen ? '▾ Hide Elevation' : '▴ Elevation Profile'}
+          </button>
+        )}
+      </div>
 
       <UploadDrawer results={results} open={drawerOpen} onClose={() => setDrawerOpen(false)} onClear={() => setResults([])} />
 
@@ -312,6 +385,7 @@ export function App() {
           photo={viewingPhoto}
           photos={displayPhotos}
           onClose={setViewingPhoto}
+          onUpdate={updatePhoto}
         />
       )}
     </div>

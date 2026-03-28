@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export function PhotoList({ photos, onDelete, onView }) {
+export function PhotoList({ photos, onDelete, onView, activeTag, onTagClick }) {
   const [deletingId, setDeletingId] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
 
@@ -38,7 +38,24 @@ export function PhotoList({ photos, onDelete, onView }) {
             </button>
             <div className="photo-list-info">
               <div className="photo-list-name">{photo.originalName}</div>
-              <div className="photo-list-meta">{photo.hasGps ? 'On map' : 'No GPS'}</div>
+              <div className="photo-list-meta">
+                {photo.locationName
+                  ? photo.locationName
+                  : (photo.hasGps ? 'On map' : 'No GPS')}
+              </div>
+              {photo.tags?.length > 0 && (
+                <div className="photo-list-tags">
+                  {photo.tags.slice(0, 3).map(tag => (
+                    <button
+                      key={tag}
+                      className={`tag-chip-sm${activeTag === tag ? ' active' : ''}`}
+                      onClick={e => { e.stopPropagation(); onTagClick?.(tag) }}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <button
               className="photo-list-delete"

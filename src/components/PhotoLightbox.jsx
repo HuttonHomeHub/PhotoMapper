@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 
 function formatDate(iso) {
   if (!iso) return null
@@ -15,9 +15,13 @@ function MetaRow({ label, value }) {
   )
 }
 
-export function PhotoLightbox({ photo, photos, onClose }) {
+export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
   const idx = photos.findIndex(p => p.id === photo.id)
   const [copied, setCopied] = useState(false)
+  const [description, setDescription] = useState(photo.description ?? '')
+  const [tags, setTags] = useState(photo.tags ?? [])
+  const [tagInput, setTagInput] = useState('')
+  const saveTimerRef = useRef(null)
 
   function prev() {
     const i = (idx - 1 + photos.length) % photos.length
@@ -35,20 +39,66 @@ export function PhotoLightbox({ photo, photos, onClose }) {
     setTimeout(() => setCopied(false), 1500)
   }
 
+  // Sync local state when photo changes
+  useEffect(() => {
+    setDescription(photo.description ?? '')
+    setTags(photo.tags ?? [])
+    setTagInput('')
+    setCopied(false)
+  }, [photo?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const scheduleSave = useCallback((newDesc, newTags) => {
+    clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      onUpdate?.(photo.id, { description: newDesc, tags: newTags })
+    }, 600)
+  }, [photo.id, onUpdate])
+
+  useEffect(() => {
+    return () => clearTimeout(saveTimerRef.current)
+  }, [])
+
+  function handleDescriptionChange(e) {
+    const val = e.target.value
+    setDescription(val)
+    scheduleSave(val, tags)
+  }
+
+  function handleTagKeyDown(e) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      addTag()
+    }
+  }
+
+  function addTag() {
+    const trimmed = tagInput.trim().replace(/,+$/, '')
+    if (!trimmed || tags.includes(trimmed)) {
+      setTagInput('')
+      return
+    }
+    const newTags = [...tags, trimmed]
+    setTags(newTags)
+    setTagInput('')
+    scheduleSave(description, newTags)
+  }
+
+  function removeTag(tag) {
+    const newTags = tags.filter(t => t !== tag)
+    setTags(newTags)
+    scheduleSave(description, newTags)
+  }
+
   useEffect(() => {
     function onKey(e) {
       if (e.key === 'Escape') onClose(null)
+      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return
       if (e.key === 'ArrowLeft') prev()
       if (e.key === 'ArrowRight') next()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [photo, photos]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Reset copied state when photo changes
-  useEffect(() => {
-    setCopied(false)
-  }, [photo?.id])
 
   if (!photo) return null
 
@@ -67,6 +117,9 @@ export function PhotoLightbox({ photo, photos, onClose }) {
         />
         <div className="lightbox-meta">
           <div className="lightbox-title">{photo.originalName}</div>
+          {photo.locationName && (
+            <div className="lightbox-location">{photo.locationName}</div>
+          )}
           <MetaRow label="Taken" value={formatDate(photo.dateTaken)} />
           <MetaRow label="Camera" value={[photo.cameraMake, photo.cameraModel].filter(Boolean).join(' ') || null} />
           <MetaRow label="Focal len." value={photo.focalLength != null ? `${photo.focalLength}mm` : null} />
@@ -91,6 +144,33 @@ export function PhotoLightbox({ photo, photos, onClose }) {
               </a>
             </div>
           )}
+
+          <div className="lightbox-field-notes">
+            <div className="lightbox-field-label">Field Notes</div>
+            <textarea
+              className="lightbox-notes-input"
+              placeholder="Add observation notes…"
+              value={description}
+              onChange={handleDescriptionChange}
+              rows={3}
+            />
+            <div className="lightbox-tags-row">
+              {tags.map(tag => (
+                <span key={tag} className="tag-chip">
+                  {tag}
+                  <button className="tag-chip-remove" onClick={() => removeTag(tag)} aria-label={`Remove tag ${tag}`}>×</button>
+                </span>
+              ))}
+              <input
+                className="tag-input"
+                placeholder="Add tag…"
+                value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                onKeyDown={handleTagKeyDown}
+                onBlur={addTag}
+              />
+            </div>
+          </div>
         </div>
         <div className="lightbox-footer">
           <a
