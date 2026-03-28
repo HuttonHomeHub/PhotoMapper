@@ -30,6 +30,12 @@ export function App() {
   const [mapBounds, setMapBounds] = useState(null)
   const mapRef = useRef(null)
 
+  // Timeline state
+  const [timelineActive, setTimelineActive] = useState(false)
+  const [timelineIndex, setTimelineIndex] = useState(0)
+  const [timelinePlaying, setTimelinePlaying] = useState(false)
+  const [timelineSpeed, setTimelineSpeed] = useState(800)
+
   useEffect(() => {
     if (!userTouchedFilter) {
       setDateFrom(minDate || '')
@@ -63,6 +69,44 @@ export function App() {
     }
     return true
   })
+
+  // Timeline: all photos sorted by date for chronological playback
+  const timelineSorted = useMemo(() =>
+    [...photos].sort((a, b) => {
+      const dateA = a.dateTaken || a.uploadedAt || ''
+      const dateB = b.dateTaken || b.uploadedAt || ''
+      return dateA.localeCompare(dateB)
+    }),
+  [photos])
+
+  // Reset timeline when activated
+  useEffect(() => {
+    if (timelineActive) {
+      setTimelineIndex(0)
+      setTimelinePlaying(false)
+    }
+  }, [timelineActive])
+
+  // Timeline auto-advance
+  useEffect(() => {
+    if (!timelinePlaying) return
+    if (timelineIndex >= timelineSorted.length - 1) {
+      setTimelinePlaying(false)
+      return
+    }
+    const timer = setTimeout(() => setTimelineIndex(i => i + 1), timelineSpeed)
+    return () => clearTimeout(timer)
+  }, [timelinePlaying, timelineIndex, timelineSorted.length, timelineSpeed])
+
+  const timelineSlicePhotos = timelineSorted.slice(0, timelineIndex + 1)
+  const currentTimelinePhoto = timelineSorted[timelineIndex]
+  const currentTimelineDate = currentTimelinePhoto
+    ? (currentTimelinePhoto.dateTaken
+        ? new Date(currentTimelinePhoto.dateTaken).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+        : `Photo ${timelineIndex + 1}`)
+    : ''
+
+  const displayPhotos = timelineActive ? timelineSlicePhotos : filteredPhotos
 
   async function handleLocationSearch(e) {
     e.preventDefault()
@@ -208,17 +252,65 @@ export function App() {
           )}
         </div>
 
-        <PhotoList photos={filteredPhotos} onDelete={deletePhoto} onView={setViewingPhoto} />
+        {/* Timeline Player */}
+        <div className="timeline-section">
+          <button
+            className={`timeline-toggle-btn${timelineActive ? ' active' : ''}`}
+            onClick={() => setTimelineActive(a => !a)}
+            disabled={photos.length === 0}
+          >
+            {timelineActive ? '✕ Exit Timeline' : '▷ Timeline'}
+          </button>
+          {timelineActive && (
+            <div className="timeline-controls">
+              <div className="timeline-label">
+                {currentTimelineDate}
+                <span className="timeline-counter">{timelineIndex + 1} / {timelineSorted.length}</span>
+              </div>
+              <input
+                type="range"
+                className="timeline-scrubber"
+                min={0}
+                max={Math.max(0, timelineSorted.length - 1)}
+                value={timelineIndex}
+                onChange={e => {
+                  setTimelineIndex(Number(e.target.value))
+                  setTimelinePlaying(false)
+                }}
+              />
+              <div className="timeline-actions">
+                <button
+                  className="timeline-play-btn"
+                  onClick={() => setTimelinePlaying(p => !p)}
+                  disabled={timelineSorted.length < 2}
+                >
+                  {timelinePlaying ? '⏸ Pause' : '▶ Play'}
+                </button>
+                <select
+                  className="timeline-speed-select"
+                  value={timelineSpeed}
+                  onChange={e => setTimelineSpeed(Number(e.target.value))}
+                >
+                  <option value={1500}>Slow</option>
+                  <option value={800}>Normal</option>
+                  <option value={300}>Fast</option>
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <PhotoList photos={displayPhotos} onDelete={deletePhoto} onView={setViewingPhoto} />
       </aside>
 
-      <PhotoMap ref={mapRef} photos={filteredPhotos} onDelete={deletePhoto} onView={setViewingPhoto} />
+      <PhotoMap ref={mapRef} photos={displayPhotos} onDelete={deletePhoto} onView={setViewingPhoto} />
 
       <UploadDrawer results={results} open={drawerOpen} onClose={() => setDrawerOpen(false)} onClear={() => setResults([])} />
 
       {viewingPhoto && (
         <PhotoLightbox
           photo={viewingPhoto}
-          photos={filteredPhotos}
+          photos={displayPhotos}
           onClose={setViewingPhoto}
         />
       )}

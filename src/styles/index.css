@@ -970,3 +970,210 @@ html, body, #root {
   background: #e94560;
   color: #fff;
 }
+
+/* ── Timeline Player ─────────────────────────────────────────────────── */
+
+.timeline-section {
+  margin: 0 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timeline-toggle-btn {
+  background: none;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  color: #aaa;
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  align-self: flex-start;
+}
+
+.timeline-toggle-btn:hover:not(:disabled) {
+  border-color: #e94560;
+  color: #e94560;
+}
+
+.timeline-toggle-btn.active {
+  border-color: #e94560;
+  color: #e94560;
+}
+
+.timeline-toggle-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.timeline-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: #0f1b33;
+  border: 1px solid #0f3460;
+  border-radius: 8px;
+}
+
+.timeline-label {
+  font-size: 11px;
+  color: #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.timeline-counter {
+  color: #888;
+  font-size: 10px;
+}
+
+.timeline-scrubber {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #1e3a5f;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.timeline-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e94560;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 0 4px rgba(233, 69, 96, 0.5);
+}
+
+.timeline-scrubber::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e94560;
+  cursor: pointer;
+  border: 2px solid #fff;
+}
+
+.timeline-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeline-play-btn {
+  background: #e94560;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 11px;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.timeline-play-btn:hover:not(:disabled) {
+  background: #c73652;
+}
+
+.timeline-play-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.timeline-speed-select {
+  background: #16213e;
+  color: #ccc;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  outline: none;
+}
+
+.timeline-speed-select:focus {
+  border-color: #e94560;
+}
+
+/* ── Lightbox footer (download) ──────────────────────────────────────── */
+
+.lightbox-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 8px 16px;
+  border-top: 1px solid #0f3460;
+  flex-shrink: 0;
+}
+
+.lightbox-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  color: #aaa;
+  font-size: 11px;
+  padding: 4px 12px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.lightbox-download-btn:hover {
+  border-color: #e94560;
+  color: #e94560;
+}
+
+/* ── Lightbox GPS actions ────────────────────────────────────────────── */
+
+.lightbox-gps-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.lightbox-gps-btn {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: 1px solid #0f3460;
+  border-radius: 5px;
+  color: #888;
+  font-size: 10px;
+  padding: 2px 8px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color 0.15s, color 0.15s;
+  font-family: inherit;
+}
+
+.lightbox-gps-btn:hover {
+  border-color: #e94560;
+  color: #e94560;
+}
+
+/* ── Popup Google Maps link ──────────────────────────────────────────── */
+
+.popup-maps-link {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #e94560;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.popup-maps-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
