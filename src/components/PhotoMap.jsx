@@ -575,7 +575,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
         if (viewBtn) {
           viewBtn.addEventListener('click', () => {
             onViewRef.current?.(photo)
-          })
+          }, { once: true })
         }
 
         const deleteBtn = el.querySelector('.popup-delete-btn')
@@ -592,7 +592,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
             deleteBtn.textContent = 'Delete photo'
             alert(`Could not delete: ${err.message}`)
           }
-        })
+        }, { once: true })
       })
 
       marker.on('mouseover', () => onPhotoHover?.(photo.id))

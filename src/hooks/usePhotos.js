@@ -22,29 +22,25 @@ export function usePhotos() {
     }
   }, [])
 
-  async function fetchPhotos() {
-    const res = await fetch('/api/photos')
-    const data = await res.json()
-    setPhotos(data)
-  }
-
-  async function fetchCollections() {
+  const fetchCollections = useCallback(async () => {
     const res = await fetch('/api/collections')
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     setCollections(data)
-  }
+  }, [])
 
-  async function fetchProjects() {
+  const fetchProjects = useCallback(async () => {
     const res = await fetch('/api/projects')
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     setProjects(data)
-  }
+  }, [])
 
   useEffect(() => {
     refresh()
-    fetchCollections()
-    fetchProjects()
-  }, [refresh])
+    fetchCollections().catch(() => {})
+    fetchProjects().catch(() => {})
+  }, [refresh, fetchCollections, fetchProjects])
 
   const deletePhoto = useCallback(async (id) => {
     const res = await fetch(`/api/photos/${id}`, { method: 'DELETE' })
@@ -83,6 +79,10 @@ export function usePhotos() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, description, color })
     })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `HTTP ${res.status}`)
+    }
     const collection = await res.json()
     setCollections(prev => [...prev, collection])
     return collection
@@ -94,6 +94,10 @@ export function usePhotos() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(changes)
     })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `HTTP ${res.status}`)
+    }
     const updated = await res.json()
     setCollections(prev => prev.map(c => c.id === id ? updated : c))
   }
@@ -104,33 +108,45 @@ export function usePhotos() {
   }
 
   async function addPhotosToCollection(collectionId, photoIds) {
-    await fetch(`/api/collections/${collectionId}/photos`, {
+    const res = await fetch(`/api/collections/${collectionId}/photos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ photoIds })
     })
-    fetchPhotos()
-    fetchCollections()
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `HTTP ${res.status}`)
+    }
+    await refresh()
+    await fetchCollections()
   }
 
   async function removePhotoFromCollection(collectionId, photoId) {
-    await fetch(`/api/collections/${collectionId}/photos/${photoId}`, { method: 'DELETE' })
-    fetchPhotos()
-    fetchCollections()
+    const res = await fetch(`/api/collections/${collectionId}/photos/${photoId}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `HTTP ${res.status}`)
+    }
+    await refresh()
+    await fetchCollections()
   }
 
   async function batchUpdate(ids, { tags, description, mergeTags }) {
-    await fetch('/api/photos/batch', {
+    const res = await fetch('/api/photos/batch', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids, tags, description, mergeTags })
     })
-    fetchPhotos()
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `HTTP ${res.status}`)
+    }
+    await refresh()
   }
 
   async function batchDelete(ids) {
     await Promise.all(ids.map(id => fetch(`/api/photos/${id}`, { method: 'DELETE' })))
-    fetchPhotos()
+    await refresh()
   }
 
   async function createProject(data) {
@@ -139,6 +155,10 @@ export function usePhotos() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `HTTP ${res.status}`)
+    }
     const project = await res.json()
     setProjects(prev => [project, ...prev])
     return project
@@ -150,6 +170,10 @@ export function usePhotos() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(changes)
     })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `HTTP ${res.status}`)
+    }
     const updated = await res.json()
     setProjects(prev => prev.map(p => p.id === id ? updated : p))
   }
@@ -157,17 +181,21 @@ export function usePhotos() {
   async function deleteProject(id) {
     await fetch(`/api/projects/${id}`, { method: 'DELETE' })
     setProjects(prev => prev.filter(p => p.id !== id))
-    fetchPhotos()
+    await refresh()
   }
 
   async function assignToProject(projectId, photoIds) {
-    await fetch(`/api/projects/${projectId}/photos`, {
+    const res = await fetch(`/api/projects/${projectId}/photos`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ photoIds })
     })
-    fetchPhotos()
-    fetchProjects()
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `HTTP ${res.status}`)
+    }
+    await refresh()
+    await fetchProjects()
   }
 
   return {
