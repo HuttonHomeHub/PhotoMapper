@@ -220,7 +220,7 @@ export function App() {
 
         {error && <div className="error-banner">Failed to load photos. Please refresh.</div>}
 
-        <DropZone onUploadComplete={refresh} setResults={setResults} openDrawer={() => setDrawerOpen(true)} projects={projects} />
+        <DropZone onUploadComplete={refresh} setResults={setResults} openDrawer={() => setDrawerOpen(true)} projects={projects} activeProjectId={activeProjectId} />
 
         {!loading && (
           <div className="photo-count">

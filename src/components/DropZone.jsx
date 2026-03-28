@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 async function hashFile(file) {
   const buffer = await file.arrayBuffer()
@@ -8,10 +8,14 @@ async function hashFile(file) {
     .join('')
 }
 
-export function DropZone({ onUploadComplete, setResults, openDrawer, projects = [] }) {
+export function DropZone({ onUploadComplete, setResults, openDrawer, projects = [], activeProjectId }) {
   const [isDragOver, setIsDragOver] = useState(false)
-  const [selectedProjectId, setSelectedProjectId] = useState('')
+  const [selectedProjectId, setSelectedProjectId] = useState(activeProjectId || '')
   const inputRef = useRef(null)
+
+  useEffect(() => {
+    setSelectedProjectId(activeProjectId || '')
+  }, [activeProjectId])
 
   async function uploadFile(file) {
     const hash = await hashFile(file)
