@@ -33,5 +33,27 @@ export function usePhotos() {
     setPhotos(prev => prev.filter(p => p.id !== id))
   }, [])
 
-  return { photos, loading, error, refresh, deletePhoto }
+  const updatePhoto = useCallback(async (id, fields) => {
+    const res = await fetch(`/api/photos/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fields)
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `HTTP ${res.status}`)
+    }
+    const updated = await res.json()
+    setPhotos(prev => prev.map(p => p.id === id ? updated : p))
+    return updated
+  }, [])
+
+  const exportPhotos = useCallback((format = 'geojson') => {
+    const a = document.createElement('a')
+    a.href = `/api/photos/export?format=${format}`
+    a.download = `photos.${format}`
+    a.click()
+  }, [])
+
+  return { photos, loading, error, refresh, deletePhoto, updatePhoto, exportPhotos }
 }

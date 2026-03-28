@@ -9,7 +9,7 @@ import { createHash } from 'crypto'
 import { v4 as uuidv4 } from 'uuid'
 import exifr from 'exifr'
 import sharp from 'sharp'
-import { insertPhoto, getAllPhotos, getPhotoById, deletePhoto, getPhotoByHash } from './db.js'
+import { insertPhoto, getAllPhotos, getPhotoById, deletePhoto, getPhotoByHash, updatePhoto } from './db.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const uploadsDir = join(__dirname, 'uploads')
@@ -86,6 +86,27 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
 
   const hasGps = exif.latitude != null && exif.longitude != null
 
+  let locationName = null
+  if (hasGps) {
+    try {
+      const geoRes = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${exif.latitude}&lon=${exif.longitude}`,
+        { headers: { 'User-Agent': 'fuzzy-guide/1.0' } }
+      )
+      if (geoRes.ok) {
+        const geoData = await geoRes.json()
+        const addr = geoData.address || {}
+        const parts = [
+          addr.city || addr.town || addr.village || addr.county,
+          addr.state || addr.country
+        ].filter(Boolean)
+        locationName = parts.slice(0, 2).join(', ') || geoData.display_name?.split(',')[0] || null
+      }
+    } catch {
+      // Reverse geocode failure is non-fatal
+    }
+  }
+
   let exposureTime = null
   if (exif.ExposureTime != null) {
     const et = exif.ExposureTime
@@ -129,7 +150,8 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
     fNumber: exif.FNumber ?? null,
     iso: exif.ISO ?? null,
     exposureTime,
-    fileHash
+    fileHash,
+    locationName
   }
 
   try {
@@ -146,12 +168,88 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
 
   res.status(201).json({
     ...record,
-    hasGps: !!record.hasGps
+    hasGps: !!record.hasGps,
+    tags: [],
+    description: null
   })
 })
 
 app.get('/api/photos', (_req, res) => {
   res.json(getAllPhotos())
+})
+
+app.get('/api/photos/export', (req, res) => {
+  const format = req.query.format === 'kml' ? 'kml' : 'geojson'
+  const photos = getAllPhotos().filter(p => p.hasGps && p.lat != null && p.lng != null)
+
+  if (format === 'geojson') {
+    const fc = {
+      type: 'FeatureCollection',
+      features: photos.map(p => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [p.lng, p.lat, p.altitude ?? 0] },
+        properties: {
+          id: p.id,
+          name: p.originalName,
+          dateTaken: p.dateTaken,
+          uploadedAt: p.uploadedAt,
+          cameraMake: p.cameraMake,
+          cameraModel: p.cameraModel,
+          focalLength: p.focalLength,
+          fNumber: p.fNumber,
+          iso: p.iso,
+          exposureTime: p.exposureTime,
+          altitude: p.altitude,
+          imgDirection: p.imgDirection,
+          locationName: p.locationName,
+          description: p.description,
+          tags: p.tags
+        }
+      }))
+    }
+    res.setHeader('Content-Disposition', 'attachment; filename="photos.geojson"')
+    res.setHeader('Content-Type', 'application/geo+json')
+    return res.json(fc)
+  }
+
+  // KML
+  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  const placemarks = photos.map(p => {
+    const extData = [
+      p.dateTaken && `<Data name="dateTaken"><value>${esc(p.dateTaken)}</value></Data>`,
+      p.cameraMake && `<Data name="camera"><value>${esc([p.cameraMake, p.cameraModel].filter(Boolean).join(' '))}</value></Data>`,
+      p.altitude != null && `<Data name="altitude"><value>${p.altitude}m</value></Data>`,
+      p.locationName && `<Data name="location"><value>${esc(p.locationName)}</value></Data>`,
+      p.description && `<Data name="description"><value>${esc(p.description)}</value></Data>`,
+      p.tags?.length && `<Data name="tags"><value>${esc(p.tags.join(', '))}</value></Data>`
+    ].filter(Boolean).join('\n      ')
+    return `  <Placemark>
+    <name>${esc(p.originalName)}</name>
+    <ExtendedData>${extData ? `\n      ${extData}\n    ` : ''}</ExtendedData>
+    <Point><coordinates>${p.lng},${p.lat},${p.altitude ?? 0}</coordinates></Point>
+  </Placemark>`
+  }).join('\n')
+
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document>
+  <name>Photo Locations</name>
+${placemarks}
+</Document>
+</kml>`
+
+  res.setHeader('Content-Disposition', 'attachment; filename="photos.kml"')
+  res.setHeader('Content-Type', 'application/vnd.google-earth.kml+xml')
+  res.send(kml)
+})
+
+app.patch('/api/photos/:id', (req, res) => {
+  const photo = getPhotoById(req.params.id)
+  if (!photo) return res.status(404).json({ error: 'Photo not found' })
+  const { description, tags } = req.body
+  updatePhoto(req.params.id, { description, tags })
+  const updated = getAllPhotos().find(p => p.id === req.params.id)
+  res.json(updated)
 })
 
 app.get('/api/photos/check-hash', (req, res) => {

@@ -1177,3 +1177,252 @@ html, body, #root {
   opacity: 0.8;
   text-decoration: underline;
 }
+
+/* ── Map panel wrapper (map + elevation) ─────────────────────────────── */
+
+.map-panel {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.map-panel .map-container {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+/* ── Elevation profile ───────────────────────────────────────────────── */
+
+.elevation-panel {
+  flex-shrink: 0;
+  background: #16213e;
+  border-top: 1px solid #0f3460;
+  padding: 6px 12px 4px;
+}
+
+.elevation-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.elevation-stats span {
+  white-space: nowrap;
+}
+
+.elevation-svg {
+  display: block;
+  width: 100%;
+  height: 120px;
+}
+
+.elevation-toggle-btn {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  color: #aaa;
+  font-size: 11px;
+  padding: 3px 12px;
+  cursor: pointer;
+  z-index: 500;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.elevation-toggle-btn:hover,
+.elevation-toggle-btn.active {
+  color: #e94560;
+  border-color: #e94560;
+}
+
+/* ── Pin highlight (from elevation hover) ────────────────────────────── */
+
+.pin-highlighted .pin-thumbnail {
+  border-color: #e94560 !important;
+  box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.5), 0 2px 8px rgba(0,0,0,0.5);
+}
+
+/* ── Draw region hint ────────────────────────────────────────────────── */
+
+.draw-hint {
+  font-size: 10px;
+  color: #e94560;
+  text-align: right;
+  padding: 2px 0 0;
+  white-space: nowrap;
+}
+
+/* ── Export buttons ──────────────────────────────────────────────────── */
+
+.export-row {
+  margin: 0 16px 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.export-btn {
+  background: none;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  color: #aaa;
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.export-btn:hover:not(:disabled) {
+  border-color: #e94560;
+  color: #e94560;
+}
+
+.export-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Active tag filter label ─────────────────────────────────────────── */
+
+.active-tag-label {
+  font-size: 11px;
+  color: #888;
+}
+
+.active-tag-label strong {
+  color: #e94560;
+}
+
+/* ── Tag chips (lightbox) ────────────────────────────────────────────── */
+
+.lightbox-field-notes {
+  margin-top: 10px;
+  border-top: 1px solid #0f3460;
+  padding-top: 8px;
+}
+
+.lightbox-field-label {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.lightbox-notes-input {
+  width: 100%;
+  background: #0f1b35;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 12px;
+  padding: 6px 8px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
+.lightbox-notes-input:focus {
+  outline: none;
+  border-color: #e94560;
+}
+
+.lightbox-location {
+  font-size: 11px;
+  color: #e94560;
+  margin-bottom: 4px;
+  opacity: 0.8;
+}
+
+.lightbox-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  align-items: center;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(233, 69, 96, 0.15);
+  border: 1px solid rgba(233, 69, 96, 0.4);
+  border-radius: 12px;
+  color: #e94560;
+  font-size: 11px;
+  padding: 2px 8px 2px 10px;
+}
+
+.tag-chip-remove {
+  background: none;
+  border: none;
+  color: #e94560;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.1s;
+}
+
+.tag-chip-remove:hover {
+  opacity: 1;
+}
+
+.tag-input {
+  background: #0f1b35;
+  border: 1px solid #0f3460;
+  border-radius: 12px;
+  color: #e0e0e0;
+  font-size: 11px;
+  padding: 2px 10px;
+  min-width: 80px;
+  max-width: 120px;
+}
+
+.tag-input:focus {
+  outline: none;
+  border-color: #e94560;
+}
+
+.tag-input::placeholder {
+  color: #555;
+}
+
+/* ── Tag chips in photo list ─────────────────────────────────────────── */
+
+.photo-list-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 3px;
+}
+
+.tag-chip-sm {
+  display: inline-block;
+  background: rgba(233, 69, 96, 0.1);
+  border: 1px solid rgba(233, 69, 96, 0.3);
+  border-radius: 10px;
+  color: #c06070;
+  font-size: 10px;
+  padding: 1px 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  font-family: inherit;
+}
+
+.tag-chip-sm:hover,
+.tag-chip-sm.active {
+  background: rgba(233, 69, 96, 0.25);
+  border-color: #e94560;
+  color: #e94560;
+}

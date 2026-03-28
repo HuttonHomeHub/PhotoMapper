@@ -161,28 +161,30 @@ function createClusterIcon(cluster) {
   })
 }
 
-export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView }, ref) {
+export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView, hoveredPhotoId, onPhotoHover, onRegionChange }, ref) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const clusterGroupRef = useRef(null)
   const heatmapLayerRef = useRef(null)
   const routeLayerRef = useRef(null)
+  const regionLayerRef = useRef(null)
+  const markersRef = useRef({})
   const onDeleteRef = useRef(onDelete)
   const onViewRef = useRef(onView)
+  const onRegionChangeRef = useRef(onRegionChange)
   const prevGeoCountRef = useRef(0)
 
   const [heatmapActive, setHeatmapActive] = useState(false)
   const [heatMetric, setHeatMetric] = useState('density')
   const [heatControlEl, setHeatControlEl] = useState(null)
   const [showRoute, setShowRoute] = useState(false)
+  const [drawMode, setDrawMode] = useState(false)
+  const [hasRegion, setHasRegion] = useState(false)
+  const drawStateRef = useRef({ active: false, vertices: [], previewLayer: null })
 
-  useEffect(() => {
-    onDeleteRef.current = onDelete
-  }, [onDelete])
-
-  useEffect(() => {
-    onViewRef.current = onView
-  }, [onView])
+  useEffect(() => { onDeleteRef.current = onDelete }, [onDelete])
+  useEffect(() => { onViewRef.current = onView }, [onView])
+  useEffect(() => { onRegionChangeRef.current = onRegionChange }, [onRegionChange])
 
   // Initialise map once
   useEffect(() => {
@@ -304,6 +306,15 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
     }
   }))
 
+  // Highlight hovered marker from elevation chart
+  useEffect(() => {
+    Object.entries(markersRef.current).forEach(([id, marker]) => {
+      const el = marker.getElement()
+      if (!el) return
+      el.classList.toggle('pin-highlighted', id === hoveredPhotoId)
+    })
+  }, [hoveredPhotoId])
+
   // Toggle between markers and heatmap
   useEffect(() => {
     const map = mapInstanceRef.current
@@ -399,6 +410,82 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
     routeLayerRef.current = polyline
   }, [showRoute, photos])
 
+  // Draw region mode
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map) return
+
+    const ds = drawStateRef.current
+    ds.active = drawMode
+
+    if (!drawMode) {
+      // Clean up preview layer if draw mode was cancelled without completing
+      if (ds.previewLayer) {
+        map.removeLayer(ds.previewLayer)
+        ds.previewLayer = null
+      }
+      ds.vertices = []
+      map.getContainer().style.cursor = ''
+      map.off('click', onMapClick)
+      map.off('dblclick', onMapDblClick)
+      return
+    }
+
+    map.getContainer().style.cursor = 'crosshair'
+    ds.vertices = []
+
+    function onMapClick(e) {
+      if (!ds.active) return
+      ds.vertices.push(e.latlng)
+
+      if (ds.previewLayer) map.removeLayer(ds.previewLayer)
+      if (ds.vertices.length >= 2) {
+        ds.previewLayer = L.polygon(ds.vertices, {
+          color: '#e94560',
+          weight: 2,
+          fillOpacity: 0.1,
+          dashArray: '6 4'
+        }).addTo(map)
+      }
+    }
+
+    function onMapDblClick(e) {
+      if (!ds.active || ds.vertices.length < 3) return
+      L.DomEvent.stopPropagation(e)
+
+      // Remove the last point added by the click that precedes dblclick
+      ds.vertices.pop()
+
+      if (ds.previewLayer) {
+        map.removeLayer(ds.previewLayer)
+        ds.previewLayer = null
+      }
+
+      // Finalise region
+      const finalPoly = L.polygon(ds.vertices, {
+        color: '#e94560',
+        weight: 2,
+        fillOpacity: 0.08
+      }).addTo(map)
+
+      if (regionLayerRef.current) map.removeLayer(regionLayerRef.current)
+      regionLayerRef.current = finalPoly
+
+      const latLngs = ds.vertices.map(ll => ({ lat: ll.lat, lng: ll.lng }))
+      onRegionChangeRef.current?.(latLngs)
+      setHasRegion(true)
+      setDrawMode(false)
+    }
+
+    map.on('click', onMapClick)
+    map.on('dblclick', onMapDblClick)
+
+    return () => {
+      map.off('click', onMapClick)
+      map.off('dblclick', onMapDblClick)
+    }
+  }, [drawMode])
+
   // Rebuild markers when photos change
   useEffect(() => {
     const clusterGroup = clusterGroupRef.current
@@ -406,6 +493,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
     if (!clusterGroup || !map) return
 
     clusterGroup.clearLayers()
+    markersRef.current = {}
 
     const geoPhotos = photos.filter(p => p.hasGps && p.lat != null && p.lng != null)
 
@@ -419,6 +507,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
       const marker = L.marker([photo.lat, photo.lng], {
         icon: createPhotoIcon(photo)
       })
+      markersRef.current[photo.id] = marker
 
       const popup = L.popup({ maxWidth: 280 }).setContent(buildPopupHtml(photo))
 
@@ -450,6 +539,8 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
         })
       })
 
+      marker.on('mouseover', () => onPhotoHover?.(photo.id))
+      marker.on('mouseout', () => onPhotoHover?.(null))
       marker.bindPopup(popup)
       clusterGroup.addLayer(marker)
     })
@@ -461,6 +552,17 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
     }
     prevGeoCountRef.current = geoPhotos.length
   }, [photos])
+
+  function clearRegion() {
+    const map = mapInstanceRef.current
+    if (regionLayerRef.current && map) {
+      map.removeLayer(regionLayerRef.current)
+      regionLayerRef.current = null
+    }
+    setHasRegion(false)
+    setDrawMode(false)
+    onRegionChangeRef.current?.(null)
+  }
 
   return (
     <>
@@ -489,6 +591,19 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView 
                 <option key={m.key} value={m.key}>{m.label}</option>
               ))}
             </select>
+          )}
+          <button
+            className={`heatmap-toggle${drawMode ? ' active' : ''}`}
+            onClick={() => {
+              if (hasRegion) { clearRegion(); return }
+              setDrawMode(d => !d)
+            }}
+            title={drawMode ? 'Click map to add vertices, double-click to finish' : hasRegion ? 'Clear region filter' : 'Draw region filter'}
+          >
+            {drawMode ? '✕ Cancel Draw' : hasRegion ? '✕ Clear Region' : '⬡ Draw Region'}
+          </button>
+          {drawMode && (
+            <div className="draw-hint">Click to add points · Double-click to finish</div>
           )}
         </div>,
         heatControlEl

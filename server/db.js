@@ -48,17 +48,37 @@ try {
   // Index already exists — ignore
 }
 
+// Migrate: add location_name for reverse geocoding
+try {
+  db.exec('ALTER TABLE photos ADD COLUMN location_name TEXT')
+} catch {
+  // Column already exists — ignore
+}
+
+// Migrate: add description and tags for field notes
+try {
+  db.exec('ALTER TABLE photos ADD COLUMN description TEXT')
+} catch {
+  // Column already exists — ignore
+}
+
+try {
+  db.exec('ALTER TABLE photos ADD COLUMN tags TEXT')
+} catch {
+  // Column already exists — ignore
+}
+
 const insertStmt = db.prepare(`
   INSERT INTO photos (
     id, filename, thumbnail_filename, original_name, uploaded_at, has_gps,
     lat, lng, altitude, img_direction,
     date_taken, camera_make, camera_model,
-    focal_length, f_number, iso, exposure_time, file_hash
+    focal_length, f_number, iso, exposure_time, file_hash, location_name
   ) VALUES (
     @id, @filename, @thumbnailFilename, @originalName, @uploadedAt, @hasGps,
     @lat, @lng, @altitude, @imgDirection,
     @dateTaken, @cameraMake, @cameraModel,
-    @focalLength, @fNumber, @iso, @exposureTime, @fileHash
+    @focalLength, @fNumber, @iso, @exposureTime, @fileHash, @locationName
   )
 `)
 
@@ -66,6 +86,13 @@ const selectAllStmt = db.prepare('SELECT * FROM photos ORDER BY uploaded_at DESC
 const selectByIdStmt = db.prepare('SELECT id, filename, thumbnail_filename FROM photos WHERE id = ?')
 const selectByHashStmt = db.prepare('SELECT * FROM photos WHERE file_hash = ?')
 const deleteStmt = db.prepare('DELETE FROM photos WHERE id = ?')
+const updateStmt = db.prepare(`
+  UPDATE photos
+  SET description = COALESCE(@description, description),
+      tags        = COALESCE(@tags, tags),
+      location_name = COALESCE(@locationName, location_name)
+  WHERE id = @id
+`)
 
 export function insertPhoto(record) {
   insertStmt.run(record)
@@ -91,8 +118,20 @@ export function getPhotoByHash(hash) {
     focalLength: row.focal_length,
     fNumber: row.f_number,
     iso: row.iso,
-    exposureTime: row.exposure_time
+    exposureTime: row.exposure_time,
+    locationName: row.location_name ?? null,
+    description: row.description ?? null,
+    tags: row.tags ? JSON.parse(row.tags) : []
   }
+}
+
+export function updatePhoto(id, { description, tags, locationName } = {}) {
+  updateStmt.run({
+    id,
+    description: description ?? null,
+    tags: tags != null ? JSON.stringify(tags) : null,
+    locationName: locationName ?? null
+  })
 }
 
 export function getPhotoById(id) {
@@ -127,6 +166,9 @@ export function getAllPhotos() {
     focalLength: row.focal_length,
     fNumber: row.f_number,
     iso: row.iso,
-    exposureTime: row.exposure_time
+    exposureTime: row.exposure_time,
+    locationName: row.location_name ?? null,
+    description: row.description ?? null,
+    tags: row.tags ? JSON.parse(row.tags) : []
   }))
 }
