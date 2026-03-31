@@ -1,21 +1,70 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import React from 'react'
 import { useFocusTrap } from '../hooks/useFocusTrap.js'
+import { ConfirmModal } from './ConfirmModal.jsx'
+
+function SkeletonRow() {
+  return (
+    <div className="photo-list-item skeleton-item" aria-hidden="true">
+      <div className="skeleton skeleton-thumb" />
+      <div className="photo-list-info">
+        <div className="skeleton skeleton-line skeleton-line-long" />
+        <div className="skeleton skeleton-line skeleton-line-short" />
+      </div>
+    </div>
+  )
+}
 
 export function PhotoList({
-  photos, onDelete, onView, activeTag, onTagClick,
+  photos, loading, onDelete, onView, activeTag, onTagClick,
   selectionMode, selectedPhotoIds, onToggleSelection,
   onToggleSelectionMode, onBatchUpdate, onBatchDelete, onBatchAddToCollection,
   collections, activeCollectionId,
-  comparingPhotoId, onCompareClick
+  comparingPhotoId, onCompareClick,
+  toast, hasActiveFilters, onClearAllFilters,
+  timelinePhotoId
 }) {
   const [deletingId, setDeletingId] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
   const confirmTrapRef = useFocusTrap(!!pendingDelete)
   const [tagPromptOpen, setTagPromptOpen] = React.useState(false)
   const [batchTagValue, setBatchTagValue] = React.useState('')
+  const [batchConfirmOpen, setBatchConfirmOpen] = React.useState(false)
+  const [batchProgress, setBatchProgress] = React.useState(null) // {done, total}
+  const [searchQuery, setSearchQuery] = React.useState('')
+  const [sortBy, setSortBy] = React.useState('default')
+  const listRef = useRef(null)
 
+  // Scroll timeline-active photo into view
+  React.useEffect(() => {
+    if (!timelinePhotoId || !listRef.current) return
+    const el = listRef.current.querySelector(`[data-photo-id="${timelinePhotoId}"]`)
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [timelinePhotoId])
+
+  // Loading skeleton
+  if (loading) {
+    return (
+      <div className="photo-list" aria-label="Loading photos…">
+        {Array.from({ length: 6 }, (_, i) => <SkeletonRow key={i} />)}
+      </div>
+    )
+  }
+
+  // Empty states
   if (!photos.length) {
+    if (hasActiveFilters) {
+      return (
+        <div className="photo-list-empty">
+          <div className="photo-list-empty-icon">🔍</div>
+          <p className="photo-list-empty-title">No photos match your filters</p>
+          <p className="photo-list-empty-sub">Try adjusting or clearing your filters.</p>
+          <button className="date-filter-clear" style={{ marginTop: 12 }} onClick={onClearAllFilters}>
+            Clear all filters
+          </button>
+        </div>
+      )
+    }
     return (
       <div className="photo-list-empty">
         <div className="photo-list-empty-icon">🗺️</div>
@@ -25,6 +74,29 @@ export function PhotoList({
         </p>
       </div>
     )
+  }
+
+  // Search + sort
+  let displayed = photos
+  if (searchQuery.trim()) {
+    const q = searchQuery.trim().toLowerCase()
+    displayed = displayed.filter(p =>
+      p.originalName?.toLowerCase().includes(q) ||
+      p.description?.toLowerCase().includes(q) ||
+      p.tags?.some(t => t.toLowerCase().includes(q)) ||
+      p.locationName?.toLowerCase().includes(q)
+    )
+  }
+  if (sortBy === 'name-asc') {
+    displayed = [...displayed].sort((a, b) => (a.originalName ?? '').localeCompare(b.originalName ?? ''))
+  } else if (sortBy === 'name-desc') {
+    displayed = [...displayed].sort((a, b) => (b.originalName ?? '').localeCompare(a.originalName ?? ''))
+  } else if (sortBy === 'date-asc') {
+    displayed = [...displayed].sort((a, b) => (a.dateTaken ?? a.uploadedAt ?? '').localeCompare(b.dateTaken ?? b.uploadedAt ?? ''))
+  } else if (sortBy === 'date-desc') {
+    displayed = [...displayed].sort((a, b) => (b.dateTaken ?? b.uploadedAt ?? '').localeCompare(a.dateTaken ?? a.uploadedAt ?? ''))
+  } else if (sortBy === 'gps-first') {
+    displayed = [...displayed].sort((a, b) => (b.hasGps ? 1 : 0) - (a.hasGps ? 1 : 0))
   }
 
   async function handleDelete(photo) {
@@ -37,20 +109,81 @@ export function PhotoList({
     setDeletingId(photo.id)
     try {
       await onDelete(photo.id)
+      toast?.('Photo deleted', 'success')
     } catch (err) {
-      alert(`Could not delete: ${err.message}`)
+      toast?.(`Could not delete: ${err.message}`, 'error')
     } finally {
       setDeletingId(null)
     }
   }
 
+  async function handleBatchDelete() {
+    const ids = [...selectedPhotoIds]
+    setBatchConfirmOpen(false)
+    setBatchProgress({ done: 0, total: ids.length })
+    const failures = []
+    for (let i = 0; i < ids.length; i++) {
+      try {
+        await onDelete(ids[i])
+      } catch {
+        failures.push(ids[i])
+      }
+      setBatchProgress({ done: i + 1, total: ids.length })
+    }
+    setBatchProgress(null)
+    if (failures.length === 0) {
+      toast?.(`${ids.length} photo${ids.length !== 1 ? 's' : ''} deleted`, 'success')
+    } else {
+      toast?.(`${ids.length - failures.length} deleted, ${failures.length} failed`, 'error')
+    }
+  }
+
+  function handleKeyDown(e, photo, idx) {
+    if (e.key === 'Enter') { onView(photo); return }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      const items = listRef.current?.querySelectorAll('[data-photo-item]')
+      items?.[idx + 1]?.focus()
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      const items = listRef.current?.querySelectorAll('[data-photo-item]')
+      items?.[idx - 1]?.focus()
+    }
+  }
+
   return (
     <>
+      <div className="photo-list-search-row">
+        <input
+          className="photo-list-search-input"
+          type="search"
+          placeholder="Search photos…"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          aria-label="Search photos by name, tag, or location"
+        />
+        <select
+          className="photo-list-sort-select"
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value)}
+          aria-label="Sort photos"
+        >
+          <option value="default">Default order</option>
+          <option value="date-desc">Newest first</option>
+          <option value="date-asc">Oldest first</option>
+          <option value="name-asc">Name A–Z</option>
+          <option value="name-desc">Name Z–A</option>
+          <option value="gps-first">GPS first</option>
+        </select>
+      </div>
+
       <div className="photo-list-header-row">
         <button
           className={`select-mode-btn${selectionMode ? ' active' : ''}`}
           onClick={onToggleSelectionMode}
-          title="Multi-select photos"
+          title={selectionMode ? 'Exit selection mode' : 'Multi-select photos'}
+          aria-pressed={selectionMode}
         >
           {selectionMode ? 'Cancel' : 'Select'}
         </button>
@@ -59,78 +192,105 @@ export function PhotoList({
             Pick a second photo to compare
           </div>
         )}
+        <span className="photo-count-label">{displayed.length} photo{displayed.length !== 1 ? 's' : ''}</span>
       </div>
 
       {selectedPhotoIds?.size > 0 && (
         <div className="selection-toolbar">
           <span className="selection-count">{selectedPhotoIds.size} selected</span>
-          {tagPromptOpen ? (
-            <span className="batch-tag-inline">
-              <input
-                className="batch-tag-input"
-                autoFocus
-                placeholder="Tag name"
-                value={batchTagValue}
-                onChange={e => setBatchTagValue(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && batchTagValue.trim()) {
-                    onBatchUpdate([...selectedPhotoIds], { tags: [batchTagValue.trim()], mergeTags: true })
-                    setBatchTagValue('')
-                    setTagPromptOpen(false)
-                  }
-                  if (e.key === 'Escape') {
-                    setBatchTagValue('')
-                    setTagPromptOpen(false)
-                  }
-                }}
-              />
-              <button
-                className="sel-action-btn"
-                onClick={() => { setBatchTagValue(''); setTagPromptOpen(false) }}
-              >✕</button>
+          {batchProgress ? (
+            <span className="batch-progress">
+              Deleting {batchProgress.done}/{batchProgress.total}…
             </span>
           ) : (
-            <button className="sel-action-btn" onClick={() => setTagPromptOpen(true)}>+ Tag</button>
+            <>
+              {tagPromptOpen ? (
+                <span className="batch-tag-inline">
+                  <input
+                    className="batch-tag-input"
+                    autoFocus
+                    placeholder="Tag name"
+                    value={batchTagValue}
+                    onChange={e => setBatchTagValue(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && batchTagValue.trim()) {
+                        onBatchUpdate([...selectedPhotoIds], { tags: [batchTagValue.trim()], mergeTags: true })
+                        toast?.(`Tag "${batchTagValue.trim()}" added to ${selectedPhotoIds.size} photo${selectedPhotoIds.size !== 1 ? 's' : ''}`, 'success')
+                        setBatchTagValue('')
+                        setTagPromptOpen(false)
+                      }
+                      if (e.key === 'Escape') {
+                        setBatchTagValue('')
+                        setTagPromptOpen(false)
+                      }
+                    }}
+                  />
+                  <button
+                    className="sel-action-btn"
+                    onClick={() => { setBatchTagValue(''); setTagPromptOpen(false) }}
+                    aria-label="Cancel tag"
+                  >✕</button>
+                </span>
+              ) : (
+                <button className="sel-action-btn" onClick={() => setTagPromptOpen(true)}>+ Tag</button>
+              )}
+              <select
+                className="sel-collection-select"
+                defaultValue=""
+                aria-label="Add selected to collection"
+                onChange={e => {
+                  if (e.target.value) {
+                    onBatchAddToCollection(e.target.value, [...selectedPhotoIds])
+                    const col = collections?.find(c => c.id === e.target.value)
+                    toast?.(`Added ${selectedPhotoIds.size} photo${selectedPhotoIds.size !== 1 ? 's' : ''} to "${col?.name ?? 'collection'}"`, 'success')
+                    e.target.value = ''
+                  }
+                }}
+              >
+                <option value="">Add to collection…</option>
+                {collections?.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <button
+                className="sel-action-btn sel-delete-btn"
+                onClick={() => setBatchConfirmOpen(true)}
+                aria-label={`Delete ${selectedPhotoIds.size} selected photos`}
+              >Delete</button>
+            </>
           )}
-          <select
-            className="sel-collection-select"
-            defaultValue=""
-            onChange={e => {
-              if (e.target.value) {
-                onBatchAddToCollection(e.target.value, [...selectedPhotoIds])
-                e.target.value = ''
-              }
-            }}
-          >
-            <option value="">Add to collection…</option>
-            {collections?.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-          <button className="sel-action-btn sel-delete-btn" onClick={() => {
-            if (window.confirm(`Delete ${selectedPhotoIds.size} photos?`)) {
-              onBatchDelete([...selectedPhotoIds])
-            }
-          }}>Delete</button>
         </div>
       )}
 
-      <div className="photo-list">
-        {photos.map(photo => (
+      {searchQuery && displayed.length === 0 && (
+        <div className="photo-list-empty" style={{ padding: '16px' }}>
+          <p className="photo-list-empty-title" style={{ fontSize: 13 }}>No results for "{searchQuery}"</p>
+        </div>
+      )}
+
+      <div className="photo-list" ref={listRef}>
+        {displayed.map((photo, idx) => (
           <div
             key={photo.id}
-            className={`photo-list-item${selectedPhotoIds?.has(photo.id) ? ' selected' : ''}`}
+            className={`photo-list-item${selectedPhotoIds?.has(photo.id) ? ' selected' : ''}${timelinePhotoId === photo.id ? ' timeline-active' : ''}`}
+            data-photo-item
+            data-photo-id={photo.id}
+            tabIndex={selectionMode ? -1 : 0}
+            role="button"
+            aria-label={`${photo.originalName}${photo.hasGps ? ', on map' : ', no GPS'}`}
             onClick={() => selectionMode ? onToggleSelection(photo.id) : undefined}
+            onKeyDown={e => !selectionMode && handleKeyDown(e, photo, idx)}
           >
             <button
               className="photo-list-thumb-btn"
               onClick={() => selectionMode ? onToggleSelection(photo.id) : onView(photo)}
               aria-label={`View ${photo.originalName}`}
+              tabIndex={-1}
               style={{ position: 'relative' }}
             >
               <img
                 src={`/uploads/${photo.thumbnailFilename ?? photo.filename}`}
-                alt=""
+                alt={photo.description || photo.originalName}
                 className="photo-list-thumb"
                 loading="lazy"
               />
@@ -141,6 +301,7 @@ export function PhotoList({
                   checked={selectedPhotoIds?.has(photo.id) ?? false}
                   onChange={() => onToggleSelection(photo.id)}
                   onClick={e => e.stopPropagation()}
+                  aria-label={`Select ${photo.originalName}`}
                 />
               )}
             </button>
@@ -158,6 +319,8 @@ export function PhotoList({
                       key={tag}
                       className={`tag-chip-sm${activeTag === tag ? ' active' : ''}`}
                       onClick={e => { e.stopPropagation(); onTagClick?.(tag) }}
+                      aria-pressed={activeTag === tag}
+                      aria-label={`Filter by tag: ${tag}`}
                     >
                       {tag}
                     </button>
@@ -177,6 +340,7 @@ export function PhotoList({
                         className="photo-collection-dot"
                         style={{ background: col.color }}
                         title={col.name}
+                        aria-label={col.name}
                       />
                     ) : null
                   })}
@@ -187,34 +351,41 @@ export function PhotoList({
               className={`photo-compare-btn${comparingPhotoId === photo.id ? ' active' : ''}`}
               onClick={e => { e.stopPropagation(); onCompareClick(photo.id) }}
               title={comparingPhotoId && comparingPhotoId !== photo.id ? 'Compare with this photo' : 'Start comparison'}
+              aria-label={`Compare ${photo.originalName}`}
+              tabIndex={-1}
             >
               ⧉
             </button>
             <button
               className="photo-list-delete"
-              onClick={() => handleDelete(photo)}
+              onClick={e => { e.stopPropagation(); handleDelete(photo) }}
               disabled={deletingId === photo.id}
               aria-label={`Delete ${photo.originalName}`}
+              tabIndex={-1}
             >
-              {deletingId === photo.id ? '\u2026' : '\u2715'}
+              {deletingId === photo.id ? '…' : '✕'}
             </button>
           </div>
         ))}
       </div>
+
       {pendingDelete && (
-        <div className="confirm-modal-overlay" onClick={() => setPendingDelete(null)}>
-          <div className="confirm-modal-box" ref={confirmTrapRef} onClick={e => e.stopPropagation()}>
-            <p className="confirm-modal-title">Delete photo?</p>
-            <p className="confirm-modal-message">
-              <span className="confirm-modal-filename">{pendingDelete.originalName}</span>
-              <br />This cannot be undone.
-            </p>
-            <div className="confirm-modal-actions">
-              <button className="confirm-modal-cancel" onClick={() => setPendingDelete(null)}>Cancel</button>
-              <button className="confirm-modal-delete" onClick={confirmDelete}>Delete</button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          title="Delete photo?"
+          message={<><span className="confirm-modal-filename">{pendingDelete.originalName}</span><br />This cannot be undone.</>}
+          onConfirm={confirmDelete}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
+
+      {batchConfirmOpen && (
+        <ConfirmModal
+          title={`Delete ${selectedPhotoIds.size} photo${selectedPhotoIds.size !== 1 ? 's' : ''}?`}
+          message="This cannot be undone."
+          confirmLabel={`Delete ${selectedPhotoIds.size}`}
+          onConfirm={handleBatchDelete}
+          onCancel={() => setBatchConfirmOpen(false)}
+        />
       )}
     </>
   )

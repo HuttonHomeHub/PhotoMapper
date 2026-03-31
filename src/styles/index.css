@@ -6,13 +6,13 @@
   --color-surface-dark: #0a0a1a;
   --color-border:       #0f3460;
   --color-accent:       #e94560;
-  --color-accent-hover: var(--color-accent-hover);
+  --color-accent-hover: #c73652;
   --color-accent-dim:   rgba(233, 69, 96, 0.12);
   --color-text:         #e0e0e0;
   --color-text-dim:     #ccc;
   --color-muted:        #888;
-  --color-success:      var(--color-success);
-  --color-warning:      var(--color-warning);
+  --color-success:      #06d6a0;
+  --color-warning:      #ffb703;
   --radius-sm:          4px;
   --radius-md:          6px;
   --radius-lg:          8px;
@@ -715,6 +715,12 @@ html, body, #root {
 
 .location-search {
   margin: 0 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.location-search-wrap {
   display: flex;
   gap: 6px;
 }
@@ -2759,3 +2765,299 @@ html, body, #root {
   border-color: var(--color-text);
 }
 .upload-keep-open:hover { color: var(--color-text); }
+
+/* ── Toast notifications ────────────────────────────────────────────── */
+
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--color-text);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  pointer-events: all;
+  animation: toast-in 0.2s ease;
+  max-width: 320px;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.toast-success { border-left: 3px solid #06d6a0; }
+.toast-error   { border-left: 3px solid var(--color-accent); }
+.toast-info    { border-left: 3px solid #3a86ff; }
+
+.toast-message { flex: 1; }
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  font-size: 16px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 2px;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+.toast-close:hover { color: var(--color-text); }
+
+/* ── Location search results dropdown ──────────────────────────────── */
+
+.location-search-error {
+  font-size: 11px;
+  color: var(--color-accent);
+  margin: 0;
+}
+
+.location-results-list {
+  list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+.location-result-item {
+  padding: 7px 10px;
+  font-size: 11px;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.1s, color 0.1s;
+}
+.location-result-item:last-child { border-bottom: none; }
+.location-result-item:hover,
+.location-result-item:focus {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  outline: none;
+}
+
+/* ── Skeleton loaders ──────────────────────────────────────────────── */
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #0f1b35 25%, #162040 50%, #0f1b35 75%);
+  background-size: 800px 100%;
+  animation: skeleton-shimmer 1.4s infinite;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-item {
+  pointer-events: none;
+}
+
+.skeleton-thumb {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-line {
+  height: 10px;
+  margin-bottom: 6px;
+  border-radius: 4px;
+}
+.skeleton-line-long  { width: 70%; }
+.skeleton-line-short { width: 40%; }
+
+/* ── Photo list search + sort row ──────────────────────────────────── */
+
+.photo-list-search-row {
+  display: flex;
+  gap: 6px;
+  margin: 0 16px 8px;
+}
+
+.photo-list-search-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  padding: 5px 8px;
+  font-size: 12px;
+}
+.photo-list-search-input::placeholder { color: var(--color-muted); }
+.photo-list-search-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.photo-list-sort-select {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-dim);
+  font-size: 11px;
+  padding: 5px 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.photo-list-sort-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+/* ── Photo count label in list header ──────────────────────────────── */
+
+.photo-count-label {
+  font-size: 11px;
+  color: var(--color-muted);
+  margin-left: auto;
+}
+
+/* ── Batch operation progress ──────────────────────────────────────── */
+
+.batch-progress {
+  font-size: 12px;
+  color: var(--color-text-dim);
+}
+
+/* ── Timeline active photo highlight ───────────────────────────────── */
+
+.photo-list-item.timeline-active {
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-accent-dim);
+}
+
+/* ── Timeline counter ──────────────────────────────────────────────── */
+
+.timeline-date {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.timeline-counter {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.timeline-counter-sep {
+  font-weight: 400;
+  color: var(--color-muted);
+  margin: 0 2px;
+}
+
+/* ── Active filters row with Clear All ──────────────────────────────── */
+
+.active-filters-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.clear-all-filters-btn {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+}
+.clear-all-filters-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* ── Panel empty hints (clients, projects, collections) ─────────────── */
+
+.panel-empty-hint {
+  font-size: 11px;
+  color: var(--color-muted);
+  padding: 8px 12px;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+/* ── Mobile responsive fixes ────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  /* Upload drawer as bottom sheet on mobile */
+  .upload-drawer {
+    left: 0 !important;
+    top: auto;
+    bottom: 0;
+    width: 100% !important;
+    height: auto;
+    max-height: 60vh;
+    border-right: none;
+    border-top: 1px solid var(--color-border);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    transform: translateY(100%);
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.5);
+  }
+  .upload-drawer.open {
+    transform: translateY(0);
+  }
+
+  /* Larger touch targets */
+  .photo-list-delete,
+  .photo-compare-btn,
+  .collection-delete-btn,
+  .collection-rename-btn,
+  .client-delete-btn,
+  .project-delete-btn,
+  .tag-chip-remove {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Lightbox image constrained */
+  .lightbox-img {
+    max-width: 100vw;
+    max-height: 80vh;
+    object-fit: contain;
+  }
+
+  /* Toast bottom-left on mobile to avoid overlap with nav */
+  .toast-container {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+  }
+
+  /* Location results wider on mobile */
+  .location-results-list {
+    font-size: 12px;
+  }
+}

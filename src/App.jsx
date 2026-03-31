@@ -30,6 +30,7 @@ import { UploadDrawer } from './components/UploadDrawer.jsx'
 import { ElevationProfile } from './components/ElevationProfile.jsx'
 import ClientPanel from './components/ClientPanel.jsx'
 import PhotoComparison from './components/PhotoComparison.jsx'
+import { ToastContainer, useToast } from './components/Toast.jsx'
 
 const TODAY = new Date().toISOString().slice(0, 10)
 const dateToMs = d => new Date(d + 'T12:00:00Z').getTime()
@@ -49,6 +50,7 @@ function pointInPolygon([lat, lng], polygon) {
 }
 
 export function App() {
+  const { toast } = useToast()
   const {
     photos, loading, error, refresh, deletePhoto, updatePhoto, exportPhotos,
     clients, createClient, updateClient, deleteClient,
@@ -71,6 +73,9 @@ export function App() {
   const [viewingPhoto, setViewingPhoto] = useState(null)
   const [locationQuery, setLocationQuery] = useState('')
   const [locationSearching, setLocationSearching] = useState(false)
+  const [locationResults, setLocationResults] = useState([])
+  const [locationError, setLocationError] = useState('')
+  const locationAbortRef = useRef(null)
   const [mapBounds, setMapBounds] = useState(null)
   const [activeTag, setActiveTag] = useState(null)
   const [regionPolygon, setRegionPolygon] = useState(null)
@@ -173,10 +178,14 @@ export function App() {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
       if (e.key === '?') setShortcutsOpen(v => !v)
       if (e.key === 'Escape' && shortcutsOpen) setShortcutsOpen(false)
+      if (e.key === ' ' && timelineActive) {
+        e.preventDefault()
+        setTimelinePlaying(p => !p)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [shortcutsOpen])
+  }, [shortcutsOpen, timelineActive])
 
   const timelineSlicePhotos = timelineSorted.slice(0, timelineIndex + 1)
   const currentTimelinePhoto = timelineSorted[timelineIndex]
@@ -216,19 +225,36 @@ export function App() {
   async function handleLocationSearch(e) {
     e.preventDefault()
     if (!locationQuery.trim()) return
+    locationAbortRef.current?.abort()
+    const controller = new AbortController()
+    locationAbortRef.current = controller
     setLocationSearching(true)
+    setLocationError('')
+    setLocationResults([])
     try {
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(locationQuery)}`,
-        { headers: { 'Accept-Language': 'en' } }
+        `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(locationQuery)}`,
+        { headers: { 'Accept-Language': 'en' }, signal: controller.signal }
       )
-      const results = await res.json()
-      if (results.length > 0) {
-        mapRef.current?.flyTo(parseFloat(results[0].lat), parseFloat(results[0].lon), 12)
+      const data = await res.json()
+      if (data.length === 0) {
+        setLocationError(`No locations found for "${locationQuery}"`)
+      } else if (data.length === 1) {
+        mapRef.current?.flyTo(parseFloat(data[0].lat), parseFloat(data[0].lon), 12)
+      } else {
+        setLocationResults(data)
       }
+    } catch (err) {
+      if (err.name !== 'AbortError') setLocationError('Location search failed. Try again.')
     } finally {
       setLocationSearching(false)
     }
+  }
+
+  function handlePickLocation(result) {
+    mapRef.current?.flyTo(parseFloat(result.lat), parseFloat(result.lon), 12)
+    setLocationResults([])
+    setLocationQuery(result.display_name.split(',')[0])
   }
 
   function handleFilterToView() {
@@ -401,16 +427,37 @@ export function App() {
           </div>
 
           <form className="location-search" onSubmit={handleLocationSearch}>
-            <input
-              type="text"
-              className="location-search-input"
-              placeholder="Search location…"
-              value={locationQuery}
-              onChange={e => setLocationQuery(e.target.value)}
-            />
-            <button type="submit" className="location-search-btn" disabled={locationSearching}>
-              {locationSearching ? '…' : 'Go'}
-            </button>
+            <div className="location-search-wrap">
+              <input
+                type="text"
+                className="location-search-input"
+                placeholder="Search location…"
+                value={locationQuery}
+                onChange={e => { setLocationQuery(e.target.value); setLocationError(''); setLocationResults([]) }}
+                aria-label="Search for a location"
+                aria-autocomplete="list"
+              />
+              <button type="submit" className="location-search-btn" disabled={locationSearching} aria-label="Search location">
+                {locationSearching ? '…' : 'Go'}
+              </button>
+            </div>
+            {locationError && <p className="location-search-error">{locationError}</p>}
+            {locationResults.length > 0 && (
+              <ul className="location-results-list" role="listbox" aria-label="Location results">
+                {locationResults.map((r, i) => (
+                  <li
+                    key={i}
+                    className="location-result-item"
+                    role="option"
+                    tabIndex={0}
+                    onClick={() => handlePickLocation(r)}
+                    onKeyDown={e => { if (e.key === 'Enter') handlePickLocation(r) }}
+                  >
+                    {r.display_name}
+                  </li>
+                ))}
+              </ul>
+            )}
           </form>
 
           <div className="map-filter-row">
@@ -446,7 +493,25 @@ export function App() {
         {/* Active filters summary bar — always visible, outside collapsible */}
         {(isFiltered || mapBounds || activeTag || regionPolygon || activeClientId || activeCollectionId || activeProjectId) && (
           <div className="active-filters-bar">
-            <span className="active-filters-label">Active filters:</span>
+            <div className="active-filters-row">
+              <span className="active-filters-label">
+                {filteredPhotos.length} photo{filteredPhotos.length !== 1 ? 's' : ''} · filters active:
+              </span>
+              <button
+                className="clear-all-filters-btn"
+                onClick={() => {
+                  setUserTouchedFilter(false)
+                  setMapBounds(null)
+                  setActiveTag(null)
+                  setRegionPolygon(null)
+                  setActiveClientId(null)
+                  setActiveProjectId(null)
+                  setActiveCollectionId(null)
+                }}
+              >
+                Clear all
+              </button>
+            </div>
             {isFiltered && (
               <button className="filter-chip" onClick={() => setUserTouchedFilter(false)}>
                 📅 Date range ×
@@ -498,8 +563,10 @@ export function App() {
             {timelineActive && (
               <div className="timeline-controls">
                 <div className="timeline-label">
-                  {currentTimelineDate}
-                  <span className="timeline-counter">{timelineIndex + 1} / {timelineSorted.length}</span>
+                  <span className="timeline-date">{currentTimelineDate}</span>
+                  <span className="timeline-counter">
+                    {timelineIndex + 1} <span className="timeline-counter-sep">/</span> {timelineSorted.length}
+                  </span>
                 </div>
                 <input
                   type="range"
@@ -507,6 +574,7 @@ export function App() {
                   min={0}
                   max={Math.max(0, timelineSorted.length - 1)}
                   value={timelineIndex}
+                  aria-label={`Timeline: photo ${timelineIndex + 1} of ${timelineSorted.length}`}
                   onChange={e => {
                     setTimelineIndex(Number(e.target.value))
                     setTimelinePlaying(false)
@@ -517,6 +585,8 @@ export function App() {
                     className="timeline-play-btn"
                     onClick={() => setTimelinePlaying(p => !p)}
                     disabled={timelineSorted.length < 2}
+                    aria-label={timelinePlaying ? 'Pause timeline' : 'Play timeline (Space)'}
+                    title="Space to play/pause"
                   >
                     {timelinePlaying ? '⏸ Pause' : '▶ Play'}
                   </button>
@@ -524,6 +594,7 @@ export function App() {
                     className="timeline-speed-select"
                     value={timelineSpeed}
                     onChange={e => setTimelineSpeed(Number(e.target.value))}
+                    aria-label="Playback speed"
                   >
                     <option value={1500}>Slow</option>
                     <option value={800}>Normal</option>
@@ -558,6 +629,7 @@ export function App() {
 
         <PhotoList
           photos={displayPhotos}
+          loading={loading}
           onDelete={deletePhoto}
           onView={photo => { setViewingPhoto(photo); setMobileSidebarOpen(false) }}
           activeTag={activeTag}
@@ -576,6 +648,18 @@ export function App() {
           activeCollectionId={activeCollectionId}
           comparingPhotoId={comparingPhotoId}
           onCompareClick={handleCompareClick}
+          toast={toast}
+          hasActiveFilters={!!(isFiltered || mapBounds || activeTag || regionPolygon || activeClientId || activeCollectionId || activeProjectId)}
+          timelinePhotoId={timelineActive ? currentTimelinePhoto?.id : null}
+          onClearAllFilters={() => {
+            setUserTouchedFilter(false)
+            setMapBounds(null)
+            setActiveTag(null)
+            setRegionPolygon(null)
+            setActiveClientId(null)
+            setActiveProjectId(null)
+            setActiveCollectionId(null)
+          }}
         />
       </aside>
 
@@ -628,6 +712,8 @@ export function App() {
         />
       )}
 
+      <ToastContainer />
+
       {shortcutsOpen && (
         <div
           className="shortcuts-overlay"
@@ -650,7 +736,9 @@ export function App() {
               <dt>?</dt><dd>Show / hide this overlay</dd>
               <dt>Esc</dt><dd>Close modal or overlay</dd>
               <dt>← →</dt><dd>Previous / next photo in lightbox</dd>
-              <dt>Del</dt><dd>Delete selected photos (when selected)</dd>
+              <dt>↑ ↓</dt><dd>Navigate photo list</dd>
+              <dt>Enter</dt><dd>Open focused photo</dd>
+              <dt>Space</dt><dd>Play / pause timeline</dd>
             </dl>
             <p className="shortcuts-hint">Press ? or Esc to close</p>
           </div>

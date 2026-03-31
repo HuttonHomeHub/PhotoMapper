@@ -148,6 +148,10 @@ export default function ClientPanel({
               <span className="collection-name">All {activeProject?.name} photos</span>
             </div>
 
+            {projectCollections.length === 0 && !creatingCollection && (
+              <p className="panel-empty-hint">No survey dates yet — add one to group photos by date.</p>
+            )}
+
             {projectCollections.map(col => (
               <div
                 key={col.id}
@@ -315,6 +319,10 @@ export default function ClientPanel({
               <span className="project-name">All {activeClient.name} photos</span>
             </div>
 
+            {clientProjects.length === 0 && !creatingProject && (
+              <p className="panel-empty-hint">No projects yet — create one to organise photos.</p>
+            )}
+
             {clientProjects.map(proj => (
               <div
                 key={proj.id}
@@ -391,6 +399,10 @@ export default function ClientPanel({
             <span className="client-dot" style={{ background: '#888' }} />
             <span className="client-name">All Photos</span>
           </div>
+
+          {clients.length === 0 && !creatingClient && (
+            <p className="panel-empty-hint">No clients yet — add one to organise your photos by client and project.</p>
+          )}
 
           {clients.map(cl => (
             <div
