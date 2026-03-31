@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react'
+
 const statusIcon = {
   uploading: '⏳',
   success: '✓',
@@ -6,7 +8,25 @@ const statusIcon = {
   duplicate: '⊘'
 }
 
-export function UploadDrawer({ results, open, onClose, onClear }) {
+export function UploadDrawer({ results, open, onClose, onClear, onAllDone }) {
+  const [keepOpen, setKeepOpen] = useState(false)
+  const timerRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) {
+      setKeepOpen(false)
+      return
+    }
+    if (results.length === 0) return
+    const allDone = results.every(r => r.status !== 'uploading')
+    if (allDone && !keepOpen) {
+      timerRef.current = setTimeout(() => onAllDone?.(), 2500)
+    }
+    return () => clearTimeout(timerRef.current)
+  }, [open, results, keepOpen]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const allDone = results.length > 0 && results.every(r => r.status !== 'uploading')
+
   return (
     <div className={`upload-drawer${open ? ' open' : ''}`}>
       <div className="upload-drawer-header">
@@ -29,6 +49,14 @@ export function UploadDrawer({ results, open, onClose, onClear }) {
           </div>
         ))}
       </div>
+      {allDone && !keepOpen && (
+        <button
+          className="upload-keep-open"
+          onClick={() => { setKeepOpen(true); clearTimeout(timerRef.current) }}
+        >
+          Keep open
+        </button>
+      )}
     </div>
   )
 }

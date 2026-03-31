@@ -9,7 +9,7 @@ import { createHash } from 'crypto'
 import { v4 as uuidv4 } from 'uuid'
 import exifr from 'exifr'
 import sharp from 'sharp'
-import { insertPhoto, getAllPhotos, getPhotoById, deletePhoto, getPhotoByHash, updatePhoto, createCollection, getAllCollections, updateCollection, deleteCollection, addPhotosToCollection, removePhotoFromCollection, batchUpdatePhotos, createProject, getAllProjects, updateProject, deleteProject, assignPhotosToProject } from './db.js'
+import { insertPhoto, getAllPhotos, getPhotoById, deletePhoto, getPhotoByHash, updatePhoto, createCollection, getAllCollections, getCollectionsByProject, updateCollection, deleteCollection, addPhotosToCollection, removePhotoFromCollection, batchUpdatePhotos, createProject, getAllProjects, updateProject, deleteProject, assignPhotosToProject, createClient, getAllClients, updateClient, deleteClient } from './db.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const uploadsDir = join(__dirname, 'uploads')
@@ -320,24 +320,18 @@ app.get('/api/collections', (req, res) => {
 })
 
 app.post('/api/collections', (req, res) => {
-  const { name, description, color } = req.body
+  const { name, description, color, projectId } = req.body
   if (!name?.trim()) return res.status(400).json({ error: 'name required' })
   const collection = {
     id: uuidv4(),
     name: name.trim(),
     description: description || null,
     color: color || '#e94560',
+    projectId: projectId || null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }
-  try {
-    createCollection(collection)
-  } catch (err) {
-    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      return res.status(409).json({ error: 'A collection with that name already exists' })
-    }
-    throw err
-  }
+  createCollection(collection)
   res.status(201).json(collection)
 })
 
@@ -372,30 +366,67 @@ app.delete('/api/collections/:id/photos/:photoId', (req, res) => {
   res.json({ success: true })
 })
 
+// Clients
+app.get('/api/clients', (_req, res) => {
+  res.json(getAllClients())
+})
+
+app.post('/api/clients', (req, res) => {
+  const { name } = req.body
+  if (!name?.trim()) return res.status(400).json({ error: 'name required' })
+  const client = {
+    id: uuidv4(),
+    name: name.trim(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+  try {
+    createClient(client)
+  } catch (err) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return res.status(409).json({ error: 'A client with that name already exists' })
+    }
+    throw err
+  }
+  res.status(201).json({ ...client, projectCount: 0 })
+})
+
+app.patch('/api/clients/:id', (req, res) => {
+  const { name } = req.body
+  updateClient(req.params.id, { name, updatedAt: new Date().toISOString() })
+  res.json(getAllClients().find(c => c.id === req.params.id))
+})
+
+app.delete('/api/clients/:id', (req, res) => {
+  const changes = deleteClient(req.params.id)
+  if (!changes) return res.status(404).json({ error: 'not found' })
+  res.json({ id: req.params.id })
+})
+
 // Projects
 app.get('/api/projects', (_req, res) => {
   res.json(getAllProjects())
 })
 
 app.post('/api/projects', (req, res) => {
-  const { name, client, status, color } = req.body
+  const { name, clientId, status, color } = req.body
   if (!name?.trim()) return res.status(400).json({ error: 'name required' })
   const project = {
     id: uuidv4(),
     name: name.trim(),
-    client: client || null,
+    clientId: clientId || null,
     status: status || 'active',
     color: color || '#e94560',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }
   createProject(project)
-  res.status(201).json({ ...project, photoCount: 0 })
+  res.status(201).json({ ...project, photoCount: 0, clientName: null })
 })
 
 app.patch('/api/projects/:id', (req, res) => {
-  const { name, client, status, color } = req.body
-  updateProject(req.params.id, { name, client, status, color, updatedAt: new Date().toISOString() })
+  const { name, clientId, status, color } = req.body
+  updateProject(req.params.id, { name, clientId, status, color, updatedAt: new Date().toISOString() })
   res.json(getAllProjects().find(p => p.id === req.params.id))
 })
 
@@ -403,6 +434,10 @@ app.delete('/api/projects/:id', (req, res) => {
   const changes = deleteProject(req.params.id)
   if (!changes) return res.status(404).json({ error: 'not found' })
   res.json({ id: req.params.id })
+})
+
+app.get('/api/projects/:id/collections', (req, res) => {
+  res.json(getCollectionsByProject(req.params.id))
 })
 
 app.patch('/api/projects/:id/photos', (req, res) => {

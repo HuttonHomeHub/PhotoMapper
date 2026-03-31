@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { useFocusTrap } from '../hooks/useFocusTrap.js'
 
 function formatDate(iso) {
   if (!iso) return null
@@ -21,7 +22,10 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
   const [description, setDescription] = useState(photo.description ?? '')
   const [tags, setTags] = useState(photo.tags ?? [])
   const [tagInput, setTagInput] = useState('')
+  const trapRef = useFocusTrap(true)
   const saveTimerRef = useRef(null)
+  const [savedState, setSavedState] = useState(null)
+  const savedTimerRef = useRef(null)
 
   function prev() {
     const i = (idx - 1 + photos.length) % photos.length
@@ -49,13 +53,20 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
 
   const scheduleSave = useCallback((newDesc, newTags) => {
     clearTimeout(saveTimerRef.current)
+    setSavedState('saving')
     saveTimerRef.current = setTimeout(() => {
       onUpdate?.(photo.id, { description: newDesc, tags: newTags })
+      setSavedState('saved')
+      clearTimeout(savedTimerRef.current)
+      savedTimerRef.current = setTimeout(() => setSavedState(null), 2000)
     }, 600)
   }, [photo.id, onUpdate])
 
   useEffect(() => {
-    return () => clearTimeout(saveTimerRef.current)
+    return () => {
+      clearTimeout(saveTimerRef.current)
+      clearTimeout(savedTimerRef.current)
+    }
   }, [])
 
   function handleDescriptionChange(e) {
@@ -108,7 +119,7 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
         <button className="lightbox-nav lightbox-nav-prev" onClick={e => { e.stopPropagation(); prev() }} aria-label="Previous photo">&#8249;</button>
       )}
 
-      <div className="lightbox-box" onClick={e => e.stopPropagation()}>
+      <div className="lightbox-box" ref={trapRef} onClick={e => e.stopPropagation()}>
         <button className="lightbox-close" onClick={() => onClose(null)} aria-label="Close">&#10005;</button>
         <img
           className="lightbox-img"
@@ -146,7 +157,11 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
           )}
 
           <div className="lightbox-field-notes">
-            <div className="lightbox-field-label">Field Notes</div>
+            <div className="lightbox-field-label">
+              Field Notes
+              {savedState === 'saving' && <span className="save-indicator saving">saving…</span>}
+              {savedState === 'saved'  && <span className="save-indicator saved">✓ Saved</span>}
+            </div>
             <textarea
               className="lightbox-notes-input"
               placeholder="Add observation notes…"

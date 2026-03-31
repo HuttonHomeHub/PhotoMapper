@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import React from 'react'
+import { useFocusTrap } from '../hooks/useFocusTrap.js'
 
 export function PhotoList({
   photos, onDelete, onView, activeTag, onTagClick,
@@ -9,8 +11,21 @@ export function PhotoList({
 }) {
   const [deletingId, setDeletingId] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
+  const confirmTrapRef = useFocusTrap(!!pendingDelete)
+  const [tagPromptOpen, setTagPromptOpen] = React.useState(false)
+  const [batchTagValue, setBatchTagValue] = React.useState('')
 
-  if (!photos.length) return null
+  if (!photos.length) {
+    return (
+      <div className="photo-list-empty">
+        <div className="photo-list-empty-icon">🗺️</div>
+        <p className="photo-list-empty-title">No photos yet</p>
+        <p className="photo-list-empty-sub">
+          Drop JPEGs above — those with GPS data will appear on the map automatically.
+        </p>
+      </div>
+    )
+  }
 
   async function handleDelete(photo) {
     setPendingDelete(photo)
@@ -49,12 +64,34 @@ export function PhotoList({
       {selectedPhotoIds?.size > 0 && (
         <div className="selection-toolbar">
           <span className="selection-count">{selectedPhotoIds.size} selected</span>
-          <button className="sel-action-btn" onClick={() => {
-            const tag = prompt('Tag to add to all selected photos:')
-            if (tag?.trim()) {
-              onBatchUpdate([...selectedPhotoIds], { tags: [tag.trim()], mergeTags: true })
-            }
-          }}>+ Tag</button>
+          {tagPromptOpen ? (
+            <span className="batch-tag-inline">
+              <input
+                className="batch-tag-input"
+                autoFocus
+                placeholder="Tag name"
+                value={batchTagValue}
+                onChange={e => setBatchTagValue(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && batchTagValue.trim()) {
+                    onBatchUpdate([...selectedPhotoIds], { tags: [batchTagValue.trim()], mergeTags: true })
+                    setBatchTagValue('')
+                    setTagPromptOpen(false)
+                  }
+                  if (e.key === 'Escape') {
+                    setBatchTagValue('')
+                    setTagPromptOpen(false)
+                  }
+                }}
+              />
+              <button
+                className="sel-action-btn"
+                onClick={() => { setBatchTagValue(''); setTagPromptOpen(false) }}
+              >✕</button>
+            </span>
+          ) : (
+            <button className="sel-action-btn" onClick={() => setTagPromptOpen(true)}>+ Tag</button>
+          )}
           <select
             className="sel-collection-select"
             defaultValue=""
@@ -163,7 +200,7 @@ export function PhotoList({
       </div>
       {pendingDelete && (
         <div className="confirm-modal-overlay" onClick={() => setPendingDelete(null)}>
-          <div className="confirm-modal-box" onClick={e => e.stopPropagation()}>
+          <div className="confirm-modal-box" ref={confirmTrapRef} onClick={e => e.stopPropagation()}>
             <p className="confirm-modal-title">Delete photo?</p>
             <p className="confirm-modal-message">
               <span className="confirm-modal-filename">{pendingDelete.originalName}</span>

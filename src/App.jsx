@@ -1,4 +1,26 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
+import React from 'react'
+import { useFocusTrap } from './hooks/useFocusTrap.js'
+
+function SidebarSection({ title, defaultOpen = true, badge = null, children }) {
+  const [open, setOpen] = React.useState(defaultOpen)
+  return (
+    <div className="sidebar-section">
+      <button
+        className="sidebar-section-header"
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+      >
+        <span className="sidebar-section-title">{title}</span>
+        {badge && <span className="sidebar-section-badge">{badge}</span>}
+        <span className="sidebar-section-chevron" aria-hidden="true">
+          {open ? '▾' : '▸'}
+        </span>
+      </button>
+      {open && <div className="sidebar-section-body">{children}</div>}
+    </div>
+  )
+}
 import { usePhotos } from './hooks/usePhotos.js'
 import { DropZone } from './components/DropZone.jsx'
 import { PhotoMap } from './components/PhotoMap.jsx'
@@ -6,8 +28,7 @@ import { PhotoList } from './components/PhotoList.jsx'
 import { PhotoLightbox } from './components/PhotoLightbox.jsx'
 import { UploadDrawer } from './components/UploadDrawer.jsx'
 import { ElevationProfile } from './components/ElevationProfile.jsx'
-import CollectionPanel from './components/CollectionPanel.jsx'
-import ProjectPanel from './components/ProjectPanel.jsx'
+import ClientPanel from './components/ClientPanel.jsx'
 import PhotoComparison from './components/PhotoComparison.jsx'
 
 const TODAY = new Date().toISOString().slice(0, 10)
@@ -30,6 +51,7 @@ function pointInPolygon([lat, lng], polygon) {
 export function App() {
   const {
     photos, loading, error, refresh, deletePhoto, updatePhoto, exportPhotos,
+    clients, createClient, updateClient, deleteClient,
     collections, createCollection, updateCollection, deleteCollection,
     addPhotosToCollection, removePhotoFromCollection, batchUpdate, batchDelete,
     projects, createProject, updateProject, deleteProject, assignToProject
@@ -54,6 +76,7 @@ export function App() {
   const [regionPolygon, setRegionPolygon] = useState(null)
   const [elevationOpen, setElevationOpen] = useState(false)
   const [hoveredPhotoId, setHoveredPhotoId] = useState(null)
+  const [activeClientId, setActiveClientId] = useState(null)
   const [activeCollectionId, setActiveCollectionId] = useState(null)
   const [activeProjectId, setActiveProjectId] = useState(null)
   const [selectionMode, setSelectionMode] = useState(false)
@@ -61,6 +84,9 @@ export function App() {
   const [comparingPhotoId, setComparingPhotoId] = useState(null)
   const [comparisonPair, setComparisonPair] = useState(null)
   const mapRef = useRef(null)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = React.useState(false)
+  const shortcutsTrapRef = useFocusTrap(shortcutsOpen)
 
   // Timeline state
   const [timelineActive, setTimelineActive] = useState(false)
@@ -108,6 +134,11 @@ export function App() {
     return true
   }).filter(p => !activeCollectionId || (p.collectionIds && p.collectionIds.includes(activeCollectionId)))
     .filter(p => !activeProjectId || p.projectId === activeProjectId)
+    .filter(p => {
+      if (!activeClientId) return true
+      const proj = projects.find(pr => pr.id === p.projectId)
+      return proj?.clientId === activeClientId
+    })
 
   // Timeline: all photos sorted by date for chronological playback
   const timelineSorted = useMemo(() =>
@@ -136,6 +167,16 @@ export function App() {
     const timer = setTimeout(() => setTimelineIndex(i => i + 1), timelineSpeed)
     return () => clearTimeout(timer)
   }, [timelinePlaying, timelineIndex, timelineSorted.length, timelineSpeed])
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      if (e.key === '?') setShortcutsOpen(v => !v)
+      if (e.key === 'Escape' && shortcutsOpen) setShortcutsOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [shortcutsOpen])
 
   const timelineSlicePhotos = timelineSorted.slice(0, timelineIndex + 1)
   const currentTimelinePhoto = timelineSorted[timelineIndex]
@@ -203,7 +244,22 @@ export function App() {
 
   return (
     <div className="app">
-      <aside className="sidebar">
+      <button
+        className="mobile-sidebar-toggle"
+        onClick={() => setMobileSidebarOpen(v => !v)}
+        aria-label="Toggle sidebar"
+      >
+        ☰
+      </button>
+
+      {mobileSidebarOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
+      <aside className={`sidebar${mobileSidebarOpen ? ' mobile-open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-header-text">
             <h1>Photo Map</h1>
@@ -216,194 +272,294 @@ export function App() {
             Log
             {results.length > 0 && !drawerOpen && <span className="log-toggle-dot" />}
           </button>
+          <button
+            className="shortcuts-hint-btn"
+            onClick={() => setShortcutsOpen(true)}
+            title="Keyboard shortcuts"
+            aria-label="Show keyboard shortcuts"
+          >?</button>
         </div>
 
         {error && <div className="error-banner">Failed to load photos. Please refresh.</div>}
 
-        <DropZone onUploadComplete={refresh} setResults={setResults} openDrawer={() => setDrawerOpen(true)} projects={projects} activeProjectId={activeProjectId} />
+        <DropZone onUploadComplete={refresh} setResults={setResults} openDrawer={() => setDrawerOpen(true)} projects={activeClientId ? projects.filter(p => p.clientId === activeClientId) : projects} activeProjectId={activeProjectId} />
 
         {!loading && (
-          <div className="photo-count">
-            {gpsCount} photo{gpsCount !== 1 ? 's' : ''} on map
-            {photos.length > gpsCount ? ` · ${photos.length - gpsCount} without GPS` : ''}
+          <div className="photo-stat-row">
+            <span className="photo-stat-pill">
+              <span className="pill-icon">📍</span>
+              {gpsCount} on map
+            </span>
+            {photos.length - gpsCount > 0 && (
+              <span className="photo-stat-pill pill-warn">
+                ⚠ {photos.length - gpsCount} no GPS
+              </span>
+            )}
           </div>
         )}
 
-        <div className="date-filter">
-          <div className="date-filter-row">
-            <label className="date-filter-label">
-              From
-              <input
-                type="date"
-                className="date-filter-input"
-                value={dateFrom}
-                onChange={e => { setDateFrom(e.target.value); setUserTouchedFilter(true) }}
-              />
-            </label>
-            <label className="date-filter-label">
-              To
-              <input
-                type="date"
-                className="date-filter-input"
-                value={dateTo}
-                onChange={e => { setDateTo(e.target.value); setUserTouchedFilter(true) }}
-              />
-            </label>
+        <SidebarSection title="Filters" defaultOpen={true}>
+          <div className="date-filter">
+            {minDate && sliderRange > 0 ? (
+              <>
+                <div className="date-range-display">
+                  <span>{dateFrom || minDate || 'earliest'}</span>
+                  <span className="date-range-sep">→</span>
+                  <span>{dateTo || TODAY || 'latest'}</span>
+                </div>
+                <div className="date-slider-wrap">
+                  <div
+                    className="date-slider-track"
+                    style={{
+                      background: `linear-gradient(to right, #0f3460 ${fromPct}%, #e94560 ${fromPct}%, #e94560 ${toPct}%, #0f3460 ${toPct}%)`
+                    }}
+                  >
+                    <input
+                      type="range"
+                      className="date-range-input"
+                      min={minTs}
+                      max={maxTs}
+                      value={fromTs}
+                      style={{ zIndex: fromTs >= toTs ? 3 : 1 }}
+                      onChange={e => {
+                        const v = Number(e.target.value)
+                        if (v <= toTs) { setDateFrom(msToDate(v)); setUserTouchedFilter(true) }
+                      }}
+                    />
+                    <input
+                      type="range"
+                      className="date-range-input"
+                      min={minTs}
+                      max={maxTs}
+                      value={toTs}
+                      style={{ zIndex: toTs <= fromTs ? 3 : 1 }}
+                      onChange={e => {
+                        const v = Number(e.target.value)
+                        if (v >= fromTs) { setDateTo(msToDate(v)); setUserTouchedFilter(true) }
+                      }}
+                    />
+                  </div>
+                </div>
+                <details className="date-filter-advanced">
+                  <summary>Precise dates ›</summary>
+                  <div className="date-filter-row">
+                    <label className="date-filter-label">
+                      From
+                      <input
+                        type="date"
+                        className="date-filter-input"
+                        value={dateFrom}
+                        onChange={e => { setDateFrom(e.target.value); setUserTouchedFilter(true) }}
+                      />
+                    </label>
+                    <label className="date-filter-label">
+                      To
+                      <input
+                        type="date"
+                        className="date-filter-input"
+                        value={dateTo}
+                        onChange={e => { setDateTo(e.target.value); setUserTouchedFilter(true) }}
+                      />
+                    </label>
+                  </div>
+                </details>
+                {isFiltered && (
+                  <button className="date-filter-clear" onClick={() => setUserTouchedFilter(false)}>
+                    Reset range
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="date-filter-row">
+                  <label className="date-filter-label">
+                    From
+                    <input
+                      type="date"
+                      className="date-filter-input"
+                      value={dateFrom}
+                      onChange={e => { setDateFrom(e.target.value); setUserTouchedFilter(true) }}
+                    />
+                  </label>
+                  <label className="date-filter-label">
+                    To
+                    <input
+                      type="date"
+                      className="date-filter-input"
+                      value={dateTo}
+                      onChange={e => { setDateTo(e.target.value); setUserTouchedFilter(true) }}
+                    />
+                  </label>
+                </div>
+                {isFiltered && (
+                  <button className="date-filter-clear" onClick={() => setUserTouchedFilter(false)}>
+                    Reset range
+                  </button>
+                )}
+              </>
+            )}
           </div>
-          {minDate && sliderRange > 0 && (
-            <div className="date-slider-wrap">
-              <div
-                className="date-slider-track"
-                style={{
-                  background: `linear-gradient(to right, #0f3460 ${fromPct}%, #e94560 ${fromPct}%, #e94560 ${toPct}%, #0f3460 ${toPct}%)`
-                }}
-              >
-                <input
-                  type="range"
-                  className="date-range-input"
-                  min={minTs}
-                  max={maxTs}
-                  value={fromTs}
-                  style={{ zIndex: fromTs >= toTs ? 3 : 1 }}
-                  onChange={e => {
-                    const v = Number(e.target.value)
-                    if (v <= toTs) { setDateFrom(msToDate(v)); setUserTouchedFilter(true) }
-                  }}
-                />
-                <input
-                  type="range"
-                  className="date-range-input"
-                  min={minTs}
-                  max={maxTs}
-                  value={toTs}
-                  style={{ zIndex: toTs <= fromTs ? 3 : 1 }}
-                  onChange={e => {
-                    const v = Number(e.target.value)
-                    if (v >= fromTs) { setDateTo(msToDate(v)); setUserTouchedFilter(true) }
-                  }}
-                />
-              </div>
+
+          <form className="location-search" onSubmit={handleLocationSearch}>
+            <input
+              type="text"
+              className="location-search-input"
+              placeholder="Search location…"
+              value={locationQuery}
+              onChange={e => setLocationQuery(e.target.value)}
+            />
+            <button type="submit" className="location-search-btn" disabled={locationSearching}>
+              {locationSearching ? '…' : 'Go'}
+            </button>
+          </form>
+
+          <div className="map-filter-row">
+            <button className="map-filter-btn" onClick={handleFilterToView}>
+              Filter to map view
+            </button>
+            {mapBounds && (
+              <button className="date-filter-clear" onClick={() => setMapBounds(null)}>
+                Clear
+              </button>
+            )}
+          </div>
+
+          {activeTag && (
+            <div className="map-filter-row">
+              <span className="active-tag-label">Tag: <strong>{activeTag}</strong></span>
+              <button className="date-filter-clear" onClick={() => setActiveTag(null)}>
+                Clear
+              </button>
             </div>
           )}
-          {isFiltered && (
-            <button className="date-filter-clear" onClick={() => setUserTouchedFilter(false)}>
-              Reset range
+
+          <div className="export-row">
+            <button className="export-btn" onClick={() => exportPhotos('geojson')} disabled={photos.filter(p => p.hasGps).length === 0}>
+              ↓ GeoJSON
             </button>
-          )}
-        </div>
-
-        <form className="location-search" onSubmit={handleLocationSearch}>
-          <input
-            type="text"
-            className="location-search-input"
-            placeholder="Search location…"
-            value={locationQuery}
-            onChange={e => setLocationQuery(e.target.value)}
-          />
-          <button type="submit" className="location-search-btn" disabled={locationSearching}>
-            {locationSearching ? '…' : 'Go'}
-          </button>
-        </form>
-
-        <div className="map-filter-row">
-          <button className="map-filter-btn" onClick={handleFilterToView}>
-            Filter to map view
-          </button>
-          {mapBounds && (
-            <button className="date-filter-clear" onClick={() => setMapBounds(null)}>
-              Clear
-            </button>
-          )}
-        </div>
-
-        {activeTag && (
-          <div className="map-filter-row">
-            <span className="active-tag-label">Tag: <strong>{activeTag}</strong></span>
-            <button className="date-filter-clear" onClick={() => setActiveTag(null)}>
-              Clear
+            <button className="export-btn" onClick={() => exportPhotos('kml')} disabled={photos.filter(p => p.hasGps).length === 0}>
+              ↓ KML
             </button>
           </div>
-        )}
+        </SidebarSection>
 
-        <div className="export-row">
-          <button className="export-btn" onClick={() => exportPhotos('geojson')} disabled={photos.filter(p => p.hasGps).length === 0}>
-            ↓ GeoJSON
-          </button>
-          <button className="export-btn" onClick={() => exportPhotos('kml')} disabled={photos.filter(p => p.hasGps).length === 0}>
-            ↓ KML
-          </button>
-        </div>
+        {/* Active filters summary bar — always visible, outside collapsible */}
+        {(isFiltered || mapBounds || activeTag || regionPolygon || activeClientId || activeCollectionId || activeProjectId) && (
+          <div className="active-filters-bar">
+            <span className="active-filters-label">Active filters:</span>
+            {isFiltered && (
+              <button className="filter-chip" onClick={() => setUserTouchedFilter(false)}>
+                📅 Date range ×
+              </button>
+            )}
+            {mapBounds && (
+              <button className="filter-chip" onClick={() => setMapBounds(null)}>
+                🗺 Map view ×
+              </button>
+            )}
+            {activeTag && (
+              <button className="filter-chip" onClick={() => setActiveTag(null)}>
+                # {activeTag} ×
+              </button>
+            )}
+            {regionPolygon && (
+              <button className="filter-chip" onClick={() => setRegionPolygon(null)}>
+                ✏ Region ×
+              </button>
+            )}
+            {activeClientId && (
+              <button className="filter-chip" onClick={() => { setActiveClientId(null); setActiveProjectId(null); setActiveCollectionId(null) }}>
+                👤 Client ×
+              </button>
+            )}
+            {activeCollectionId && (
+              <button className="filter-chip" onClick={() => setActiveCollectionId(null)}>
+                ◎ Collection ×
+              </button>
+            )}
+            {activeProjectId && (
+              <button className="filter-chip" onClick={() => { setActiveProjectId(null); setActiveCollectionId(null) }}>
+                📁 Project ×
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Timeline Player */}
-        <div className="timeline-section">
-          <button
-            className={`timeline-toggle-btn${timelineActive ? ' active' : ''}`}
-            onClick={() => setTimelineActive(a => !a)}
-            disabled={photos.length === 0}
-          >
-            {timelineActive ? '✕ Exit Timeline' : '▷ Timeline'}
-          </button>
-          {timelineActive && (
-            <div className="timeline-controls">
-              <div className="timeline-label">
-                {currentTimelineDate}
-                <span className="timeline-counter">{timelineIndex + 1} / {timelineSorted.length}</span>
+        <SidebarSection title="Timeline" defaultOpen={false}>
+          <div className="timeline-section">
+            <button
+              className={`timeline-toggle-btn${timelineActive ? ' active' : ''}`}
+              onClick={() => setTimelineActive(a => !a)}
+              disabled={photos.length === 0}
+            >
+              {timelineActive ? '✕ Exit Timeline' : '▶ Play Timeline'}
+            </button>
+            {timelineActive && (
+              <div className="timeline-controls">
+                <div className="timeline-label">
+                  {currentTimelineDate}
+                  <span className="timeline-counter">{timelineIndex + 1} / {timelineSorted.length}</span>
+                </div>
+                <input
+                  type="range"
+                  className="timeline-scrubber"
+                  min={0}
+                  max={Math.max(0, timelineSorted.length - 1)}
+                  value={timelineIndex}
+                  onChange={e => {
+                    setTimelineIndex(Number(e.target.value))
+                    setTimelinePlaying(false)
+                  }}
+                />
+                <div className="timeline-actions">
+                  <button
+                    className="timeline-play-btn"
+                    onClick={() => setTimelinePlaying(p => !p)}
+                    disabled={timelineSorted.length < 2}
+                  >
+                    {timelinePlaying ? '⏸ Pause' : '▶ Play'}
+                  </button>
+                  <select
+                    className="timeline-speed-select"
+                    value={timelineSpeed}
+                    onChange={e => setTimelineSpeed(Number(e.target.value))}
+                  >
+                    <option value={1500}>Slow</option>
+                    <option value={800}>Normal</option>
+                    <option value={300}>Fast</option>
+                  </select>
+                </div>
               </div>
-              <input
-                type="range"
-                className="timeline-scrubber"
-                min={0}
-                max={Math.max(0, timelineSorted.length - 1)}
-                value={timelineIndex}
-                onChange={e => {
-                  setTimelineIndex(Number(e.target.value))
-                  setTimelinePlaying(false)
-                }}
-              />
-              <div className="timeline-actions">
-                <button
-                  className="timeline-play-btn"
-                  onClick={() => setTimelinePlaying(p => !p)}
-                  disabled={timelineSorted.length < 2}
-                >
-                  {timelinePlaying ? '⏸ Pause' : '▶ Play'}
-                </button>
-                <select
-                  className="timeline-speed-select"
-                  value={timelineSpeed}
-                  onChange={e => setTimelineSpeed(Number(e.target.value))}
-                >
-                  <option value={1500}>Slow</option>
-                  <option value={800}>Normal</option>
-                  <option value={300}>Fast</option>
-                </select>
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        </SidebarSection>
 
-        <ProjectPanel
+        <ClientPanel
+          clients={clients}
           projects={projects}
-          activeProjectId={activeProjectId}
-          onSelect={setActiveProjectId}
-          onCreate={createProject}
-          onUpdate={updateProject}
-          onDelete={deleteProject}
-        />
-
-        <CollectionPanel
           collections={collections}
+          activeClientId={activeClientId}
+          activeProjectId={activeProjectId}
           activeCollectionId={activeCollectionId}
-          onSelect={setActiveCollectionId}
-          onCreate={createCollection}
-          onUpdate={updateCollection}
-          onDelete={deleteCollection}
+          onSelectClient={id => { setActiveClientId(id); setActiveProjectId(null); setActiveCollectionId(null) }}
+          onSelectProject={id => { setActiveProjectId(id); setActiveCollectionId(null) }}
+          onSelectCollection={setActiveCollectionId}
+          onCreateClient={createClient}
+          onUpdateClient={updateClient}
+          onDeleteClient={deleteClient}
+          onCreateProject={createProject}
+          onUpdateProject={updateProject}
+          onDeleteProject={deleteProject}
+          onCreateCollection={createCollection}
+          onUpdateCollection={updateCollection}
+          onDeleteCollection={deleteCollection}
         />
 
         <PhotoList
           photos={displayPhotos}
           onDelete={deletePhoto}
-          onView={setViewingPhoto}
+          onView={photo => { setViewingPhoto(photo); setMobileSidebarOpen(false) }}
           activeTag={activeTag}
           onTagClick={tag => setActiveTag(prev => prev === tag ? null : tag)}
           selectionMode={selectionMode}
@@ -450,7 +606,7 @@ export function App() {
         )}
       </div>
 
-      <UploadDrawer results={results} open={drawerOpen} onClose={() => setDrawerOpen(false)} onClear={() => setResults([])} />
+      <UploadDrawer results={results} open={drawerOpen} onClose={() => setDrawerOpen(false)} onClear={() => setResults([])} onAllDone={() => setDrawerOpen(false)} />
 
       {viewingPhoto && (
         <PhotoLightbox
@@ -470,6 +626,35 @@ export function App() {
           onChangeLeft={id => setComparisonPair(([, r]) => [id, r])}
           onChangeRight={id => setComparisonPair(([l]) => [l, id])}
         />
+      )}
+
+      {shortcutsOpen && (
+        <div
+          className="shortcuts-overlay"
+          onClick={() => setShortcutsOpen(false)}
+        >
+          <div
+            className="shortcuts-box"
+            ref={shortcutsTrapRef}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="shortcuts-header">
+              <span>Keyboard Shortcuts</span>
+              <button
+                className="shortcuts-close"
+                onClick={() => setShortcutsOpen(false)}
+                aria-label="Close shortcuts"
+              >✕</button>
+            </div>
+            <dl className="shortcuts-list">
+              <dt>?</dt><dd>Show / hide this overlay</dd>
+              <dt>Esc</dt><dd>Close modal or overlay</dd>
+              <dt>← →</dt><dd>Previous / next photo in lightbox</dd>
+              <dt>Del</dt><dd>Delete selected photos (when selected)</dd>
+            </dl>
+            <p className="shortcuts-hint">Press ? or Esc to close</p>
+          </div>
+        </div>
       )}
     </div>
   )

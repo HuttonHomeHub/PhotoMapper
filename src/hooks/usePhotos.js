@@ -4,6 +4,7 @@ export function usePhotos() {
   const [photos, setPhotos] = useState([])
   const [collections, setCollections] = useState([])
   const [projects, setProjects] = useState([])
+  const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -36,11 +37,19 @@ export function usePhotos() {
     setProjects(data)
   }, [])
 
+  const fetchClients = useCallback(async () => {
+    const res = await fetch('/api/clients')
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    setClients(data)
+  }, [])
+
   useEffect(() => {
     refresh()
     fetchCollections().catch(() => {})
     fetchProjects().catch(() => {})
-  }, [refresh, fetchCollections, fetchProjects])
+    fetchClients().catch(() => {})
+  }, [refresh, fetchCollections, fetchProjects, fetchClients])
 
   const deletePhoto = useCallback(async (id) => {
     const res = await fetch(`/api/photos/${id}`, { method: 'DELETE' })
@@ -149,6 +158,40 @@ export function usePhotos() {
     await refresh()
   }
 
+  async function createClient(data) {
+    const res = await fetch('/api/clients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `HTTP ${res.status}`)
+    }
+    const client = await res.json()
+    setClients(prev => [...prev, client])
+    return client
+  }
+
+  async function updateClient(id, changes) {
+    const res = await fetch(`/api/clients/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(changes)
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || `HTTP ${res.status}`)
+    }
+    const updated = await res.json()
+    setClients(prev => prev.map(c => c.id === id ? updated : c))
+  }
+
+  async function deleteClient(id) {
+    await fetch(`/api/clients/${id}`, { method: 'DELETE' })
+    setClients(prev => prev.filter(c => c.id !== id))
+  }
+
   async function createProject(data) {
     const res = await fetch('/api/projects', {
       method: 'POST',
@@ -200,6 +243,7 @@ export function usePhotos() {
 
   return {
     photos, loading, error, refresh, deletePhoto, updatePhoto, exportPhotos,
+    clients, createClient, updateClient, deleteClient,
     collections, createCollection, updateCollection, deleteCollection,
     addPhotosToCollection, removePhotoFromCollection,
     batchUpdate, batchDelete,

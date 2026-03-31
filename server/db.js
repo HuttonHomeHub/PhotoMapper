@@ -133,6 +133,86 @@ try {
   // Column already exists — ignore
 }
 
+// Migrate: add clients table
+db.exec(`
+  CREATE TABLE IF NOT EXISTS clients (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )
+`)
+
+// Migrate: add client_id FK to projects
+try {
+  db.exec('ALTER TABLE projects ADD COLUMN client_id TEXT REFERENCES clients(id) ON DELETE SET NULL')
+} catch {
+  // Column already exists — ignore
+}
+
+try {
+  db.exec('CREATE INDEX IF NOT EXISTS idx_projects_client_id ON projects(client_id)')
+} catch {
+  // Index already exists — ignore
+}
+
+// Migrate: add project_id FK to collections (requires table recreation to drop global UNIQUE on name)
+{
+  const collsCols = db.prepare('PRAGMA table_info(collections)').all()
+  const hasProjectId = collsCols.some(c => c.name === 'project_id')
+  if (!hasProjectId) {
+    db.exec(`
+      BEGIN;
+      CREATE TABLE collections_new (
+        id          TEXT PRIMARY KEY,
+        name        TEXT NOT NULL,
+        description TEXT,
+        color       TEXT DEFAULT '#e94560',
+        project_id  TEXT REFERENCES projects(id) ON DELETE SET NULL,
+        created_at  TEXT NOT NULL,
+        updated_at  TEXT NOT NULL
+      );
+      INSERT INTO collections_new SELECT id, name, description, color, NULL, created_at, updated_at FROM collections;
+      DROP TABLE collections;
+      ALTER TABLE collections_new RENAME TO collections;
+      COMMIT;
+    `)
+    db.exec('CREATE INDEX IF NOT EXISTS idx_collections_project_id ON collections(project_id)')
+  }
+}
+
+// Migrate: promote existing project.client TEXT values into the clients table
+{
+  const unmigrated = db.prepare(
+    `SELECT id, client FROM projects WHERE client IS NOT NULL AND client_id IS NULL`
+  ).all()
+
+  if (unmigrated.length > 0) {
+    const insertClientMigrate = db.prepare(
+      `INSERT OR IGNORE INTO clients (id, name, created_at, updated_at)
+       VALUES (lower(hex(randomblob(16))), @name, @now, @now)`
+    )
+    const setClientId = db.prepare(
+      `UPDATE projects SET client_id = (SELECT id FROM clients WHERE name = @name) WHERE id = @projectId`
+    )
+    const migrate = db.transaction(() => {
+      const now = new Date().toISOString()
+      const seen = new Set()
+      for (const row of unmigrated) {
+        const name = row.client.trim()
+        if (!seen.has(name)) {
+          insertClientMigrate.run({ name, now })
+          seen.add(name)
+        }
+        setClientId.run({ name, projectId: row.id })
+      }
+    })
+    migrate()
+  }
+}
+
+// ─── Prepared statements ────────────────────────────────────────────────────
+
 const insertStmt = db.prepare(`
   INSERT INTO photos (
     id, filename, thumbnail_filename, original_name, uploaded_at, has_gps,
@@ -156,22 +236,23 @@ const selectAllStmt = db.prepare(`
 `)
 
 const selectAllProjectsStmt = db.prepare(`
-  SELECT pr.*, COUNT(p.id) as photo_count
+  SELECT pr.*, COUNT(p.id) as photo_count, cl.name as client_name
   FROM projects pr
   LEFT JOIN photos p ON p.project_id = pr.id
+  LEFT JOIN clients cl ON cl.id = pr.client_id
   GROUP BY pr.id
   ORDER BY pr.created_at DESC
 `)
 
 const insertProjectStmt = db.prepare(`
-  INSERT INTO projects (id, name, client, status, color, created_at, updated_at)
-  VALUES (@id, @name, @client, @status, @color, @createdAt, @updatedAt)
+  INSERT INTO projects (id, name, client_id, status, color, created_at, updated_at)
+  VALUES (@id, @name, @clientId, @status, @color, @createdAt, @updatedAt)
 `)
 
 const updateProjectStmt = db.prepare(`
   UPDATE projects
   SET name       = COALESCE(@name, name),
-      client     = COALESCE(@client, client),
+      client_id  = COALESCE(@clientId, client_id),
       status     = COALESCE(@status, status),
       color      = COALESCE(@color, color),
       updated_at = @updatedAt
@@ -191,6 +272,69 @@ const updateStmt = db.prepare(`
       location_name = COALESCE(@locationName, location_name)
   WHERE id = @id
 `)
+
+const insertCollectionStmt = db.prepare(`
+  INSERT INTO collections (id, name, description, color, project_id, created_at, updated_at)
+  VALUES (@id, @name, @description, @color, @projectId, @createdAt, @updatedAt)
+`)
+
+const selectAllCollectionsStmt = db.prepare(`
+  SELECT c.*, COUNT(pc.photo_id) as photo_count
+  FROM collections c
+  LEFT JOIN photo_collections pc ON c.id = pc.collection_id
+  GROUP BY c.id
+  ORDER BY c.created_at DESC
+`)
+
+const selectCollectionsByProjectStmt = db.prepare(`
+  SELECT c.*, COUNT(pc.photo_id) as photo_count
+  FROM collections c
+  LEFT JOIN photo_collections pc ON c.id = pc.collection_id
+  WHERE c.project_id = ?
+  GROUP BY c.id
+  ORDER BY c.created_at DESC
+`)
+
+const updateCollectionStmt = db.prepare(`
+  UPDATE collections
+  SET name        = COALESCE(@name, name),
+      description = COALESCE(@description, description),
+      color       = COALESCE(@color, color),
+      updated_at  = @updatedAt
+  WHERE id = @id
+`)
+
+const deleteCollectionStmt = db.prepare('DELETE FROM collections WHERE id = ?')
+
+const addPhotoToCollectionStmt = db.prepare(`
+  INSERT OR IGNORE INTO photo_collections (photo_id, collection_id, added_at)
+  VALUES (@photoId, @collectionId, @addedAt)
+`)
+
+const removePhotoFromCollectionStmt = db.prepare(`
+  DELETE FROM photo_collections WHERE collection_id = ? AND photo_id = ?
+`)
+
+const insertClientStmt = db.prepare(`
+  INSERT INTO clients (id, name, created_at, updated_at)
+  VALUES (@id, @name, @createdAt, @updatedAt)
+`)
+
+const selectAllClientsStmt = db.prepare(`
+  SELECT cl.*, COUNT(DISTINCT pr.id) as project_count
+  FROM clients cl
+  LEFT JOIN projects pr ON pr.client_id = cl.id
+  GROUP BY cl.id
+  ORDER BY cl.name ASC
+`)
+
+const updateClientStmt = db.prepare(`
+  UPDATE clients SET name = @name, updated_at = @updatedAt WHERE id = @id
+`)
+
+const deleteClientStmt = db.prepare('DELETE FROM clients WHERE id = ?')
+
+// ─── Exported functions ──────────────────────────────────────────────────────
 
 export function insertPhoto(record) {
   insertStmt.run(record)
@@ -255,41 +399,8 @@ export function batchUpdatePhotos(updates) {
   run()
 }
 
-const insertCollectionStmt = db.prepare(`
-  INSERT INTO collections (id, name, description, color, created_at, updated_at)
-  VALUES (@id, @name, @description, @color, @createdAt, @updatedAt)
-`)
-
-const selectAllCollectionsStmt = db.prepare(`
-  SELECT c.*, COUNT(pc.photo_id) as photo_count
-  FROM collections c
-  LEFT JOIN photo_collections pc ON c.id = pc.collection_id
-  GROUP BY c.id
-  ORDER BY c.created_at DESC
-`)
-
-const updateCollectionStmt = db.prepare(`
-  UPDATE collections
-  SET name        = COALESCE(@name, name),
-      description = COALESCE(@description, description),
-      color       = COALESCE(@color, color),
-      updated_at  = @updatedAt
-  WHERE id = @id
-`)
-
-const deleteCollectionStmt = db.prepare('DELETE FROM collections WHERE id = ?')
-
-const addPhotoToCollectionStmt = db.prepare(`
-  INSERT OR IGNORE INTO photo_collections (photo_id, collection_id, added_at)
-  VALUES (@photoId, @collectionId, @addedAt)
-`)
-
-const removePhotoFromCollectionStmt = db.prepare(`
-  DELETE FROM photo_collections WHERE collection_id = ? AND photo_id = ?
-`)
-
-export function createCollection({ id, name, description, color, createdAt, updatedAt }) {
-  insertCollectionStmt.run({ id, name, description, color, createdAt, updatedAt })
+export function createCollection({ id, name, description, color, projectId, createdAt, updatedAt }) {
+  insertCollectionStmt.run({ id, name, description: description ?? null, color, projectId: projectId ?? null, createdAt, updatedAt })
 }
 
 export function getAllCollections() {
@@ -298,6 +409,20 @@ export function getAllCollections() {
     name: row.name,
     description: row.description ?? null,
     color: row.color,
+    projectId: row.project_id ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    photoCount: row.photo_count
+  }))
+}
+
+export function getCollectionsByProject(projectId) {
+  return selectCollectionsByProjectStmt.all(projectId).map(row => ({
+    id: row.id,
+    name: row.name,
+    description: row.description ?? null,
+    color: row.color,
+    projectId: row.project_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     photoCount: row.photo_count
@@ -356,7 +481,8 @@ export function getAllProjects() {
   return selectAllProjectsStmt.all().map(row => ({
     id: row.id,
     name: row.name,
-    client: row.client ?? null,
+    clientId: row.client_id ?? null,
+    clientName: row.client_name ?? null,
     status: row.status,
     color: row.color,
     createdAt: row.created_at,
@@ -365,12 +491,12 @@ export function getAllProjects() {
   }))
 }
 
-export function createProject({ id, name, client, status, color, createdAt, updatedAt }) {
-  insertProjectStmt.run({ id, name, client: client ?? null, status, color, createdAt, updatedAt })
+export function createProject({ id, name, clientId, status, color, createdAt, updatedAt }) {
+  insertProjectStmt.run({ id, name, clientId: clientId ?? null, status, color, createdAt, updatedAt })
 }
 
-export function updateProject(id, { name, client, status, color, updatedAt }) {
-  updateProjectStmt.run({ id, name: name ?? null, client: client ?? null, status: status ?? null, color: color ?? null, updatedAt })
+export function updateProject(id, { name, clientId, status, color, updatedAt }) {
+  updateProjectStmt.run({ id, name: name ?? null, clientId: clientId ?? null, status: status ?? null, color: color ?? null, updatedAt })
 }
 
 export function deleteProject(id) {
@@ -384,4 +510,26 @@ export function assignPhotosToProject(projectId, photoIds) {
     }
   })
   run()
+}
+
+export function createClient({ id, name, createdAt, updatedAt }) {
+  insertClientStmt.run({ id, name, createdAt, updatedAt })
+}
+
+export function getAllClients() {
+  return selectAllClientsStmt.all().map(row => ({
+    id: row.id,
+    name: row.name,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    projectCount: row.project_count
+  }))
+}
+
+export function updateClient(id, { name, updatedAt }) {
+  updateClientStmt.run({ id, name, updatedAt })
+}
+
+export function deleteClient(id) {
+  return deleteClientStmt.run(id).changes
 }

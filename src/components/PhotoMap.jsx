@@ -209,6 +209,8 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
   const onDeleteRef = useRef(onDelete)
   const onViewRef = useRef(onView)
   const onRegionChangeRef = useRef(onRegionChange)
+  const onPhotoHoverRef = useRef(onPhotoHover)
+  const photosRef = useRef(photos)
   const prevGeoCountRef = useRef(0)
 
   const [heatmapActive, setHeatmapActive] = useState(false)
@@ -223,6 +225,8 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
   useEffect(() => { onDeleteRef.current = onDelete }, [onDelete])
   useEffect(() => { onViewRef.current = onView }, [onView])
   useEffect(() => { onRegionChangeRef.current = onRegionChange }, [onRegionChange])
+  useEffect(() => { onPhotoHoverRef.current = onPhotoHover }, [onPhotoHover])
+  useEffect(() => { photosRef.current = photos }, [photos])
 
   // Initialise map once
   useEffect(() => {
@@ -537,6 +541,8 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
     }
   }, [drawMode])
 
+  const photoIds = photos.map(p => p.id).join(',')
+
   // Rebuild markers when photos change
   useEffect(() => {
     const clusterGroup = clusterGroupRef.current
@@ -595,8 +601,8 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
         }, { once: true })
       })
 
-      marker.on('mouseover', () => onPhotoHover?.(photo.id))
-      marker.on('mouseout', () => onPhotoHover?.(null))
+      marker.on('mouseover', () => onPhotoHoverRef.current?.(photo.id))
+      marker.on('mouseout', () => onPhotoHoverRef.current?.(null))
       marker.bindPopup(popup)
       clusterGroup.addLayer(marker)
 
@@ -613,7 +619,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 })
     }
     prevGeoCountRef.current = geoPhotos.length
-  }, [photos])
+  }, [photoIds, fovVisible])
 
   function clearRegion() {
     const map = mapInstanceRef.current
