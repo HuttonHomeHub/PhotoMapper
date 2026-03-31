@@ -20,7 +20,7 @@ export function UploadDrawer({ results, open, onClose, onClear, onAllDone }) {
     if (results.length === 0) return
     const allDone = results.every(r => r.status !== 'uploading')
     if (allDone && !keepOpen) {
-      timerRef.current = setTimeout(() => onAllDone?.(), 2500)
+      timerRef.current = setTimeout(() => onAllDone?.(), 4000)
     }
     return () => clearTimeout(timerRef.current)
   }, [open, results, keepOpen]) // eslint-disable-line react-hooks/exhaustive-deps

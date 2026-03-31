@@ -178,7 +178,7 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
               ))}
               <input
                 className="tag-input"
-                placeholder="Add tag…"
+                placeholder="Add tag, press Enter"
                 value={tagInput}
                 onChange={e => setTagInput(e.target.value)}
                 onKeyDown={handleTagKeyDown}

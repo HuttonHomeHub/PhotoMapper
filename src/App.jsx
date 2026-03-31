@@ -269,7 +269,7 @@ export function App() {
             className={`log-toggle-btn${drawerOpen ? ' active' : ''}`}
             onClick={() => setDrawerOpen(o => !o)}
           >
-            Log
+            Uploads
             {results.length > 0 && !drawerOpen && <span className="log-toggle-dot" />}
           </button>
           <button

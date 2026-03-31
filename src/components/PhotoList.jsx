@@ -162,6 +162,9 @@ export function PhotoList({
                       {tag}
                     </button>
                   ))}
+                  {photo.tags.length > 3 && (
+                    <span className="tag-overflow">+{photo.tags.length - 3}</span>
+                  )}
                 </div>
               )}
               {photo.collectionIds?.length > 0 && (
