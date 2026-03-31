@@ -121,42 +121,52 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
 
       <div className="lightbox-box" ref={trapRef} onClick={e => e.stopPropagation()}>
         <button className="lightbox-close" onClick={() => onClose(null)} aria-label="Close">&#10005;</button>
-        <img
-          className="lightbox-img"
-          src={`/uploads/${photo.filename}`}
-          alt={photo.originalName}
-        />
+        <div className="lightbox-img-wrap">
+          <img
+            className="lightbox-img"
+            src={`/uploads/${photo.filename}`}
+            alt={photo.originalName}
+          />
+        </div>
         <div className="lightbox-meta">
           <div className="lightbox-title">{photo.originalName}</div>
           {photo.locationName && (
             <div className="lightbox-location">{photo.locationName}</div>
           )}
-          <MetaRow label="Taken" value={formatDate(photo.dateTaken)} />
-          <MetaRow label="Camera" value={[photo.cameraMake, photo.cameraModel].filter(Boolean).join(' ') || null} />
-          <MetaRow label="Focal len." value={photo.focalLength != null ? `${photo.focalLength}mm` : null} />
-          <MetaRow label="Aperture" value={photo.fNumber != null ? `f/${photo.fNumber}` : null} />
-          <MetaRow label="ISO" value={photo.iso} />
-          <MetaRow label="Exposure" value={photo.exposureTime} />
-          <MetaRow label="Altitude" value={photo.altitude != null ? `${Math.round(photo.altitude)}m` : null} />
-          <MetaRow label="Direction" value={photo.imgDirection != null ? `${Math.round(photo.imgDirection)}°` : null} />
-          <MetaRow label="GPS" value={photo.hasGps ? `${photo.lat?.toFixed(5)}, ${photo.lng?.toFixed(5)}` : 'No GPS'} />
-          {photo.hasGps && photo.lat != null && photo.lng != null && (
-            <div className="lightbox-gps-actions">
-              <button className="lightbox-gps-btn" onClick={copyCoords}>
-                {copied ? '✓ Copied!' : '⎘ Copy coords'}
-              </button>
-              <a
-                href={`https://www.google.com/maps?q=${photo.lat},${photo.lng}`}
-                target="_blank"
-                rel="noreferrer"
-                className="lightbox-gps-btn"
-              >
-                Maps ↗
-              </a>
-            </div>
-          )}
 
-          <div className="lightbox-field-notes">
+          <div className="lightbox-meta-section">
+            <div className="lightbox-meta-section-title">Camera</div>
+            <MetaRow label="Taken" value={formatDate(photo.dateTaken)} />
+            <MetaRow label="Camera" value={[photo.cameraMake, photo.cameraModel].filter(Boolean).join(' ') || null} />
+            <MetaRow label="Focal len." value={photo.focalLength != null ? `${photo.focalLength}mm` : null} />
+            <MetaRow label="Aperture" value={photo.fNumber != null ? `f/${photo.fNumber}` : null} />
+            <MetaRow label="ISO" value={photo.iso} />
+            <MetaRow label="Exposure" value={photo.exposureTime} />
+          </div>
+
+          <div className="lightbox-meta-section">
+            <div className="lightbox-meta-section-title">Location</div>
+            <MetaRow label="Altitude" value={photo.altitude != null ? `${Math.round(photo.altitude)}m` : null} />
+            <MetaRow label="Direction" value={photo.imgDirection != null ? `${Math.round(photo.imgDirection)}°` : null} />
+            <MetaRow label="GPS" value={photo.hasGps ? `${photo.lat?.toFixed(5)}, ${photo.lng?.toFixed(5)}` : 'No GPS'} />
+            {photo.hasGps && photo.lat != null && photo.lng != null && (
+              <div className="lightbox-gps-actions">
+                <button className="lightbox-gps-btn" onClick={copyCoords}>
+                  {copied ? '✓ Copied!' : '⎘ Copy coords'}
+                </button>
+                <a
+                  href={`https://www.google.com/maps?q=${photo.lat},${photo.lng}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="lightbox-gps-btn"
+                >
+                  Maps ↗
+                </a>
+              </div>
+            )}
+          </div>
+
+          <div className="lightbox-meta-section lightbox-field-notes">
             <div className="lightbox-field-label">
               Field Notes
               {savedState === 'saving' && <span className="save-indicator saving">saving…</span>}
@@ -186,15 +196,16 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
               />
             </div>
           </div>
-        </div>
-        <div className="lightbox-footer">
-          <a
-            href={`/uploads/${photo.filename}`}
-            download={photo.originalName}
-            className="lightbox-download-btn"
-          >
-            ↓ Download
-          </a>
+
+          <div className="lightbox-footer">
+            <a
+              href={`/uploads/${photo.filename}`}
+              download={photo.originalName}
+              className="lightbox-download-btn"
+            >
+              ↓ Download
+            </a>
+          </div>
         </div>
       </div>
 

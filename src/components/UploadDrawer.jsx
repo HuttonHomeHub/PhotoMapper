@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 
 const statusIcon = {
-  uploading: '⏳',
+  uploading: '●',
   success: '✓',
-  'no-gps': '⚠',
+  'no-gps': '!',
   error: '✕',
   duplicate: '⊘'
 }

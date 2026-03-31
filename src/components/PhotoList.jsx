@@ -56,7 +56,12 @@ export function PhotoList({
     if (hasActiveFilters) {
       return (
         <div className="photo-list-empty">
-          <div className="photo-list-empty-icon">🔍</div>
+          <div className="photo-list-empty-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m16 16 4.5 4.5" strokeLinecap="round" />
+            </svg>
+          </div>
           <p className="photo-list-empty-title">No photos match your filters</p>
           <p className="photo-list-empty-sub">Try adjusting or clearing your filters.</p>
           <button className="date-filter-clear" style={{ marginTop: 12 }} onClick={onClearAllFilters}>
@@ -67,7 +72,12 @@ export function PhotoList({
     }
     return (
       <div className="photo-list-empty">
-        <div className="photo-list-empty-icon">🗺️</div>
+        <div className="photo-list-empty-icon">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+            <circle cx="12" cy="9" r="2.5" />
+          </svg>
+        </div>
         <p className="photo-list-empty-title">No photos yet</p>
         <p className="photo-list-empty-sub">
           Drop JPEGs above — those with GPS data will appear on the map automatically.

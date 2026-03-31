@@ -288,8 +288,8 @@ export function App() {
       <aside className={`sidebar${mobileSidebarOpen ? ' mobile-open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-header-text">
-            <h1>Photo Map</h1>
-            <p>Upload photos with GPS EXIF data</p>
+            <h1>Photo<span className="brand-accent">Map</span></h1>
+            <p>GPS photo mapping</p>
           </div>
           <button
             className={`log-toggle-btn${drawerOpen ? ' active' : ''}`}

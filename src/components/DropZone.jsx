@@ -124,11 +124,15 @@ export function DropZone({ onUploadComplete, setResults, openDrawer, projects = 
         tabIndex={0}
         onKeyDown={e => e.key === 'Enter' && onClick()}
       >
-        <div className="dropzone-icon">📷</div>
+        <div className="dropzone-icon">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 16.5V9.75M12 9.75l3 3M12 9.75l-3 3" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M3 15a4 4 0 0 0 4 4h10a4 4 0 0 0 4-4M6.5 12.5a4 4 0 0 1-.38-5.83A5.5 5.5 0 0 1 16.9 5.27 4.5 4.5 0 0 1 19.5 13" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
         <p>
-          <strong>Drop photos here</strong><br />
-          or click to browse<br />
-          JPEG · PNG · HEIC · WebP
+          <strong>Drop photos here</strong> or click to browse<br />
+          <span className="dropzone-formats">JPEG · PNG · HEIC · WebP</span>
         </p>
         <input
           ref={inputRef}
