@@ -1,13 +1,23 @@
 :root {
-  --color-bg:        #1a1a2e;
-  --color-sidebar:   #16213e;
-  --color-surface:   #0f1b35;
-  --color-border:    #0f3460;
-  --color-accent:    #e94560;
-  --color-accent-dim: rgba(233, 69, 96, 0.12);
-  --color-text:      #e0e0e0;
-  --color-muted:     #888;
-  --sidebar-width:   300px;
+  --color-bg:           #1a1a2e;
+  --color-sidebar:      #16213e;
+  --color-surface:      #0f1b35;
+  --color-surface-hover: #162040;
+  --color-surface-dark: #0a0a1a;
+  --color-border:       #0f3460;
+  --color-accent:       #e94560;
+  --color-accent-hover: var(--color-accent-hover);
+  --color-accent-dim:   rgba(233, 69, 96, 0.12);
+  --color-text:         #e0e0e0;
+  --color-text-dim:     #ccc;
+  --color-muted:        #888;
+  --color-success:      var(--color-success);
+  --color-warning:      var(--color-warning);
+  --radius-sm:          4px;
+  --radius-md:          6px;
+  --radius-lg:          8px;
+  --radius-xl:          12px;
+  --sidebar-width:      300px;
 }
 
 *, *::before, *::after {
@@ -59,7 +69,7 @@ html, body, #root {
 .log-toggle-btn {
   background: none;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   color: var(--color-muted);
   font-size: 11px;
   padding: 4px 8px;
@@ -114,9 +124,9 @@ html, body, #root {
 
 .heatmap-toggle {
   background: var(--color-sidebar);
-  color: #ccc;
+  color: var(--color-text-dim);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   padding: 4px 10px;
   font-size: 12px;
   cursor: pointer;
@@ -136,9 +146,9 @@ html, body, #root {
 
 .heatmap-metric-select {
   background: var(--color-sidebar);
-  color: #ccc;
+  color: var(--color-text-dim);
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   padding: 4px 8px;
   font-size: 12px;
   cursor: pointer;
@@ -156,7 +166,7 @@ html, body, #root {
   color: #fff;
   padding: 10px 16px;
   font-size: 13px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   margin-bottom: 12px;
 }
 
@@ -165,7 +175,7 @@ html, body, #root {
 .dropzone {
   margin: 16px;
   border: 2px dashed #0f3460;
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   padding: 24px 16px;
   text-align: center;
   cursor: pointer;
@@ -192,7 +202,7 @@ html, body, #root {
 
 .dropzone p {
   font-size: 13px;
-  color: #aaa;
+  color: var(--color-muted);
   line-height: 1.5;
 }
 
@@ -247,7 +257,7 @@ html, body, #root {
 .upload-drawer-clear {
   background: none;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   color: var(--color-muted);
   font-size: 11px;
   cursor: pointer;
@@ -291,15 +301,15 @@ html, body, #root {
   gap: 8px;
   font-size: 12px;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   line-height: 1.4;
   border-left: 3px solid transparent;
 }
 
-.upload-item.uploading { border-left-color: #555; }
-.upload-item.success   { border-left-color: #4caf50; }
-.upload-item.no-gps    { border-left-color: #ff9800; }
+.upload-item.uploading { border-left-color: var(--color-muted); }
+.upload-item.success   { border-left-color: var(--color-success); }
+.upload-item.no-gps    { border-left-color: var(--color-warning); }
 .upload-item.error     { border-left-color: var(--color-accent); }
 .upload-item.duplicate { border-left-color: #9c27b0; }
 
@@ -307,7 +317,7 @@ html, body, #root {
   flex: 1;
   min-width: 0;
   word-break: break-all;
-  color: #ccc;
+  color: var(--color-text-dim);
 }
 
 .upload-item .status-icon {
@@ -316,8 +326,8 @@ html, body, #root {
 }
 
 .upload-item.uploading .status-icon { color: var(--color-muted); }
-.upload-item.success .status-icon   { color: #4caf50; }
-.upload-item.no-gps .status-icon    { color: #ff9800; }
+.upload-item.success .status-icon   { color: var(--color-success); }
+.upload-item.no-gps .status-icon    { color: var(--color-warning); }
 .upload-item.error .status-icon     { color: var(--color-accent); }
 .upload-item.duplicate .status-icon { color: #9c27b0; }
 
@@ -328,12 +338,6 @@ html, body, #root {
 }
 
 /* ── Photo stats ─────────────────────────────────────────────────────── */
-
-.photo-count {
-  padding: 8px 16px 16px;
-  font-size: 12px;
-  color: #666;
-}
 
 .photo-list-empty {
   margin: 24px 16px;
@@ -361,13 +365,13 @@ html, body, #root {
   gap: 4px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   padding: 2px 10px;
   font-size: 11px;
   color: var(--color-muted);
 }
 .photo-stat-pill .pill-icon { font-size: 10px; }
-.pill-warn { border-color: rgba(255,152,0,0.4); color: #ff9800; }
+.pill-warn { border-color: rgba(255,152,0,0.4); color: var(--color-warning); }
 
 /* ── Map pins ────────────────────────────────────────────────────────── */
 
@@ -432,7 +436,7 @@ html, body, #root {
   height: 36px;
 }
 
-.cluster-xs { background: #4caf50; }
+.cluster-xs { background: var(--color-success); }
 .cluster-sm { background: #8bc34a; }
 .cluster-md { background: #ffc107; font-size: 13px; }
 .cluster-lg { background: #ff5722; font-size: 13px; }
@@ -478,7 +482,7 @@ html, body, #root {
 }
 
 .popup-content .popup-value {
-  color: #ccc;
+  color: var(--color-text-dim);
 }
 
 .popup-actions {
@@ -492,7 +496,7 @@ html, body, #root {
   background: transparent;
   border: 1px solid var(--color-accent);
   color: var(--color-accent);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   padding: 4px 12px;
   font-size: 12px;
   cursor: pointer;
@@ -525,7 +529,7 @@ html, body, #root {
   gap: 8px;
   padding: 8px;
   background: var(--color-surface);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   flex-shrink: 0;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
@@ -533,14 +537,14 @@ html, body, #root {
 }
 
 .photo-list-item:hover {
-  background: #162040;
+  background: var(--color-surface-hover);
   border-color: var(--color-border);
 }
 
 .photo-list-thumb {
   width: 40px;
   height: 40px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   object-fit: cover;
   flex-shrink: 0;
 }
@@ -552,7 +556,7 @@ html, body, #root {
 
 .photo-list-name {
   font-size: 12px;
-  color: #ccc;
+  color: var(--color-text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -560,7 +564,7 @@ html, body, #root {
 
 .photo-list-meta {
   font-size: 11px;
-  color: #666;
+  color: var(--color-muted);
   margin-top: 2px;
 }
 
@@ -568,11 +572,11 @@ html, body, #root {
   flex-shrink: 0;
   background: transparent;
   border: none;
-  color: #666;
+  color: var(--color-muted);
   font-size: 14px;
   cursor: pointer;
   padding: 4px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   line-height: 1;
   transition: color 0.15s, background 0.15s;
 }
@@ -608,10 +612,10 @@ html, body, #root {
 .date-filter-input {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   color: var(--color-text);
   padding: 4px 6px;
-  font-size: 11px;
+  font-size: 12px;
   width: 100%;
   box-sizing: border-box;
   cursor: pointer;
@@ -670,7 +674,7 @@ html, body, #root {
   height: 14px;
   border-radius: 50%;
   background: var(--color-accent);
-  border: 2px solid #c8c8d8;
+  border: 2px solid var(--color-text-dim);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
   pointer-events: all;
   cursor: pointer;
@@ -678,7 +682,7 @@ html, body, #root {
 }
 
 .date-range-input::-webkit-slider-thumb:hover {
-  background: #ff6b84;
+  background: var(--color-accent-hover);
   box-shadow: 0 0 0 4px rgba(233, 69, 96, 0.25), 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 
@@ -687,7 +691,7 @@ html, body, #root {
   height: 14px;
   border-radius: 50%;
   background: var(--color-accent);
-  border: 2px solid #c8c8d8;
+  border: 2px solid var(--color-text-dim);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
   pointer-events: all;
   cursor: pointer;
@@ -695,7 +699,7 @@ html, body, #root {
 }
 
 .date-range-input::-moz-range-thumb:hover {
-  background: #ff6b84;
+  background: var(--color-accent-hover);
   box-shadow: 0 0 0 4px rgba(233, 69, 96, 0.25), 0 1px 4px rgba(0, 0, 0, 0.5);
 }
 
@@ -710,7 +714,7 @@ html, body, #root {
 /* ── Location search ─────────────────────────────────────────────────── */
 
 .location-search {
-  margin: 0 16px 8px;
+  margin: 0 16px 12px;
   display: flex;
   gap: 6px;
 }
@@ -719,15 +723,15 @@ html, body, #root {
   flex: 1;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   color: var(--color-text);
   padding: 4px 8px;
-  font-size: 11px;
+  font-size: 12px;
   min-width: 0;
 }
 
 .location-search-input::placeholder {
-  color: #555;
+  color: var(--color-muted);
 }
 
 .location-search-input:focus {
@@ -738,9 +742,9 @@ html, body, #root {
 .location-search-btn {
   background: none;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   color: var(--color-text);
-  font-size: 11px;
+  font-size: 12px;
   padding: 4px 10px;
   cursor: pointer;
   flex-shrink: 0;
@@ -769,8 +773,8 @@ html, body, #root {
 .map-filter-btn {
   background: none;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  color: #aaa;
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
   font-size: 11px;
   padding: 4px 10px;
   cursor: pointer;
@@ -801,7 +805,7 @@ html, body, #root {
   max-width: 90vw;
   max-height: 92vh;
   background: var(--color-sidebar);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   overflow: hidden;
   border: 1px solid var(--color-border);
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7);
@@ -812,7 +816,7 @@ html, body, #root {
   max-width: 90vw;
   max-height: 72vh;
   object-fit: contain;
-  background: #0a0a1a;
+  background: var(--color-surface-dark);
 }
 
 .lightbox-meta {
@@ -845,7 +849,7 @@ html, body, #root {
 }
 
 .lightbox-value {
-  color: #ccc;
+  color: var(--color-text-dim);
 }
 
 .lightbox-close {
@@ -886,7 +890,7 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   transition: background 0.15s;
   z-index: 1001;
   line-height: 1;
@@ -908,7 +912,7 @@ html, body, #root {
   padding: 0;
   cursor: pointer;
   flex-shrink: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   display: block;
   width: 40px;
@@ -923,9 +927,9 @@ html, body, #root {
 
 .popup-view-btn {
   background: transparent;
-  border: 1px solid #555;
-  color: #ccc;
-  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  border-radius: var(--radius-md);
   padding: 4px 12px;
   font-size: 12px;
   cursor: pointer;
@@ -952,7 +956,7 @@ html, body, #root {
 .confirm-modal-box {
   background: var(--color-sidebar);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   padding: 28px 24px 20px;
   width: 360px;
   max-width: 90vw;
@@ -961,20 +965,20 @@ html, body, #root {
 
 .confirm-modal-title {
   margin: 0 0 12px;
-  font-size: 1.1rem;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-text);
 }
 
 .confirm-modal-message {
   margin: 0 0 20px;
-  font-size: 0.88rem;
-  color: #a0a0b0;
+  font-size: 12px;
+  color: var(--color-muted);
   line-height: 1.5;
 }
 
 .confirm-modal-filename {
-  color: #c0c0d0;
+  color: var(--color-text-dim);
   font-weight: 500;
   word-break: break-all;
 }
@@ -987,28 +991,28 @@ html, body, #root {
 
 .confirm-modal-cancel {
   padding: 7px 18px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background: transparent;
-  color: #a0a0b0;
+  color: var(--color-muted);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 13px;
   transition: background 0.15s, color 0.15s;
 }
 
 .confirm-modal-cancel:hover {
-  background: #0f3460;
+  background: var(--color-border);
   color: var(--color-text);
 }
 
 .confirm-modal-delete {
   padding: 7px 18px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-accent);
   background: transparent;
   color: var(--color-accent);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 13px;
   font-weight: 600;
   transition: background 0.15s, color 0.15s;
 }
@@ -1030,8 +1034,8 @@ html, body, #root {
 .timeline-toggle-btn {
   background: none;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  color: #aaa;
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
   font-size: 11px;
   padding: 4px 10px;
   cursor: pointer;
@@ -1067,14 +1071,14 @@ html, body, #root {
   flex-direction: column;
   gap: 6px;
   padding: 10px 12px;
-  background: #0f1b33;
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
 }
 
 .timeline-label {
   font-size: 11px;
-  color: #ccc;
+  color: var(--color-text-dim);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1090,7 +1094,7 @@ html, body, #root {
   height: 4px;
   -webkit-appearance: none;
   appearance: none;
-  background: #1e3a5f;
+  background: var(--color-border);
   border-radius: 2px;
   outline: none;
   cursor: pointer;
@@ -1125,7 +1129,7 @@ html, body, #root {
 .timeline-play-btn {
   background: var(--color-accent);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   color: #fff;
   font-size: 11px;
   padding: 4px 12px;
@@ -1135,7 +1139,7 @@ html, body, #root {
 }
 
 .timeline-play-btn:hover:not(:disabled) {
-  background: #c73652;
+  background: var(--color-accent-hover);
 }
 
 .timeline-play-btn:disabled {
@@ -1145,9 +1149,9 @@ html, body, #root {
 
 .timeline-speed-select {
   background: var(--color-sidebar);
-  color: #ccc;
+  color: var(--color-text-dim);
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   padding: 3px 6px;
   font-size: 11px;
   cursor: pointer;
@@ -1175,8 +1179,8 @@ html, body, #root {
   gap: 4px;
   background: none;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  color: #aaa;
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
   font-size: 11px;
   padding: 4px 12px;
   cursor: pointer;
@@ -1202,7 +1206,7 @@ html, body, #root {
   align-items: center;
   background: none;
   border: 1px solid var(--color-border);
-  border-radius: 5px;
+  border-radius: var(--radius-md);
   color: var(--color-muted);
   font-size: 10px;
   padding: 2px 8px;
@@ -1285,7 +1289,7 @@ html, body, #root {
   border: 1px solid var(--color-border);
   border-bottom: none;
   border-radius: 6px 6px 0 0;
-  color: #aaa;
+  color: var(--color-muted);
   font-size: 11px;
   padding: 3px 12px;
   cursor: pointer;
@@ -1303,7 +1307,7 @@ html, body, #root {
 /* ── Pin highlight (from elevation hover) ────────────────────────────── */
 
 .pin-highlighted .pin-thumbnail {
-  border-color: #e94560 !important;
+  border-color: var(--color-accent) !important;
   box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.5), 0 2px 8px rgba(0,0,0,0.5);
 }
 
@@ -1328,8 +1332,8 @@ html, body, #root {
 .export-btn {
   background: none;
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  color: #aaa;
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
   font-size: 11px;
   padding: 4px 10px;
   cursor: pointer;
@@ -1369,7 +1373,7 @@ html, body, #root {
   width: 100%;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   color: var(--color-text);
   font-size: 12px;
   padding: 6px 8px;
@@ -1405,7 +1409,7 @@ html, body, #root {
   gap: 3px;
   background: rgba(233, 69, 96, 0.15);
   border: 1px solid rgba(233, 69, 96, 0.4);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   color: var(--color-accent);
   font-size: 11px;
   padding: 2px 8px 2px 10px;
@@ -1430,7 +1434,7 @@ html, body, #root {
 .tag-input {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   color: var(--color-text);
   font-size: 11px;
   padding: 2px 10px;
@@ -1444,10 +1448,17 @@ html, body, #root {
 }
 
 .tag-input::placeholder {
-  color: #555;
+  color: var(--color-muted);
 }
 
 /* ── Tag chips in photo list ─────────────────────────────────────────── */
+
+.tag-overflow {
+  font-size: 10px;
+  color: var(--color-muted);
+  padding: 1px 4px;
+  align-self: center;
+}
 
 .photo-list-tags {
   display: flex;
@@ -1461,7 +1472,7 @@ html, body, #root {
   background: rgba(233, 69, 96, 0.1);
   border: 1px solid rgba(233, 69, 96, 0.3);
   border-radius: 10px;
-  color: #c06070;
+  color: var(--color-muted);
   font-size: 10px;
   padding: 1px 6px;
   cursor: pointer;
@@ -1514,7 +1525,7 @@ html, body, #root {
   font-size: 14px;
   line-height: 1;
   padding: 2px 5px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   transition: color 0.15s, background 0.15s;
 }
 
@@ -1609,11 +1620,11 @@ html, body, #root {
 
 .collection-rename-input {
   flex: 1;
-  background: #0a0a1a;
+  background: var(--color-surface-dark);
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   color: var(--color-text);
-  font-size: 13px;
+  font-size: 12px;
   padding: 2px 6px;
   outline: none;
   font-family: inherit;
@@ -1632,11 +1643,11 @@ html, body, #root {
 }
 
 .collection-new-input {
-  background: #0a0a1a;
+  background: var(--color-surface-dark);
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   color: var(--color-text);
-  font-size: 13px;
+  font-size: 12px;
   padding: 5px 8px;
   outline: none;
   font-family: inherit;
@@ -1680,7 +1691,7 @@ html, body, #root {
 .collection-cancel-btn {
   font-size: 12px;
   padding: 4px 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   border: none;
   font-family: inherit;
@@ -1693,7 +1704,7 @@ html, body, #root {
 }
 
 .collection-save-btn:hover {
-  background: #c73652;
+  background: var(--color-accent-hover);
 }
 
 .collection-cancel-btn {
@@ -1722,7 +1733,7 @@ html, body, #root {
   background: var(--color-surface);
   color: var(--color-text);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   padding: 5px 8px;
   font-size: 12px;
   cursor: pointer;
@@ -1770,7 +1781,7 @@ html, body, #root {
   font-size: 16px;
   width: 28px;
   height: 28px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1853,7 +1864,7 @@ html, body, #root {
 .project-delete-btn {
   background: none;
   border: none;
-  color: #555;
+  color: var(--color-muted);
   cursor: pointer;
   font-size: 15px;
   width: 22px;
@@ -1884,7 +1895,7 @@ html, body, #root {
 .project-status-draft    { background: rgba(120,120,120,0.2); color: var(--color-muted); }
 .project-status-active   { background: rgba(46,204,113,0.15); color: #2ecc71; }
 .project-status-complete { background: rgba(52,152,219,0.15); color: #3498db; }
-.project-status-archived { background: rgba(80,80,80,0.2);   color: #666; }
+.project-status-archived { background: rgba(80,80,80,0.2);   color: var(--color-muted); }
 
 .project-new-form {
   padding: 8px 16px 10px;
@@ -1895,11 +1906,11 @@ html, body, #root {
 }
 
 .project-new-input {
-  background: #0a0a1a;
+  background: var(--color-surface-dark);
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   color: var(--color-text);
-  font-size: 13px;
+  font-size: 12px;
   padding: 5px 8px;
   outline: none;
   width: 100%;
@@ -1910,9 +1921,9 @@ html, body, #root {
 }
 
 .project-status-select {
-  background: #0a0a1a;
+  background: var(--color-surface-dark);
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   color: var(--color-text);
   font-size: 12px;
   padding: 5px 8px;
@@ -1939,7 +1950,7 @@ html, body, #root {
 .project-cancel-btn {
   font-size: 12px;
   padding: 4px 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   border: none;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
@@ -1951,7 +1962,7 @@ html, body, #root {
 }
 
 .project-save-btn:hover {
-  background: #c73652;
+  background: var(--color-accent-hover);
 }
 
 .project-cancel-btn {
@@ -2113,7 +2124,7 @@ html, body, #root {
 .client-delete-btn {
   background: none;
   border: none;
-  color: #555;
+  color: var(--color-muted);
   cursor: pointer;
   font-size: 15px;
   width: 22px;
@@ -2167,7 +2178,7 @@ html, body, #root {
   max-height: 94vh;
   background: var(--color-sidebar);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   overflow: hidden;
 }
 .comparison-close {
@@ -2182,7 +2193,7 @@ html, body, #root {
   cursor: pointer;
   line-height: 1;
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   transition: background 0.15s;
 }
 .comparison-close:hover { background: rgba(233,69,96,0.2); }
@@ -2211,7 +2222,7 @@ html, body, #root {
   align-items: center;
   gap: 6px;
   padding: 10px 14px;
-  background: #0f1b33;
+  background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   min-height: 44px;
 }
@@ -2226,8 +2237,8 @@ html, body, #root {
 .comparison-nav-btn {
   background: none;
   border: 1px solid var(--color-border);
-  color: #aaa;
-  border-radius: 4px;
+  color: var(--color-muted);
+  border-radius: var(--radius-md);
   padding: 2px 8px;
   cursor: pointer;
   font-size: 13px;
@@ -2240,7 +2251,7 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0a0a1a;
+  background: var(--color-surface-dark);
   max-height: 52vh;
   overflow: hidden;
 }
@@ -2271,10 +2282,10 @@ html, body, #root {
   display: block;
   margin: 8px 0 2px;
   padding: 5px 10px;
-  background: #0f3460;
+  background: var(--color-border);
   color: var(--color-text);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   text-decoration: none;
   font-size: 11px;
   text-align: center;
@@ -2284,7 +2295,7 @@ html, body, #root {
 .comparison-download-btn:hover { background: var(--color-accent); }
 .comparison-divider {
   width: 1px;
-  background: #0f3460;
+  background: var(--color-border);
   flex-shrink: 0;
 }
 .comparison-empty {
@@ -2310,10 +2321,10 @@ html, body, #root {
   padding: 4px 16px 0;
 }
 .select-mode-btn {
-  background: #0f3460;
+  background: var(--color-border);
   border: 1px solid var(--color-border);
-  color: #aaa;
-  border-radius: 6px;
+  color: var(--color-muted);
+  border-radius: var(--radius-md);
   padding: 3px 10px;
   font-size: 11px;
   cursor: pointer;
@@ -2329,7 +2340,7 @@ html, body, #root {
   color: var(--color-accent);
   padding: 2px 6px;
   border: 1px solid var(--color-accent);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   animation: pulse 1.5s ease-in-out infinite;
 }
 @keyframes pulse {
@@ -2341,7 +2352,7 @@ html, body, #root {
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  background: #0f1b33;
+  background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   flex-wrap: wrap;
 }
@@ -2352,10 +2363,10 @@ html, body, #root {
   margin-right: 2px;
 }
 .sel-action-btn {
-  background: #0f3460;
+  background: var(--color-border);
   border: 1px solid var(--color-border);
   color: var(--color-text);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   padding: 3px 8px;
   font-size: 11px;
   cursor: pointer;
@@ -2365,10 +2376,10 @@ html, body, #root {
 .sel-delete-btn { border-color: var(--color-accent); }
 .sel-delete-btn:hover { background: var(--color-accent); color: #fff; }
 .sel-collection-select {
-  background: #0f3460;
+  background: var(--color-border);
   border: 1px solid var(--color-border);
   color: var(--color-text);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   padding: 3px 6px;
   font-size: 11px;
   cursor: pointer;
@@ -2404,7 +2415,7 @@ html, body, #root {
   background: none;
   border: 1px solid var(--color-border);
   color: var(--color-muted);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   padding: 2px 6px;
   font-size: 12px;
   cursor: pointer;
@@ -2483,7 +2494,7 @@ html, body, #root {
 .sidebar-section-badge {
   background: var(--color-accent-dim);
   color: var(--color-accent);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   padding: 1px 6px;
   font-size: 10px;
   margin-right: 4px;
@@ -2526,7 +2537,7 @@ html, body, #root {
 .batch-tag-input {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   color: var(--color-text);
   font-size: 11px;
   padding: 2px 6px;
@@ -2554,7 +2565,7 @@ html, body, #root {
   padding: 1px 5px;
 }
 .save-indicator.saving { color: var(--color-muted); }
-.save-indicator.saved  { color: #4caf50; }
+.save-indicator.saved  { color: var(--color-success); }
 
 /* ── 2.5 Upload drawer keep-open button ─────────────────────────────── */
 
@@ -2563,7 +2574,7 @@ html, body, #root {
   color: var(--color-muted);
   background: none;
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   padding: 2px 8px;
   cursor: pointer;
   font-family: inherit;
@@ -2624,7 +2635,7 @@ html, body, #root {
   z-index: 1300;
   background: var(--color-sidebar);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   color: var(--color-text);
   font-size: 20px;
   width: 40px;
@@ -2666,7 +2677,7 @@ html, body, #root {
 .shortcuts-box {
   background: var(--color-sidebar);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   padding: 20px 24px;
   width: 380px;
   max-width: 90vw;
@@ -2706,7 +2717,7 @@ html, body, #root {
   font-family: monospace;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 2px 8px;
   font-size: 11px;
   justify-self: start;
