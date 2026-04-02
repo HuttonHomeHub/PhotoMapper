@@ -781,7 +781,7 @@ textarea:focus-visible {
 .photo-stat-row {
   display: flex;
   gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-lg) var(--space-md);
+  padding: var(--space-xs) var(--space-lg) var(--space-xs);
   flex-wrap: wrap;
 }
 .photo-stat-pill {
@@ -3600,7 +3600,7 @@ textarea:focus-visible {
 .photo-list-search-row {
   display: flex;
   gap: var(--space-sm);
-  margin: 0 var(--space-lg) var(--space-sm);
+  margin: 0 var(--space-lg) 0;
 }
 
 .photo-list-search-input {

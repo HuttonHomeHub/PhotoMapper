@@ -185,14 +185,6 @@ export function PhotoList({
           <option value="name-desc">Name Z–A</option>
           <option value="gps-first">GPS first</option>
         </select>
-        <span className="photo-list-count-inline">
-          {totalCount != null && photos.length < totalCount
-            ? `${photos.length}/${totalCount}`
-            : photos.length}
-        </span>
-      </div>
-
-      <div className="photo-list-header-row">
         <button
           className={`select-mode-btn${selectionMode ? ' active' : ''}`}
           onClick={onToggleSelectionMode}
@@ -202,9 +194,7 @@ export function PhotoList({
           {selectionMode ? 'Cancel' : 'Select'}
         </button>
         {comparingPhotoId && (
-          <div className="comparing-hint">
-            Pick a second photo to compare
-          </div>
+          <div className="comparing-hint">Pick a second photo to compare</div>
         )}
       </div>
 

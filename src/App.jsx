@@ -384,9 +384,31 @@ export function App() {
               <p>Upload photos and explore them on an interactive map</p>
             </div>
           </div>
-          {(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId) && (
-            <div className="header-filter-chips">
-              <div className="header-filter-chips-row">
+        </div>
+
+        {error && <div className="error-banner">Failed to load photos. Please refresh.</div>}
+
+        <div className="sidebar-tab-panel sidebar-tab-panel--browse">
+            <SidebarSection title="Navigation tree">
+            <ClientPanel
+              clients={clients}
+              projects={projects}
+              photos={photos}
+              activeClientId={activeClientId}
+              activeProjectId={activeProjectId}
+              activeSurveyDate={activeSurveyDate}
+              onSelectClient={id => { setActiveClientId(id); setActiveProjectId(null); setActiveSurveyDate(null) }}
+              onSelectProject={id => { setActiveProjectId(id); setActiveSurveyDate(null) }}
+              onSelectSurveyDate={setActiveSurveyDate}
+              onUpdateClient={updateClient}
+              onDeleteClient={deleteClient}
+              onUpdateProject={updateProject}
+              onDeleteProject={deleteProject}
+            />
+            </SidebarSection>
+            <SidebarSection title="Photos" badge={photos.length || null}>
+            {(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId) && (
+              <div className="header-filter-chips-row" style={{ padding: '4px 12px 8px' }}>
                 {isFiltered && (
                   <button className="filter-chip" onClick={() => setUserTouchedFilter(false)}>
                     Date range ×
@@ -431,28 +453,50 @@ export function App() {
                   Clear all
                 </button>
               </div>
-            </div>
-          )}
-        </div>
-
-        {error && <div className="error-banner">Failed to load photos. Please refresh.</div>}
-
-        <div className="sidebar-tab-panel sidebar-tab-panel--browse">
-            <SidebarSection title="Navigation tree">
-            <ClientPanel
-              clients={clients}
-              projects={projects}
-              photos={photos}
-              activeClientId={activeClientId}
-              activeProjectId={activeProjectId}
-              activeSurveyDate={activeSurveyDate}
-              onSelectClient={id => { setActiveClientId(id); setActiveProjectId(null); setActiveSurveyDate(null) }}
-              onSelectProject={id => { setActiveProjectId(id); setActiveSurveyDate(null) }}
-              onSelectSurveyDate={setActiveSurveyDate}
-              onUpdateClient={updateClient}
-              onDeleteClient={deleteClient}
-              onUpdateProject={updateProject}
-              onDeleteProject={deleteProject}
+            )}
+            {!loading && photos.length > 0 && (
+              <div className="photo-stat-row">
+                <span className="photo-stat-pill">
+                  <span className="pill-icon">📍</span>
+                  {gpsCount} on map
+                </span>
+                {photos.length - gpsCount > 0 && (
+                  <span className="photo-stat-pill pill-warn">
+                    ⚠ {photos.length - gpsCount} no GPS
+                  </span>
+                )}
+              </div>
+            )}
+            <PhotoList
+              photos={displayPhotos}
+              totalCount={photos.length}
+              loading={loading}
+              onDelete={deletePhoto}
+              onView={photo => { setViewingPhoto(photo); setMobileSidebarOpen(false) }}
+              activeTag={activeTag}
+              onTagClick={tag => setActiveTag(prev => prev === tag ? null : tag)}
+              selectionMode={selectionMode}
+              selectedPhotoIds={selectedPhotoIds}
+              onToggleSelection={togglePhotoSelection}
+              onToggleSelectionMode={() => {
+                setSelectionMode(v => !v)
+                setSelectedPhotoIds(new Set())
+              }}
+              onBatchUpdate={batchUpdate}
+              onBatchDelete={batchDelete}
+              comparingPhotoId={comparingPhotoId}
+              onCompareClick={handleCompareClick}
+              toast={toast}
+              hasActiveFilters={!!(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId)}
+              timelinePhotoId={timelineActive ? currentTimelinePhoto?.id : null}
+              onClearAllFilters={() => {
+                setUserTouchedFilter(false)
+                setActiveTag(null)
+                setRegionPolygon(null)
+                setActiveClientId(null)
+                setActiveProjectId(null)
+                setActiveSurveyDate(null)
+              }}
             />
             </SidebarSection>
             <SidebarSection title="Search" defaultOpen={!activeSurveyDate}>
@@ -549,15 +593,6 @@ export function App() {
           </form>
 
 
-          {activeTag && (
-            <div className="map-filter-row">
-              <span className="active-tag-label">Tag: <strong>{activeTag}</strong></span>
-              <button className="date-filter-clear" onClick={() => setActiveTag(null)}>
-                Clear
-              </button>
-            </div>
-          )}
-
         </SidebarSection>
 
         {/* Timeline Player */}
@@ -616,52 +651,6 @@ export function App() {
           </div>
         </SidebarSection>
 
-        <SidebarSection title="Photos">
-          {!loading && photos.length > 0 && (
-            <div className="photo-stat-row">
-              <span className="photo-stat-pill">
-                <span className="pill-icon">📍</span>
-                {gpsCount} on map
-              </span>
-              {photos.length - gpsCount > 0 && (
-                <span className="photo-stat-pill pill-warn">
-                  ⚠ {photos.length - gpsCount} no GPS
-                </span>
-              )}
-            </div>
-          )}
-          <PhotoList
-            photos={displayPhotos}
-            totalCount={photos.length}
-            loading={loading}
-            onDelete={deletePhoto}
-            onView={photo => { setViewingPhoto(photo); setMobileSidebarOpen(false) }}
-            activeTag={activeTag}
-            onTagClick={tag => setActiveTag(prev => prev === tag ? null : tag)}
-            selectionMode={selectionMode}
-            selectedPhotoIds={selectedPhotoIds}
-            onToggleSelection={togglePhotoSelection}
-            onToggleSelectionMode={() => {
-              setSelectionMode(v => !v)
-              setSelectedPhotoIds(new Set())
-            }}
-            onBatchUpdate={batchUpdate}
-            onBatchDelete={batchDelete}
-            comparingPhotoId={comparingPhotoId}
-            onCompareClick={handleCompareClick}
-            toast={toast}
-            hasActiveFilters={!!(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId)}
-            timelinePhotoId={timelineActive ? currentTimelinePhoto?.id : null}
-            onClearAllFilters={() => {
-              setUserTouchedFilter(false)
-              setActiveTag(null)
-              setRegionPolygon(null)
-              setActiveClientId(null)
-              setActiveProjectId(null)
-              setActiveSurveyDate(null)
-            }}
-          />
-        </SidebarSection>
         </div>
         <div className="sidebar-footer">
           {uploadOpen && (
