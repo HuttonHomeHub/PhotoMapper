@@ -4,6 +4,13 @@ import { useFocusTrap } from './hooks/useFocusTrap.js'
 
 function SidebarSection({ title, defaultOpen = true, badge = null, children }) {
   const [open, setOpen] = React.useState(defaultOpen)
+  const prevDefaultOpen = React.useRef(defaultOpen)
+  React.useEffect(() => {
+    if (prevDefaultOpen.current !== defaultOpen) {
+      setOpen(defaultOpen)
+      prevDefaultOpen.current = defaultOpen
+    }
+  }, [defaultOpen])
   return (
     <div className="sidebar-section">
       <button
@@ -298,23 +305,73 @@ export function App() {
 
       <aside className={`sidebar${mobileSidebarOpen ? ' mobile-open' : ''}`}>
         <div className="sidebar-header">
-          <div className="sidebar-header-text">
-            <h1>Photo<span className="brand-accent">Map</span></h1>
-            <p>GPS photo mapping</p>
+          <div className="sidebar-header-top">
+            <div className="sidebar-header-text">
+              <h1>Photo<span className="brand-accent">Map</span></h1>
+            </div>
+            <button
+              className={`log-toggle-btn${drawerOpen ? ' active' : ''}`}
+              onClick={() => setDrawerOpen(o => !o)}
+            >
+              Uploads
+              {results.length > 0 && !drawerOpen && <span className="log-toggle-dot" />}
+            </button>
+            <button
+              className="shortcuts-hint-btn"
+              onClick={() => setShortcutsOpen(true)}
+              title="Keyboard shortcuts"
+              aria-label="Show keyboard shortcuts"
+            >?</button>
           </div>
-          <button
-            className={`log-toggle-btn${drawerOpen ? ' active' : ''}`}
-            onClick={() => setDrawerOpen(o => !o)}
-          >
-            Uploads
-            {results.length > 0 && !drawerOpen && <span className="log-toggle-dot" />}
-          </button>
-          <button
-            className="shortcuts-hint-btn"
-            onClick={() => setShortcutsOpen(true)}
-            title="Keyboard shortcuts"
-            aria-label="Show keyboard shortcuts"
-          >?</button>
+          {(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId) && (
+            <div className="header-filter-chips">
+              <div className="header-filter-chips-row">
+                {isFiltered && (
+                  <button className="filter-chip" onClick={() => setUserTouchedFilter(false)}>
+                    Date range ×
+                  </button>
+                )}
+                {activeTag && (
+                  <button className="filter-chip" onClick={() => setActiveTag(null)}>
+                    #{activeTag} ×
+                  </button>
+                )}
+                {regionPolygon && (
+                  <button className="filter-chip" onClick={() => setRegionPolygon(null)}>
+                    Region ×
+                  </button>
+                )}
+                {activeClientId && (
+                  <button className="filter-chip" onClick={() => { setActiveClientId(null); setActiveProjectId(null); setActiveSurveyDate(null) }}>
+                    {clients.find(c => c.id === activeClientId)?.name ?? 'Client'} ×
+                  </button>
+                )}
+                {activeProjectId && (
+                  <button className="filter-chip" onClick={() => { setActiveProjectId(null); setActiveSurveyDate(null) }}>
+                    {projects.find(p => p.id === activeProjectId)?.name ?? 'Project'} ×
+                  </button>
+                )}
+                {activeSurveyDate && (
+                  <button className="filter-chip" onClick={() => setActiveSurveyDate(null)}>
+                    {activeSurveyDate === 'undated' ? 'Undated' : activeSurveyDate.split('-').reverse().join('/')} ×
+                  </button>
+                )}
+                <button
+                  className="header-filter-clear"
+                  onClick={() => {
+                    setUserTouchedFilter(false)
+                    setActiveTag(null)
+                    setRegionPolygon(null)
+                    setActiveClientId(null)
+                    setActiveProjectId(null)
+                    setActiveSurveyDate(null)
+                  }}
+                >
+                  Clear all
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {error && <div className="error-banner">Failed to load photos. Please refresh.</div>}
@@ -349,7 +406,7 @@ export function App() {
               onUpdateProject={updateProject}
               onDeleteProject={deleteProject}
             />
-            <SidebarSection title="Filters" defaultOpen={true}>
+            <SidebarSection title="Search" defaultOpen={!activeSurveyDate}>
           <div className="date-filter">
             {minDate && sliderRange > 0 ? (
               <>
@@ -391,29 +448,6 @@ export function App() {
                     />
                   </div>
                 </div>
-                <details className="date-filter-advanced">
-                  <summary>Precise dates ›</summary>
-                  <div className="date-filter-row">
-                    <label className="date-filter-label">
-                      From
-                      <input
-                        type="date"
-                        className="date-filter-input"
-                        value={dateFrom}
-                        onChange={e => { setDateFrom(e.target.value); setUserTouchedFilter(true) }}
-                      />
-                    </label>
-                    <label className="date-filter-label">
-                      To
-                      <input
-                        type="date"
-                        className="date-filter-input"
-                        value={dateTo}
-                        onChange={e => { setDateTo(e.target.value); setUserTouchedFilter(true) }}
-                      />
-                    </label>
-                  </div>
-                </details>
                 {isFiltered && (
                   <button className="date-filter-clear" onClick={() => setUserTouchedFilter(false)}>
                     Reset range
@@ -422,26 +456,6 @@ export function App() {
               </>
             ) : (
               <>
-                <div className="date-filter-row">
-                  <label className="date-filter-label">
-                    From
-                    <input
-                      type="date"
-                      className="date-filter-input"
-                      value={dateFrom}
-                      onChange={e => { setDateFrom(e.target.value); setUserTouchedFilter(true) }}
-                    />
-                  </label>
-                  <label className="date-filter-label">
-                    To
-                    <input
-                      type="date"
-                      className="date-filter-input"
-                      value={dateTo}
-                      onChange={e => { setDateTo(e.target.value); setUserTouchedFilter(true) }}
-                    />
-                  </label>
-                </div>
                 {isFiltered && (
                   <button className="date-filter-clear" onClick={() => setUserTouchedFilter(false)}>
                     Reset range
@@ -561,68 +575,9 @@ export function App() {
           </div>
         </SidebarSection>
 
-        {/* Active filters bar — sits directly above the photo list it describes */}
-        <div className="active-filters-bar">
-          <div className="active-filters-row">
-            <span className="active-filters-label">
-              {(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId)
-                ? `${filteredPhotos.length} photo${filteredPhotos.length !== 1 ? 's' : ''}`
-                : `${photos.length} photo${photos.length !== 1 ? 's' : ''}`}
-            </span>
-            {(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId) && (
-              <button
-                className="clear-all-filters-btn"
-                onClick={() => {
-                  setUserTouchedFilter(false)
-                  setActiveTag(null)
-                  setRegionPolygon(null)
-                  setActiveClientId(null)
-                  setActiveProjectId(null)
-                  setActiveSurveyDate(null)
-                }}
-              >
-                Clear all
-              </button>
-            )}
-          </div>
-          {(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId) && (
-            <div className="active-filters-chips">
-              {isFiltered && (
-                <button className="filter-chip" onClick={() => setUserTouchedFilter(false)}>
-                  📅 Date range ×
-                </button>
-              )}
-              {activeTag && (
-                <button className="filter-chip" onClick={() => setActiveTag(null)}>
-                  # {activeTag} ×
-                </button>
-              )}
-              {regionPolygon && (
-                <button className="filter-chip" onClick={() => setRegionPolygon(null)}>
-                  ✏ Region ×
-                </button>
-              )}
-              {activeClientId && (
-                <button className="filter-chip" onClick={() => { setActiveClientId(null); setActiveProjectId(null); setActiveSurveyDate(null) }}>
-                  👤 {clients.find(c => c.id === activeClientId)?.name ?? 'Client'} ×
-                </button>
-              )}
-              {activeProjectId && (
-                <button className="filter-chip" onClick={() => { setActiveProjectId(null); setActiveSurveyDate(null) }}>
-                  📁 {projects.find(p => p.id === activeProjectId)?.name ?? 'Project'} ×
-                </button>
-              )}
-              {activeSurveyDate && (
-                <button className="filter-chip" onClick={() => setActiveSurveyDate(null)}>
-                  📅 {activeSurveyDate === 'undated' ? 'Undated' : activeSurveyDate.split('-').reverse().join('/')} ×
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
         <PhotoList
           photos={displayPhotos}
+          totalCount={photos.length}
           loading={loading}
           onDelete={deletePhoto}
           onView={photo => { setViewingPhoto(photo); setMobileSidebarOpen(false) }}

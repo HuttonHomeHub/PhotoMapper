@@ -131,8 +131,18 @@ textarea:focus-visible {
   padding: var(--space-lg) var(--space-lg) var(--space-md);
   border-bottom: 1px solid var(--color-border);
   display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sidebar-header-top {
+  display: flex;
   align-items: center;
   gap: var(--space-sm);
+}
+
+.header-filter-chips {
+  padding-top: 2px;
 }
 
 .sidebar-header-text {
@@ -915,39 +925,6 @@ textarea:focus-visible {
   margin: 0 var(--space-lg) var(--space-md);
 }
 
-.date-filter-row {
-  display: flex;
-  gap: 8px;
-}
-
-.date-filter-label {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  font-size: var(--font-sm);
-  color: var(--color-muted);
-  flex: 1;
-  font-weight: 500;
-}
-
-.date-filter-input {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text);
-  padding: 5px 8px;
-  font-size: var(--font-base);
-  width: 100%;
-  box-sizing: border-box;
-  cursor: pointer;
-  font-family: inherit;
-  transition: border-color var(--transition-fast);
-}
-
-.date-filter-input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-}
 
 .date-filter-clear {
   margin-top: var(--space-sm);
@@ -2955,28 +2932,6 @@ textarea:focus-visible {
   color: var(--color-text);
   opacity: 1;
 }
-
-.active-filters-bar {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px var(--space-lg);
-  border-top: 1px solid rgba(255,255,255,0.06);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  background: rgba(15, 52, 96, 0.4);
-}
-
-.active-filters-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-}
-.active-filters-label {
-  font-size: var(--font-xs);
-  color: var(--color-muted);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
 .filter-chip {
   display: inline-flex;
   align-items: center;
@@ -2995,6 +2950,39 @@ textarea:focus-visible {
 .filter-chip:hover {
   background: rgba(233,123,37,0.22);
   transform: scale(1.02);
+}
+
+.header-filter-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.header-filter-clear {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  font-size: var(--font-xs);
+  font-family: inherit;
+  cursor: pointer;
+  padding: 2px 4px;
+  white-space: nowrap;
+  transition: color var(--transition-fast);
+}
+
+.header-filter-clear:hover {
+  color: var(--color-text);
+}
+
+.photo-list-count-inline {
+  font-size: var(--font-xs);
+  color: var(--color-muted);
+  font-weight: 500;
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 0 2px;
 }
 
 /* ── 2.1 Collapsible sidebar sections ──────────────────────────────── */
@@ -3046,19 +3034,6 @@ textarea:focus-visible {
   padding: 2px 0 6px;
 }
 .date-range-sep { color: var(--color-muted); }
-.date-filter-advanced {
-  margin-top: 4px;
-}
-.date-filter-advanced > summary {
-  font-size: 10px;
-  color: var(--color-muted);
-  cursor: pointer;
-  list-style: none;
-  padding: 2px 0 6px;
-  user-select: none;
-}
-.date-filter-advanced > summary:hover { color: var(--color-text); }
-.date-filter-advanced > summary::-webkit-details-marker { display: none; }
 
 /* ── 2.3 Inline batch tag input ─────────────────────────────────────── */
 
@@ -3502,14 +3477,6 @@ textarea:focus-visible {
   border-color: var(--color-accent);
 }
 
-/* ── Photo count label in list header ──────────────────────────────── */
-
-.photo-count-label {
-  font-size: 11px;
-  color: var(--color-muted);
-  margin-left: auto;
-}
-
 /* ── Batch operation progress ──────────────────────────────────────── */
 
 .batch-progress {
@@ -3544,33 +3511,6 @@ textarea:focus-visible {
   margin: 0 2px;
 }
 
-/* ── Active filters row with Clear All ──────────────────────────────── */
-
-.active-filters-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  margin-bottom: 6px;
-}
-
-.clear-all-filters-btn {
-  background: none;
-  border: 1px solid rgba(233,123,37,0.25);
-  border-radius: var(--radius-md);
-  color: var(--color-accent);
-  font-size: var(--font-xs);
-  padding: 3px 10px;
-  cursor: pointer;
-  flex-shrink: 0;
-  font-family: inherit;
-  font-weight: 500;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-.clear-all-filters-btn:hover {
-  background: var(--color-accent-dim);
-  color: var(--color-accent);
-}
 
 /* ── Panel empty hints (clients, projects, collections) ─────────────── */
 

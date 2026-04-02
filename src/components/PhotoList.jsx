@@ -21,7 +21,7 @@ export function PhotoList({
   onToggleSelectionMode, onBatchUpdate, onBatchDelete,
   comparingPhotoId, onCompareClick,
   toast, hasActiveFilters, onClearAllFilters,
-  timelinePhotoId
+  timelinePhotoId, totalCount
 }) {
   const [deletingId, setDeletingId] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
@@ -185,6 +185,11 @@ export function PhotoList({
           <option value="name-desc">Name Z–A</option>
           <option value="gps-first">GPS first</option>
         </select>
+        <span className="photo-list-count-inline">
+          {totalCount != null && photos.length < totalCount
+            ? `${photos.length}/${totalCount}`
+            : photos.length}
+        </span>
       </div>
 
       <div className="photo-list-header-row">
@@ -201,7 +206,6 @@ export function PhotoList({
             Pick a second photo to compare
           </div>
         )}
-        <span className="photo-count-label">{displayed.length} photo{displayed.length !== 1 ? 's' : ''}</span>
       </div>
 
       {selectedPhotoIds?.size > 0 && (
