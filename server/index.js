@@ -3,13 +3,13 @@ import multer from 'multer'
 import cors from 'cors'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
-import { mkdirSync, createReadStream } from 'fs'
+import { mkdirSync, createReadStream, readdirSync } from 'fs'
 import { unlink } from 'fs/promises'
 import { createHash } from 'crypto'
 import { v4 as uuidv4 } from 'uuid'
 import exifr from 'exifr'
 import sharp from 'sharp'
-import { insertPhoto, getAllPhotos, getPhotoById, deletePhoto, getPhotoByHash, updatePhoto, updatePhotoSurveyDate, updatePhotoProject, batchUpdatePhotos, createProject, getAllProjects, updateProject, deleteProject, assignPhotosToProject, createClient, getAllClients, updateClient, deleteClient } from './db.js'
+import { insertPhoto, getAllPhotos, getPhotoById, deletePhoto, getPhotoByHash, updatePhoto, updatePhotoSurveyDate, updatePhotoProject, batchUpdatePhotos, createProject, getAllProjects, updateProject, deleteProject, assignPhotosToProject, createClient, getAllClients, updateClient, deleteClient, resetAll } from './db.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const uploadsDir = join(__dirname, 'uploads')
@@ -421,6 +421,13 @@ app.use((err, req, res, _next) => {
 // Serve built frontend in production
 const distDir = join(__dirname, '..', 'dist')
 app.use(express.static(distDir))
+app.delete('/api/reset', async (_req, res) => {
+  resetAll()
+  const files = readdirSync(uploadsDir)
+  await Promise.all(files.map(f => unlink(join(uploadsDir, f)).catch(() => {})))
+  res.json({ ok: true })
+})
+
 app.get('*', (_req, res) => {
   res.sendFile(join(distDir, 'index.html'))
 })

@@ -210,7 +210,11 @@ export default function ClientPanel({
                               title="Double-click to rename"
                             >{proj.name}</span>
                           )}
-                          <span className={`project-status-badge project-status-${proj.status}`}>{proj.status}</span>
+                          <button
+                            className={`project-status-badge project-status-${proj.status}`}
+                            onClick={e => { e.stopPropagation(); onUpdateProject(proj.id, { name: proj.name, clientId: proj.clientId, color: proj.color, status: proj.status === 'active' ? 'archived' : 'active' }) }}
+                            title={proj.status === 'active' ? 'Mark as archived' : 'Mark as active'}
+                          >{proj.status}</button>
                           <span className="client-tree-badge">{proj.photoCount}</span>
                           <span className="client-tree-actions">
                             <button

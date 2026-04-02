@@ -510,3 +510,9 @@ export function updateClient(id, { name, updatedAt }) {
 export function deleteClient(id) {
   return deleteClientStmt.run(id).changes
 }
+
+export function resetAll() {
+  db.pragma('foreign_keys = OFF')
+  db.exec('DELETE FROM photo_collections; DELETE FROM photos; DELETE FROM collections; DELETE FROM projects; DELETE FROM clients;')
+  db.pragma('foreign_keys = ON')
+}

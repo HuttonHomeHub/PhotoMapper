@@ -33,6 +33,7 @@ import { PhotoMap } from './components/PhotoMap.jsx'
 import { PhotoList } from './components/PhotoList.jsx'
 import { PhotoLightbox } from './components/PhotoLightbox.jsx'
 import { UploadDrawer } from './components/UploadDrawer.jsx'
+import { DropZone } from './components/DropZone.jsx'
 import { ElevationProfile } from './components/ElevationProfile.jsx'
 import ClientPanel from './components/ClientPanel.jsx'
 import PhotoComparison from './components/PhotoComparison.jsx'
@@ -76,6 +77,7 @@ export function App() {
   const [userTouchedFilter, setUserTouchedFilter] = useState(false)
   const [results, setResults] = useState([])
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(true)
   const [viewingPhoto, setViewingPhoto] = useState(null)
   const [locationQuery, setLocationQuery] = useState('')
   const [locationSearching, setLocationSearching] = useState(false)
@@ -97,6 +99,7 @@ export function App() {
   const mapRef = useRef(null)
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false)
+  const [resetConfirm, setResetConfirm] = React.useState(false)
   const shortcutsTrapRef = useFocusTrap(shortcutsOpen)
 
   // Timeline state
@@ -104,6 +107,10 @@ export function App() {
   const [timelineIndex, setTimelineIndex] = useState(0)
   const [timelinePlaying, setTimelinePlaying] = useState(false)
   const [timelineSpeed, setTimelineSpeed] = useState(800)
+
+  useEffect(() => {
+    if (!loading && photos.length > 0) setUploadOpen(false)
+  }, [loading, photos.length])
 
   useEffect(() => {
     if (!userTouchedFilter) {
@@ -306,22 +313,76 @@ export function App() {
       <aside className={`sidebar${mobileSidebarOpen ? ' mobile-open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-header-top">
+            <svg className="brand-logo" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <defs>
+                <linearGradient id="panelMid" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#2a4a80"/>
+                  <stop offset="100%" stopColor="#162d60"/>
+                </linearGradient>
+                <linearGradient id="panelLeft" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#0e1c3a"/>
+                  <stop offset="100%" stopColor="#1a3060"/>
+                </linearGradient>
+                <linearGradient id="panelRight" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#1a3060"/>
+                  <stop offset="100%" stopColor="#0e1c3a"/>
+                </linearGradient>
+                <linearGradient id="pinGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ffb060"/>
+                  <stop offset="100%" stopColor="#c85a10"/>
+                </linearGradient>
+                <filter id="pinGlow" x="-60%" y="-60%" width="220%" height="220%">
+                  <feGaussianBlur stdDeviation="1.2" result="blur"/>
+                  <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                </filter>
+                <filter id="mapShadow">
+                  <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000" floodOpacity="0.55"/>
+                </filter>
+              </defs>
+
+              {/* ── Folded paper map — 3 panels ── */}
+              <g filter="url(#mapShadow)">
+                {/* Left panel — angled back, darker */}
+                <polygon points="2,10 16,6 16,38 2,34" fill="url(#panelLeft)" stroke="#3a5c94" strokeWidth="0.8" strokeLinejoin="round"/>
+                {/* Centre panel — faces viewer, brightest */}
+                <polygon points="16,6 32,6 32,38 16,38" fill="url(#panelMid)" stroke="#3a5c94" strokeWidth="0.8" strokeLinejoin="round"/>
+                {/* Right panel — angled back, darker */}
+                <polygon points="32,6 46,10 46,34 32,38" fill="url(#panelRight)" stroke="#3a5c94" strokeWidth="0.8" strokeLinejoin="round"/>
+              </g>
+
+              {/* Centre panel detail — horizontal map lines */}
+              <line x1="16" y1="14" x2="32" y2="14" stroke="#4a72b0" strokeWidth="0.5" strokeOpacity="0.6"/>
+              <line x1="16" y1="22" x2="32" y2="22" stroke="#4a72b0" strokeWidth="0.5" strokeOpacity="0.6"/>
+              <line x1="16" y1="30" x2="32" y2="30" stroke="#4a72b0" strokeWidth="0.5" strokeOpacity="0.6"/>
+              {/* Centre panel — vertical divider */}
+              <line x1="24" y1="6" x2="24" y2="38" stroke="#4a72b0" strokeWidth="0.4" strokeOpacity="0.35"/>
+
+              {/* Left panel detail — perspective lines */}
+              <line x1="2" y1="16" x2="16" y2="14" stroke="#3a5c94" strokeWidth="0.4" strokeOpacity="0.5"/>
+              <line x1="2" y1="24" x2="16" y2="22" stroke="#3a5c94" strokeWidth="0.4" strokeOpacity="0.5"/>
+              <line x1="2" y1="30" x2="16" y2="30" stroke="#3a5c94" strokeWidth="0.4" strokeOpacity="0.4"/>
+
+              {/* Right panel detail — perspective lines */}
+              <line x1="32" y1="14" x2="46" y2="16" stroke="#3a5c94" strokeWidth="0.4" strokeOpacity="0.5"/>
+              <line x1="32" y1="22" x2="46" y2="24" stroke="#3a5c94" strokeWidth="0.4" strokeOpacity="0.5"/>
+              <line x1="32" y1="30" x2="46" y2="30" stroke="#3a5c94" strokeWidth="0.4" strokeOpacity="0.4"/>
+
+              {/* Route squiggle on centre panel */}
+              <path d="M17 33 Q20 28 23 30 Q25 31 27 28 Q29 25 31 27" stroke="#e97b25" strokeWidth="0.9" strokeOpacity="0.5" strokeLinecap="round" fill="none"/>
+
+              {/* ── Pin ── */}
+              <ellipse cx="24" cy="34" rx="3" ry="1.2" fill="#e97b25" fillOpacity="0.2"/>
+              <path d="M24 9 C21.2 9 19 11.2 19 14.2 C19 18.2 24 25 24 25 C24 25 29 18.2 29 14.2 C29 11.2 26.8 9 24 9 Z"
+                fill="url(#pinGrad)" filter="url(#pinGlow)"/>
+              <path d="M21.5 11.2 C20.4 12.4 19.8 13.7 19.8 14.8" stroke="white" strokeWidth="0.9" strokeOpacity="0.4" strokeLinecap="round"/>
+              <circle cx="24" cy="14.2" r="3.2" fill="#1a1a2e" stroke="#ffb060" strokeWidth="0.7"/>
+              <circle cx="24" cy="14.2" r="1.8" fill="#0a0f22"/>
+              <circle cx="23.1" cy="13.3" r="0.65" fill="white" fillOpacity="0.6"/>
+            </svg>
             <div className="sidebar-header-text">
               <h1>Photo<span className="brand-accent">Map</span></h1>
+              <p>Upload photos and explore them on an interactive map</p>
             </div>
-            <button
-              className={`log-toggle-btn${drawerOpen ? ' active' : ''}`}
-              onClick={() => setDrawerOpen(o => !o)}
-            >
-              Uploads
-              {results.length > 0 && !drawerOpen && <span className="log-toggle-dot" />}
-            </button>
-            <button
-              className="shortcuts-hint-btn"
-              onClick={() => setShortcutsOpen(true)}
-              title="Keyboard shortcuts"
-              aria-label="Show keyboard shortcuts"
-            >?</button>
           </div>
           {(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId) && (
             <div className="header-filter-chips">
@@ -377,20 +438,7 @@ export function App() {
         {error && <div className="error-banner">Failed to load photos. Please refresh.</div>}
 
         <div className="sidebar-tab-panel sidebar-tab-panel--browse">
-            {!loading && photos.length > 0 && (
-              <div className="photo-stat-row">
-                <span className="photo-stat-pill">
-                  <span className="pill-icon">📍</span>
-                  {gpsCount} on map
-                </span>
-                {photos.length - gpsCount > 0 && (
-                  <span className="photo-stat-pill pill-warn">
-                    ⚠ {photos.length - gpsCount} no GPS
-                  </span>
-                )}
-              </div>
-            )}
-
+            <SidebarSection title="Navigation tree">
             <ClientPanel
               clients={clients}
               projects={projects}
@@ -406,6 +454,7 @@ export function App() {
               onUpdateProject={updateProject}
               onDeleteProject={deleteProject}
             />
+            </SidebarSection>
             <SidebarSection title="Search" defaultOpen={!activeSurveyDate}>
           <div className="date-filter">
             {minDate && sliderRange > 0 ? (
@@ -509,14 +558,6 @@ export function App() {
             </div>
           )}
 
-          <div className="export-row">
-            <button className="export-btn" onClick={() => exportPhotos('geojson')} disabled={photos.filter(p => p.hasGps).length === 0}>
-              ↓ GeoJSON
-            </button>
-            <button className="export-btn" onClick={() => exportPhotos('kml')} disabled={photos.filter(p => p.hasGps).length === 0}>
-              ↓ KML
-            </button>
-          </div>
         </SidebarSection>
 
         {/* Timeline Player */}
@@ -575,37 +616,107 @@ export function App() {
           </div>
         </SidebarSection>
 
-        <PhotoList
-          photos={displayPhotos}
-          totalCount={photos.length}
-          loading={loading}
-          onDelete={deletePhoto}
-          onView={photo => { setViewingPhoto(photo); setMobileSidebarOpen(false) }}
-          activeTag={activeTag}
-          onTagClick={tag => setActiveTag(prev => prev === tag ? null : tag)}
-          selectionMode={selectionMode}
-          selectedPhotoIds={selectedPhotoIds}
-          onToggleSelection={togglePhotoSelection}
-          onToggleSelectionMode={() => {
-            setSelectionMode(v => !v)
-            setSelectedPhotoIds(new Set())
-          }}
-          onBatchUpdate={batchUpdate}
-          onBatchDelete={batchDelete}
-          comparingPhotoId={comparingPhotoId}
-          onCompareClick={handleCompareClick}
-          toast={toast}
-          hasActiveFilters={!!(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId)}
-          timelinePhotoId={timelineActive ? currentTimelinePhoto?.id : null}
-          onClearAllFilters={() => {
-            setUserTouchedFilter(false)
-            setActiveTag(null)
-            setRegionPolygon(null)
-            setActiveClientId(null)
-            setActiveProjectId(null)
-            setActiveSurveyDate(null)
-          }}
-        />
+        <SidebarSection title="Photos">
+          {!loading && photos.length > 0 && (
+            <div className="photo-stat-row">
+              <span className="photo-stat-pill">
+                <span className="pill-icon">📍</span>
+                {gpsCount} on map
+              </span>
+              {photos.length - gpsCount > 0 && (
+                <span className="photo-stat-pill pill-warn">
+                  ⚠ {photos.length - gpsCount} no GPS
+                </span>
+              )}
+            </div>
+          )}
+          <PhotoList
+            photos={displayPhotos}
+            totalCount={photos.length}
+            loading={loading}
+            onDelete={deletePhoto}
+            onView={photo => { setViewingPhoto(photo); setMobileSidebarOpen(false) }}
+            activeTag={activeTag}
+            onTagClick={tag => setActiveTag(prev => prev === tag ? null : tag)}
+            selectionMode={selectionMode}
+            selectedPhotoIds={selectedPhotoIds}
+            onToggleSelection={togglePhotoSelection}
+            onToggleSelectionMode={() => {
+              setSelectionMode(v => !v)
+              setSelectedPhotoIds(new Set())
+            }}
+            onBatchUpdate={batchUpdate}
+            onBatchDelete={batchDelete}
+            comparingPhotoId={comparingPhotoId}
+            onCompareClick={handleCompareClick}
+            toast={toast}
+            hasActiveFilters={!!(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId)}
+            timelinePhotoId={timelineActive ? currentTimelinePhoto?.id : null}
+            onClearAllFilters={() => {
+              setUserTouchedFilter(false)
+              setActiveTag(null)
+              setRegionPolygon(null)
+              setActiveClientId(null)
+              setActiveProjectId(null)
+              setActiveSurveyDate(null)
+            }}
+          />
+        </SidebarSection>
+        </div>
+        <div className="sidebar-footer">
+          {uploadOpen && (
+            <div className="sidebar-upload-tray">
+              <DropZone
+                onUploadComplete={refreshAll}
+                setResults={setResults}
+                openDrawer={() => setDrawerOpen(true)}
+                clients={clients}
+                projects={projects}
+                activeProjectId={activeProjectId}
+              />
+            </div>
+          )}
+          <div className="sidebar-footer-row">
+            <button
+              className={`footer-btn footer-btn--upload${uploadOpen ? ' active' : ''}`}
+              onClick={() => setUploadOpen(o => !o)}
+              title={uploadOpen ? 'Close upload' : 'Upload photos'}
+            >
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                {uploadOpen
+                  ? <path d="M3 8h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                  : <><path d="M8 3v10M8 3L5 6M8 3l3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 12h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></>
+                }
+              </svg>
+              Upload Photos
+            </button>
+            <button
+              className={`footer-btn footer-btn--log${drawerOpen ? ' active' : ''}`}
+              onClick={() => setDrawerOpen(o => !o)}
+              title="Upload log"
+              aria-label="Toggle upload log"
+            >
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <rect x="2" y="3" width="12" height="2" rx="1" fill="currentColor"/>
+                <rect x="2" y="7" width="8" height="2" rx="1" fill="currentColor"/>
+                <rect x="2" y="11" width="10" height="2" rx="1" fill="currentColor"/>
+              </svg>
+              Log
+              {results.length > 0 && !drawerOpen && <span className="log-toggle-dot" />}
+            </button>
+            <button
+              className="footer-btn footer-btn--help"
+              onClick={() => setShortcutsOpen(true)}
+              title="Keyboard shortcuts"
+              aria-label="Show keyboard shortcuts"
+            >
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M6 6.2C6 5 6.9 4.2 8 4.2s2 .8 2 1.8c0 1.2-2 1.8-2 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <circle cx="8" cy="11.5" r="0.75" fill="currentColor"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -619,6 +730,8 @@ export function App() {
           onPhotoHover={setHoveredPhotoId}
           onRegionChange={setRegionPolygon}
           onBoundsChange={setMapBounds}
+          exportPhotos={exportPhotos}
+          hasGps={photos.some(p => p.hasGps)}
         />
         {elevationOpen && (
           <ElevationProfile
@@ -643,11 +756,6 @@ export function App() {
         onClose={() => setDrawerOpen(false)}
         onClear={() => setResults([])}
         onAllDone={() => setDrawerOpen(false)}
-        clients={clients}
-        projects={projects}
-        activeProjectId={activeProjectId}
-        onUploadComplete={refreshAll}
-        setResults={setResults}
       />
 
       {viewingPhoto && (
@@ -699,6 +807,24 @@ export function App() {
               <dt>Space</dt><dd>Play / pause timeline</dd>
             </dl>
             <p className="shortcuts-hint">Press ? or Esc to close</p>
+            <div className="shortcuts-reset">
+              {resetConfirm ? (
+                <>
+                  <span className="shortcuts-reset-warning">This will delete all photos, clients and projects.</span>
+                  <div className="shortcuts-reset-actions">
+                    <button className="shortcuts-reset-confirm" onClick={async () => {
+                      await fetch('/api/reset', { method: 'DELETE' })
+                      setResetConfirm(false)
+                      setShortcutsOpen(false)
+                      refreshAll()
+                    }}>Yes, wipe everything</button>
+                    <button className="shortcuts-reset-cancel" onClick={() => setResetConfirm(false)}>Cancel</button>
+                  </div>
+                </>
+              ) : (
+                <button className="shortcuts-reset-btn" onClick={() => setResetConfirm(true)}>Reset all data…</button>
+              )}
+            </div>
           </div>
         </div>
       )}

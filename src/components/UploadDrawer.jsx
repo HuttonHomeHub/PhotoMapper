@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { DropZone } from './DropZone.jsx'
 
 const statusIcon = {
   uploading: '●',
@@ -9,7 +8,7 @@ const statusIcon = {
   duplicate: '⊘'
 }
 
-export function UploadDrawer({ results, open, onClose, onClear, onAllDone, clients, projects, activeProjectId, onUploadComplete, setResults }) {
+export function UploadDrawer({ results, open, onClose, onClear, onAllDone }) {
   const [keepOpen, setKeepOpen] = useState(false)
   const timerRef = useRef(null)
 
@@ -39,14 +38,6 @@ export function UploadDrawer({ results, open, onClose, onClear, onAllDone, clien
           <button className="upload-drawer-close" onClick={onClose}>×</button>
         </div>
       </div>
-      <DropZone
-        onUploadComplete={onUploadComplete}
-        setResults={setResults}
-        openDrawer={() => {}}
-        clients={clients}
-        projects={projects}
-        activeProjectId={activeProjectId}
-      />
       <div className="upload-results">
         {results.map((r) => (
           <div key={r.id} className={`upload-item ${r.status}`}>

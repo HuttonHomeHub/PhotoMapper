@@ -189,7 +189,7 @@ function createClusterIcon(cluster) {
   })
 }
 
-export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView, hoveredPhotoId, onPhotoHover, onRegionChange, onBoundsChange }, ref) {
+export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView, hoveredPhotoId, onPhotoHover, onRegionChange, onBoundsChange, exportPhotos, hasGps }, ref) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const clusterGroupRef = useRef(null)
@@ -779,9 +779,14 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
             <img src={exportIconUrl} className="mc-layer-header-icon" alt="" />
             Save map
           </div>
-          <button className="mc-row" onClick={handleExport} title="Save map as PNG">
-            Export as PNG
-          </button>
+          <div className="mc-overlay-grid">
+            <button className="mc-row mc-overlay-btn" onClick={handleExport} title="Save map as PNG">
+              PNG
+            </button>
+            <button className="mc-row mc-overlay-btn" onClick={() => exportPhotos('kml')} disabled={!hasGps} title="Export geotagged photos as KML">
+              KML
+            </button>
+          </div>
         </div>,
         exportEl
       )}
