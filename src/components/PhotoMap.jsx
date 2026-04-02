@@ -20,36 +20,33 @@ L.Icon.Default.mergeOptions({
 })
 
 
-function fovGroundRadius(photo) {
-  const DEFAULT_RADIUS = 100
-  const fl = photo.focalLength
-  if (!fl || fl <= 0) return DEFAULT_RADIUS
-  const hFovRad = 2 * Math.atan(18 / fl)
-  const height = photo.altitude != null && photo.altitude > 1.5 ? photo.altitude : 50
-  const groundRadius = Math.tan(hFovRad / 2) * height
-  return Math.max(10, Math.min(groundRadius, 5000))
-}
-
-function syntheticPoints(lat, lng, radiusMeters, n) {
-  const R = 6371000
-  const cosLat = Math.cos((lat * Math.PI) / 180)
-  const points = [{ lat, lng, value: 1 }]
-  const ringR = radiusMeters * 0.6
-  for (let i = 0; i < n - 1; i++) {
-    const angle = (2 * Math.PI * i) / (n - 1)
-    const dLat = ((ringR * Math.cos(angle)) / R) * (180 / Math.PI)
-    const dLng = ((ringR * Math.sin(angle)) / (R * cosLat)) * (180 / Math.PI)
-    points.push({ lat: lat + dLat, lng: lng + dLng, value: 1 })
-  }
-  return points
-}
 
 function createFovConePolygon(photo) {
-  if (photo.imgDirection == null || !photo.focalLength) return null
-  const fl = photo.focalLength
-  const height = photo.altitude ?? 50
-  const hFovRad = 2 * Math.atan(18 / fl)
-  const groundRadius = Math.max(10, Math.min(Math.tan(hFovRad / 2) * height, 5000))
+  if (photo.imgDirection == null) return null
+
+  const hasPanoHFov = photo.panoHFov != null && photo.panoHFov > 0
+
+  if (hasPanoHFov && photo.panoHFov >= 358) {
+    return L.circle([photo.lat, photo.lng], {
+      radius: 40,
+      color: '#e97b25',
+      weight: 2,
+      opacity: 0.9,
+      fillColor: '#e97b25',
+      fillOpacity: 0.2,
+      interactive: false
+    })
+  }
+
+  let hFovRad
+  if (hasPanoHFov) {
+    hFovRad = (photo.panoHFov * Math.PI) / 180
+  } else {
+    const efl = photo.focalLengthIn35mm ?? photo.focalLength
+    hFovRad = efl ? 2 * Math.atan(18 / efl) : (65 * Math.PI) / 180
+  }
+
+  const groundRadius = 40
   const halfAngle = hFovRad / 2
   const dirRad = (photo.imgDirection * Math.PI) / 180
   const R = 6371000
@@ -70,12 +67,11 @@ function createFovConePolygon(photo) {
     vertices.push([(lat2 * 180) / Math.PI, (lng2 * 180) / Math.PI])
   }
   return L.polygon([[photo.lat, photo.lng], ...vertices, [photo.lat, photo.lng]], {
-    color: '#87ceeb',
-    weight: 1,
-    opacity: 0.6,
-    fillColor: '#87ceeb',
-    fillOpacity: 0.12,
-    dashArray: '4 2',
+    color: '#e97b25',
+    weight: 2,
+    opacity: 0.9,
+    fillColor: '#e97b25',
+    fillOpacity: 0.2,
     interactive: false
   })
 }
@@ -193,7 +189,7 @@ function createClusterIcon(cluster) {
   })
 }
 
-export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView, hoveredPhotoId, onPhotoHover, onRegionChange }, ref) {
+export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView, hoveredPhotoId, onPhotoHover, onRegionChange, onBoundsChange }, ref) {
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const clusterGroupRef = useRef(null)
@@ -206,6 +202,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
   const onViewRef = useRef(onView)
   const onRegionChangeRef = useRef(onRegionChange)
   const onPhotoHoverRef = useRef(onPhotoHover)
+  const onBoundsChangeRef = useRef(onBoundsChange)
   const photosRef = useRef(photos)
   const prevGeoCountRef = useRef(0)
 
@@ -228,6 +225,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
   useEffect(() => { onViewRef.current = onView }, [onView])
   useEffect(() => { onRegionChangeRef.current = onRegionChange }, [onRegionChange])
   useEffect(() => { onPhotoHoverRef.current = onPhotoHover }, [onPhotoHover])
+  useEffect(() => { onBoundsChangeRef.current = onBoundsChange }, [onBoundsChange])
   useEffect(() => { photosRef.current = photos }, [photos])
 
   // Initialise map once
@@ -273,6 +271,10 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
     layersRef.current = { Satellite: satellite, Streets: streets, Dark: dark, Terrain: terrain }
 
     map.on('baselayerchange', (e) => setActiveLayer(e.name))
+    map.on('moveend', () => {
+      const b = map.getBounds()
+      onBoundsChangeRef.current?.({ north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() })
+    })
 
     const makeControl = (position, setter) => {
       const Cls = L.Control.extend({
@@ -350,13 +352,21 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
     }
   }, [])
 
-  // Expose flyTo and getBounds to parent via ref
+  // Expose flyTo, getBounds, and fitToBounds to parent via ref
   useImperativeHandle(ref, () => ({
     flyTo(lat, lng, zoom) {
       mapInstanceRef.current?.flyTo([lat, lng], zoom)
     },
     getBounds() {
       return mapInstanceRef.current?.getBounds() ?? null
+    },
+    fitToBounds(geoPhotos) {
+      const map = mapInstanceRef.current
+      if (!map || !geoPhotos.length) return
+      const points = geoPhotos.filter(p => p.hasGps && p.lat != null && p.lng != null)
+      if (!points.length) return
+      const bounds = L.latLngBounds(points.map(p => [p.lat, p.lng]))
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 })
     }
   }))
 
@@ -708,7 +718,8 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
               <button
                 className={`mc-row mc-overlay-btn${fovVisible ? ' active' : ''}`}
                 onClick={() => setFovVisible(v => !v)}
-                title="Toggle FOV cones"
+                title={!hasGeoPhotos ? 'Upload geotagged photos to enable FOV cones' : 'Toggle FOV cones'}
+                disabled={!hasGeoPhotos}
               >
                 FOV Cones
               </button>
@@ -724,6 +735,8 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
             <button
               className={`mc-row${showRoute ? ' active' : ''}`}
               onClick={() => setShowRoute(r => !r)}
+              disabled={!hasGeoPhotos}
+              title={!hasGeoPhotos ? 'Upload geotagged photos to enable route' : undefined}
             >
               Route
             </button>

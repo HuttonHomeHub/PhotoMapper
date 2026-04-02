@@ -9,7 +9,7 @@ import { createHash } from 'crypto'
 import { v4 as uuidv4 } from 'uuid'
 import exifr from 'exifr'
 import sharp from 'sharp'
-import { insertPhoto, getAllPhotos, getPhotoById, deletePhoto, getPhotoByHash, updatePhoto, createCollection, getAllCollections, getCollectionsByProject, updateCollection, deleteCollection, addPhotosToCollection, removePhotoFromCollection, batchUpdatePhotos, createProject, getAllProjects, updateProject, deleteProject, assignPhotosToProject, createClient, getAllClients, updateClient, deleteClient } from './db.js'
+import { insertPhoto, getAllPhotos, getPhotoById, deletePhoto, getPhotoByHash, updatePhoto, updatePhotoSurveyDate, updatePhotoProject, batchUpdatePhotos, createProject, getAllProjects, updateProject, deleteProject, assignPhotosToProject, createClient, getAllClients, updateClient, deleteClient } from './db.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const uploadsDir = join(__dirname, 'uploads')
@@ -78,10 +78,16 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
     exif = await exifr.parse(file.path, {
       gps: true,
       ifd0: true,
-      exif: true
+      exif: true,
+      xmp: true
     }) || {}
   } catch {
     // EXIF parse failure is non-fatal
+  }
+
+  let panoHFov = null
+  if (exif.GPano?.FullPanoWidthPixels && exif.GPano?.CroppedAreaImageWidthPixels) {
+    panoHFov = (exif.GPano.CroppedAreaImageWidthPixels / exif.GPano.FullPanoWidthPixels) * 360
   }
 
   const hasGps = exif.latitude != null && exif.longitude != null
@@ -133,6 +139,7 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
   }
 
   const projectId = req.body?.projectId || null
+  const surveyDate = dateTaken ? dateTaken.slice(0, 10) : null
 
   const record = {
     id: uuidv4(),
@@ -146,6 +153,7 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
     altitude: exif.GPSAltitude ?? null,
     imgDirection: exif.GPSImgDirection ?? null,
     dateTaken,
+    surveyDate,
     cameraMake: exif.Make ?? null,
     cameraModel: exif.Model ?? null,
     focalLength: exif.FocalLength ?? null,
@@ -154,7 +162,9 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
     exposureTime,
     fileHash,
     locationName,
-    projectId
+    projectId,
+    focalLengthIn35mm: exif.FocalLengthIn35mmFormat ?? null,
+    panoHFov,
   }
 
   try {
@@ -173,8 +183,7 @@ app.post('/api/photos', upload.single('photo'), async (req, res) => {
     ...record,
     hasGps: !!record.hasGps,
     tags: [],
-    description: null,
-    collectionIds: []
+    description: null
   })
 })
 
@@ -183,12 +192,9 @@ app.get('/api/photos', (_req, res) => {
 })
 
 app.get('/api/photos/export', (req, res) => {
-  const { format: formatParam, collection_id } = req.query
+  const { format: formatParam } = req.query
   const format = formatParam === 'kml' ? 'kml' : 'geojson'
-  let photos = getAllPhotos().filter(p => p.hasGps && p.lat != null && p.lng != null)
-  if (collection_id) {
-    photos = photos.filter(p => p.collectionIds?.includes(collection_id))
-  }
+  const photos = getAllPhotos().filter(p => p.hasGps && p.lat != null && p.lng != null)
 
   if (format === 'geojson') {
     const fc = {
@@ -277,8 +283,19 @@ app.patch('/api/photos/batch', (req, res) => {
 app.patch('/api/photos/:id', (req, res) => {
   const photo = getPhotoById(req.params.id)
   if (!photo) return res.status(404).json({ error: 'Photo not found' })
-  const { description, tags } = req.body
-  updatePhoto(req.params.id, { description, tags })
+  const { description, tags, projectId, surveyDate } = req.body
+  if (description !== undefined || tags !== undefined) {
+    updatePhoto(req.params.id, { description, tags })
+  }
+  if (projectId !== undefined) {
+    updatePhotoProject(req.params.id, projectId)
+  }
+  if (surveyDate !== undefined) {
+    if (surveyDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(surveyDate)) {
+      return res.status(400).json({ error: 'surveyDate must be YYYY-MM-DD or null' })
+    }
+    updatePhotoSurveyDate(req.params.id, surveyDate)
+  }
   const updated = getAllPhotos().find(p => p.id === req.params.id)
   res.json(updated)
 })
@@ -312,58 +329,6 @@ app.delete('/api/photos/:id', async (req, res) => {
   }
 
   res.json({ id: photo.id })
-})
-
-// Collections
-app.get('/api/collections', (req, res) => {
-  res.json(getAllCollections())
-})
-
-app.post('/api/collections', (req, res) => {
-  const { name, description, color, projectId } = req.body
-  if (!name?.trim()) return res.status(400).json({ error: 'name required' })
-  const collection = {
-    id: uuidv4(),
-    name: name.trim(),
-    description: description || null,
-    color: color || '#e97b25',
-    projectId: projectId || null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-  createCollection(collection)
-  res.status(201).json(collection)
-})
-
-app.patch('/api/collections/:id', (req, res) => {
-  const { name, description, color } = req.body
-  updateCollection(req.params.id, {
-    name,
-    description,
-    color,
-    updatedAt: new Date().toISOString()
-  })
-  res.json(getAllCollections().find(c => c.id === req.params.id))
-})
-
-app.delete('/api/collections/:id', (req, res) => {
-  const changes = deleteCollection(req.params.id)
-  if (!changes) return res.status(404).json({ error: 'not found' })
-  res.json({ id: req.params.id })
-})
-
-app.post('/api/collections/:id/photos', (req, res) => {
-  const { photoIds } = req.body
-  if (!Array.isArray(photoIds) || photoIds.length === 0) {
-    return res.status(400).json({ error: 'photoIds array required' })
-  }
-  addPhotosToCollection(req.params.id, photoIds, new Date().toISOString())
-  res.json({ added: photoIds.length })
-})
-
-app.delete('/api/collections/:id/photos/:photoId', (req, res) => {
-  removePhotoFromCollection(req.params.id, req.params.photoId)
-  res.json({ success: true })
 })
 
 // Clients
@@ -434,10 +399,6 @@ app.delete('/api/projects/:id', (req, res) => {
   const changes = deleteProject(req.params.id)
   if (!changes) return res.status(404).json({ error: 'not found' })
   res.json({ id: req.params.id })
-})
-
-app.get('/api/projects/:id/collections', (req, res) => {
-  res.json(getCollectionsByProject(req.params.id))
 })
 
 app.patch('/api/projects/:id/photos', (req, res) => {

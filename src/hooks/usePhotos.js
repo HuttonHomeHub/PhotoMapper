@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 
 export function usePhotos() {
   const [photos, setPhotos] = useState([])
-  const [collections, setCollections] = useState([])
   const [projects, setProjects] = useState([])
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(true)
@@ -23,13 +22,6 @@ export function usePhotos() {
     }
   }, [])
 
-  const fetchCollections = useCallback(async () => {
-    const res = await fetch('/api/collections')
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = await res.json()
-    setCollections(data)
-  }, [])
-
   const fetchProjects = useCallback(async () => {
     const res = await fetch('/api/projects')
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -46,10 +38,9 @@ export function usePhotos() {
 
   useEffect(() => {
     refresh()
-    fetchCollections().catch(() => {})
     fetchProjects().catch(() => {})
     fetchClients().catch(() => {})
-  }, [refresh, fetchCollections, fetchProjects, fetchClients])
+  }, [refresh, fetchProjects, fetchClients])
 
   const deletePhoto = useCallback(async (id) => {
     const res = await fetch(`/api/photos/${id}`, { method: 'DELETE' })
@@ -82,63 +73,13 @@ export function usePhotos() {
     a.click()
   }, [])
 
-  async function createCollection({ name, description, color }) {
-    const res = await fetch('/api/collections', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, description, color })
-    })
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.error || `HTTP ${res.status}`)
-    }
-    const collection = await res.json()
-    setCollections(prev => [...prev, collection])
-    return collection
-  }
+  const updatePhotoSurveyDate = useCallback(async (id, surveyDate) => {
+    return updatePhoto(id, { surveyDate })
+  }, [updatePhoto])
 
-  async function updateCollection(id, changes) {
-    const res = await fetch(`/api/collections/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(changes)
-    })
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.error || `HTTP ${res.status}`)
-    }
-    const updated = await res.json()
-    setCollections(prev => prev.map(c => c.id === id ? updated : c))
-  }
-
-  async function deleteCollection(id) {
-    await fetch(`/api/collections/${id}`, { method: 'DELETE' })
-    setCollections(prev => prev.filter(c => c.id !== id))
-  }
-
-  async function addPhotosToCollection(collectionId, photoIds) {
-    const res = await fetch(`/api/collections/${collectionId}/photos`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ photoIds })
-    })
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.error || `HTTP ${res.status}`)
-    }
-    await refresh()
-    await fetchCollections()
-  }
-
-  async function removePhotoFromCollection(collectionId, photoId) {
-    const res = await fetch(`/api/collections/${collectionId}/photos/${photoId}`, { method: 'DELETE' })
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body.error || `HTTP ${res.status}`)
-    }
-    await refresh()
-    await fetchCollections()
-  }
+  const updatePhotoProject = useCallback(async (id, projectId) => {
+    return updatePhoto(id, { projectId })
+  }, [updatePhoto])
 
   async function batchUpdate(ids, { tags, description, mergeTags }) {
     const res = await fetch('/api/photos/batch', {
@@ -247,9 +188,8 @@ export function usePhotos() {
 
   return {
     photos, loading, error, refresh, refreshAll, deletePhoto, updatePhoto, exportPhotos,
+    updatePhotoSurveyDate, updatePhotoProject,
     clients, createClient, updateClient, deleteClient,
-    collections, createCollection, updateCollection, deleteCollection,
-    addPhotosToCollection, removePhotoFromCollection,
     batchUpdate, batchDelete,
     projects, createProject, updateProject, deleteProject, assignToProject
   }

@@ -22,6 +22,7 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
   const [description, setDescription] = useState(photo.description ?? '')
   const [tags, setTags] = useState(photo.tags ?? [])
   const [tagInput, setTagInput] = useState('')
+  const [surveyDate, setSurveyDate] = useState(photo.surveyDate ?? '')
   const trapRef = useFocusTrap(true)
   const saveTimerRef = useRef(null)
   const [savedState, setSavedState] = useState(null)
@@ -47,14 +48,15 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
     setDescription(photo.description ?? '')
     setTags(photo.tags ?? [])
     setTagInput('')
+    setSurveyDate(photo.surveyDate ?? '')
     setCopied(false)
   }, [photo?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const scheduleSave = useCallback((newDesc, newTags) => {
+  const scheduleSave = useCallback((newDesc, newTags, newSurveyDate) => {
     clearTimeout(saveTimerRef.current)
     setSavedState('saving')
     saveTimerRef.current = setTimeout(() => {
-      onUpdate?.(photo.id, { description: newDesc, tags: newTags })
+      onUpdate?.(photo.id, { description: newDesc, tags: newTags, surveyDate: newSurveyDate || null })
       setSavedState('saved')
       clearTimeout(savedTimerRef.current)
       savedTimerRef.current = setTimeout(() => setSavedState(null), 2000)
@@ -71,7 +73,7 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
   function handleDescriptionChange(e) {
     const val = e.target.value
     setDescription(val)
-    scheduleSave(val, tags)
+    scheduleSave(val, tags, surveyDate)
   }
 
   function handleTagKeyDown(e) {
@@ -90,13 +92,13 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
     const newTags = [...tags, trimmed]
     setTags(newTags)
     setTagInput('')
-    scheduleSave(description, newTags)
+    scheduleSave(description, newTags, surveyDate)
   }
 
   function removeTag(tag) {
     const newTags = tags.filter(t => t !== tag)
     setTags(newTags)
-    scheduleSave(description, newTags)
+    scheduleSave(description, newTags, surveyDate)
   }
 
   useEffect(() => {
@@ -167,6 +169,19 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
                 </a>
               </div>
             )}
+            <div className="lightbox-exif-item lightbox-exif-item--full lightbox-survey-date-row">
+              <span className="lightbox-exif-label">Survey Date</span>
+              <input
+                type="date"
+                className="lightbox-survey-date-input"
+                value={surveyDate}
+                onChange={e => {
+                  const val = e.target.value
+                  setSurveyDate(val)
+                  scheduleSave(description, tags, val)
+                }}
+              />
+            </div>
           </div>
 
           {/* Field notes + tags */}

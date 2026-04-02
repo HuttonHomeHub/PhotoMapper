@@ -22,7 +22,6 @@ function SidebarSection({ title, defaultOpen = true, badge = null, children }) {
   )
 }
 import { usePhotos } from './hooks/usePhotos.js'
-import { DropZone } from './components/DropZone.jsx'
 import { PhotoMap } from './components/PhotoMap.jsx'
 import { PhotoList } from './components/PhotoList.jsx'
 import { PhotoLightbox } from './components/PhotoLightbox.jsx'
@@ -53,9 +52,9 @@ export function App() {
   const { toast } = useToast()
   const {
     photos, loading, error, refresh, refreshAll, deletePhoto, updatePhoto, exportPhotos,
+    updatePhotoSurveyDate, updatePhotoProject,
     clients, createClient, updateClient, deleteClient,
-    collections, createCollection, updateCollection, deleteCollection,
-    addPhotosToCollection, removePhotoFromCollection, batchUpdate, batchDelete,
+    batchUpdate, batchDelete,
     projects, createProject, updateProject, deleteProject, assignToProject
   } = usePhotos()
   const gpsCount = photos.filter(p => p.hasGps).length
@@ -82,14 +81,13 @@ export function App() {
   const [elevationOpen, setElevationOpen] = useState(false)
   const [hoveredPhotoId, setHoveredPhotoId] = useState(null)
   const [activeClientId, setActiveClientId] = useState(null)
-  const [activeCollectionId, setActiveCollectionId] = useState(null)
+  const [activeSurveyDate, setActiveSurveyDate] = useState(null)
   const [activeProjectId, setActiveProjectId] = useState(null)
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedPhotoIds, setSelectedPhotoIds] = useState(new Set())
   const [comparingPhotoId, setComparingPhotoId] = useState(null)
   const [comparisonPair, setComparisonPair] = useState(null)
   const mapRef = useRef(null)
-  const [sidebarTab, setSidebarTab] = useState('organise')
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false)
   const shortcutsTrapRef = useFocusTrap(shortcutsOpen)
@@ -106,6 +104,7 @@ export function App() {
       setDateTo(minDate ? TODAY : '')
     }
   }, [minDate, userTouchedFilter])
+
 
   const minTs = minDate ? dateToMs(minDate) : 0
   const maxTs = dateToMs(TODAY)
@@ -138,13 +137,17 @@ export function App() {
       if (!pointInPolygon([p.lat, p.lng], regionPolygon)) return false
     }
     return true
-  }).filter(p => !activeCollectionId || (p.collectionIds && p.collectionIds.includes(activeCollectionId)))
-    .filter(p => !activeProjectId || p.projectId === activeProjectId)
-    .filter(p => {
-      if (!activeClientId) return true
-      const proj = projects.find(pr => pr.id === p.projectId)
-      return proj?.clientId === activeClientId
-    })
+  }).filter(p => {
+    if (!activeSurveyDate && !activeProjectId) return true
+    if (activeProjectId && p.projectId !== activeProjectId) return false
+    if (activeSurveyDate === 'undated') return p.surveyDate == null
+    if (activeSurveyDate) return p.surveyDate === activeSurveyDate
+    return true
+  }).filter(p => {
+    if (!activeClientId) return true
+    const proj = projects.find(pr => pr.id === p.projectId)
+    return proj?.clientId === activeClientId
+  })
 
   // Timeline: all photos sorted by date for chronological playback
   const timelineSorted = useMemo(() =>
@@ -154,6 +157,23 @@ export function App() {
       return dateA.localeCompare(dateB)
     }),
   [photos])
+
+  // Fit map to relevant photos when hierarchy selection changes
+  useEffect(() => {
+    if (!activeClientId && !activeProjectId && !activeSurveyDate) return
+    const relevant = photos.filter(p => {
+      if (!p.hasGps || p.lat == null || p.lng == null) return false
+      if (activeProjectId && p.projectId !== activeProjectId) return false
+      if (activeSurveyDate === 'undated' && p.surveyDate != null) return false
+      if (activeSurveyDate && activeSurveyDate !== 'undated' && p.surveyDate !== activeSurveyDate) return false
+      if (activeClientId) {
+        const proj = projects.find(pr => pr.id === p.projectId)
+        if (proj?.clientId !== activeClientId) return false
+      }
+      return true
+    })
+    if (relevant.length) mapRef.current?.fitToBounds(relevant)
+  }, [activeClientId, activeProjectId, activeSurveyDate, photos, projects])
 
   // Reset timeline when activated
   useEffect(() => {
@@ -258,16 +278,6 @@ export function App() {
     setLocationQuery(result.display_name.split(',')[0])
   }
 
-  function handleFilterToView() {
-    const bounds = mapRef.current?.getBounds()
-    if (!bounds) return
-    setMapBounds({
-      north: bounds.getNorth(),
-      south: bounds.getSouth(),
-      east: bounds.getEast(),
-      west: bounds.getWest()
-    })
-  }
 
   return (
     <div className="app">
@@ -309,35 +319,7 @@ export function App() {
 
         {error && <div className="error-banner">Failed to load photos. Please refresh.</div>}
 
-        <div className="sidebar-tabs">
-          <button
-            className={`sidebar-tab-btn${sidebarTab === 'organise' ? ' active' : ''}`}
-            onClick={() => setSidebarTab('organise')}
-          >
-            Organise
-          </button>
-          <button
-            className={`sidebar-tab-btn${sidebarTab === 'browse' ? ' active' : ''}`}
-            onClick={() => setSidebarTab('browse')}
-          >
-            Browse
-            {(isFiltered || mapBounds || activeTag || regionPolygon || activeClientId || activeCollectionId || activeProjectId) && (
-              <span className="sidebar-tab-dot" />
-            )}
-          </button>
-        </div>
-
-        {sidebarTab === 'organise' && (
-          <div className="sidebar-tab-panel">
-            <DropZone
-              onUploadComplete={() => { refreshAll(); setSidebarTab('browse') }}
-              setResults={setResults}
-              openDrawer={() => setDrawerOpen(true)}
-              clients={clients}
-              projects={projects}
-              activeProjectId={activeProjectId}
-            />
-
+        <div className="sidebar-tab-panel sidebar-tab-panel--browse">
             {!loading && photos.length > 0 && (
               <div className="photo-stat-row">
                 <span className="photo-stat-pill">
@@ -355,28 +337,18 @@ export function App() {
             <ClientPanel
               clients={clients}
               projects={projects}
-              collections={collections}
+              photos={photos}
               activeClientId={activeClientId}
               activeProjectId={activeProjectId}
-              activeCollectionId={activeCollectionId}
-              onSelectClient={id => { setActiveClientId(id); setActiveProjectId(null); setActiveCollectionId(null) }}
-              onSelectProject={id => { setActiveProjectId(id); setActiveCollectionId(null) }}
-              onSelectCollection={setActiveCollectionId}
-              onCreateClient={createClient}
+              activeSurveyDate={activeSurveyDate}
+              onSelectClient={id => { setActiveClientId(id); setActiveProjectId(null); setActiveSurveyDate(null) }}
+              onSelectProject={id => { setActiveProjectId(id); setActiveSurveyDate(null) }}
+              onSelectSurveyDate={setActiveSurveyDate}
               onUpdateClient={updateClient}
               onDeleteClient={deleteClient}
-              onCreateProject={createProject}
               onUpdateProject={updateProject}
               onDeleteProject={deleteProject}
-              onCreateCollection={createCollection}
-              onUpdateCollection={updateCollection}
-              onDeleteCollection={deleteCollection}
             />
-          </div>
-        )}
-
-        {sidebarTab === 'browse' && (
-          <div className="sidebar-tab-panel sidebar-tab-panel--browse">
             <SidebarSection title="Filters" defaultOpen={true}>
           <div className="date-filter">
             {minDate && sliderRange > 0 ? (
@@ -513,16 +485,6 @@ export function App() {
             )}
           </form>
 
-          <div className="map-filter-row">
-            <button className="map-filter-btn" onClick={handleFilterToView}>
-              Filter to map view
-            </button>
-            {mapBounds && (
-              <button className="date-filter-clear" onClick={() => setMapBounds(null)}>
-                Clear
-              </button>
-            )}
-          </div>
 
           {activeTag && (
             <div className="map-filter-row">
@@ -542,66 +504,6 @@ export function App() {
             </button>
           </div>
         </SidebarSection>
-
-        {/* Active filters summary bar — always visible, outside collapsible */}
-        {(isFiltered || mapBounds || activeTag || regionPolygon || activeClientId || activeCollectionId || activeProjectId) && (
-          <div className="active-filters-bar">
-            <div className="active-filters-row">
-              <span className="active-filters-label">
-                {filteredPhotos.length} photo{filteredPhotos.length !== 1 ? 's' : ''} · filters active:
-              </span>
-              <button
-                className="clear-all-filters-btn"
-                onClick={() => {
-                  setUserTouchedFilter(false)
-                  setMapBounds(null)
-                  setActiveTag(null)
-                  setRegionPolygon(null)
-                  setActiveClientId(null)
-                  setActiveProjectId(null)
-                  setActiveCollectionId(null)
-                }}
-              >
-                Clear all
-              </button>
-            </div>
-            {isFiltered && (
-              <button className="filter-chip" onClick={() => setUserTouchedFilter(false)}>
-                📅 Date range ×
-              </button>
-            )}
-            {mapBounds && (
-              <button className="filter-chip" onClick={() => setMapBounds(null)}>
-                🗺 Map view ×
-              </button>
-            )}
-            {activeTag && (
-              <button className="filter-chip" onClick={() => setActiveTag(null)}>
-                # {activeTag} ×
-              </button>
-            )}
-            {regionPolygon && (
-              <button className="filter-chip" onClick={() => setRegionPolygon(null)}>
-                ✏ Region ×
-              </button>
-            )}
-            {activeClientId && (
-              <button className="filter-chip" onClick={() => { setActiveClientId(null); setActiveProjectId(null); setActiveCollectionId(null) }}>
-                👤 Client ×
-              </button>
-            )}
-            {activeCollectionId && (
-              <button className="filter-chip" onClick={() => setActiveCollectionId(null)}>
-                ◎ Collection ×
-              </button>
-            )}
-            {activeProjectId && (
-              <button className="filter-chip" onClick={() => { setActiveProjectId(null); setActiveCollectionId(null) }}>
-                📁 Project ×
-              </button>
-            )}
-          </div>
-        )}
 
         {/* Timeline Player */}
         <SidebarSection title="Timeline" defaultOpen={false}>
@@ -659,6 +561,66 @@ export function App() {
           </div>
         </SidebarSection>
 
+        {/* Active filters bar — sits directly above the photo list it describes */}
+        <div className="active-filters-bar">
+          <div className="active-filters-row">
+            <span className="active-filters-label">
+              {(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId)
+                ? `${filteredPhotos.length} photo${filteredPhotos.length !== 1 ? 's' : ''}`
+                : `${photos.length} photo${photos.length !== 1 ? 's' : ''}`}
+            </span>
+            {(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId) && (
+              <button
+                className="clear-all-filters-btn"
+                onClick={() => {
+                  setUserTouchedFilter(false)
+                  setActiveTag(null)
+                  setRegionPolygon(null)
+                  setActiveClientId(null)
+                  setActiveProjectId(null)
+                  setActiveSurveyDate(null)
+                }}
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+          {(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId) && (
+            <div className="active-filters-chips">
+              {isFiltered && (
+                <button className="filter-chip" onClick={() => setUserTouchedFilter(false)}>
+                  📅 Date range ×
+                </button>
+              )}
+              {activeTag && (
+                <button className="filter-chip" onClick={() => setActiveTag(null)}>
+                  # {activeTag} ×
+                </button>
+              )}
+              {regionPolygon && (
+                <button className="filter-chip" onClick={() => setRegionPolygon(null)}>
+                  ✏ Region ×
+                </button>
+              )}
+              {activeClientId && (
+                <button className="filter-chip" onClick={() => { setActiveClientId(null); setActiveProjectId(null); setActiveSurveyDate(null) }}>
+                  👤 {clients.find(c => c.id === activeClientId)?.name ?? 'Client'} ×
+                </button>
+              )}
+              {activeProjectId && (
+                <button className="filter-chip" onClick={() => { setActiveProjectId(null); setActiveSurveyDate(null) }}>
+                  📁 {projects.find(p => p.id === activeProjectId)?.name ?? 'Project'} ×
+                </button>
+              )}
+              {activeSurveyDate && (
+                <button className="filter-chip" onClick={() => setActiveSurveyDate(null)}>
+                  📅 {activeSurveyDate === 'undated' ? 'Undated' : activeSurveyDate.split('-').reverse().join('/')} ×
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
         <PhotoList
           photos={displayPhotos}
           loading={loading}
@@ -675,26 +637,21 @@ export function App() {
           }}
           onBatchUpdate={batchUpdate}
           onBatchDelete={batchDelete}
-          onBatchAddToCollection={addPhotosToCollection}
-          collections={collections}
-          activeCollectionId={activeCollectionId}
           comparingPhotoId={comparingPhotoId}
           onCompareClick={handleCompareClick}
           toast={toast}
-          hasActiveFilters={!!(isFiltered || mapBounds || activeTag || regionPolygon || activeClientId || activeCollectionId || activeProjectId)}
+          hasActiveFilters={!!(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId)}
           timelinePhotoId={timelineActive ? currentTimelinePhoto?.id : null}
           onClearAllFilters={() => {
             setUserTouchedFilter(false)
-            setMapBounds(null)
             setActiveTag(null)
             setRegionPolygon(null)
             setActiveClientId(null)
             setActiveProjectId(null)
-            setActiveCollectionId(null)
+            setActiveSurveyDate(null)
           }}
         />
-          </div>
-        )}
+        </div>
       </aside>
 
       <div className="map-panel">
@@ -706,6 +663,7 @@ export function App() {
           hoveredPhotoId={hoveredPhotoId}
           onPhotoHover={setHoveredPhotoId}
           onRegionChange={setRegionPolygon}
+          onBoundsChange={setMapBounds}
         />
         {elevationOpen && (
           <ElevationProfile
@@ -724,7 +682,18 @@ export function App() {
         )}
       </div>
 
-      <UploadDrawer results={results} open={drawerOpen} onClose={() => setDrawerOpen(false)} onClear={() => setResults([])} onAllDone={() => setDrawerOpen(false)} />
+      <UploadDrawer
+        results={results}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onClear={() => setResults([])}
+        onAllDone={() => setDrawerOpen(false)}
+        clients={clients}
+        projects={projects}
+        activeProjectId={activeProjectId}
+        onUploadComplete={refreshAll}
+        setResults={setResults}
+      />
 
       {viewingPhoto && (
         <PhotoLightbox

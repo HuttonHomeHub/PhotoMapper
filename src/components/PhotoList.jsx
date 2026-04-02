@@ -18,8 +18,7 @@ function SkeletonRow() {
 export function PhotoList({
   photos, loading, onDelete, onView, activeTag, onTagClick,
   selectionMode, selectedPhotoIds, onToggleSelection,
-  onToggleSelectionMode, onBatchUpdate, onBatchDelete, onBatchAddToCollection,
-  collections, activeCollectionId,
+  onToggleSelectionMode, onBatchUpdate, onBatchDelete,
   comparingPhotoId, onCompareClick,
   toast, hasActiveFilters, onClearAllFilters,
   timelinePhotoId
@@ -244,24 +243,6 @@ export function PhotoList({
               ) : (
                 <button className="sel-action-btn" onClick={() => setTagPromptOpen(true)}>+ Tag</button>
               )}
-              <select
-                className="sel-collection-select"
-                defaultValue=""
-                aria-label="Add selected to collection"
-                onChange={e => {
-                  if (e.target.value) {
-                    onBatchAddToCollection(e.target.value, [...selectedPhotoIds])
-                    const col = collections?.find(c => c.id === e.target.value)
-                    toast?.(`Added ${selectedPhotoIds.size} photo${selectedPhotoIds.size !== 1 ? 's' : ''} to "${col?.name ?? 'collection'}"`, 'success')
-                    e.target.value = ''
-                  }
-                }}
-              >
-                <option value="">Add to collection…</option>
-                {collections?.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
               <button
                 className="sel-action-btn sel-delete-btn"
                 onClick={() => setBatchConfirmOpen(true)}
@@ -340,20 +321,9 @@ export function PhotoList({
                   )}
                 </div>
               )}
-              {photo.collectionIds?.length > 0 && (
-                <div className="photo-collection-dots">
-                  {photo.collectionIds.slice(0, 3).map(cid => {
-                    const col = collections?.find(c => c.id === cid)
-                    return col ? (
-                      <span
-                        key={cid}
-                        className="photo-collection-dot"
-                        style={{ background: col.color }}
-                        title={col.name}
-                        aria-label={col.name}
-                      />
-                    ) : null
-                  })}
+              {photo.surveyDate && (
+                <div className="photo-list-survey-date">
+                  {photo.surveyDate.split('-').reverse().join('/')}
                 </div>
               )}
             </div>

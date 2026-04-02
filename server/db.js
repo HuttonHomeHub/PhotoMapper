@@ -25,7 +25,9 @@ db.exec(`
     focal_length       REAL,
     f_number           REAL,
     iso                INTEGER,
-    exposure_time      TEXT
+    exposure_time      TEXT,
+    focal_length_in_35mm REAL,
+    pano_hfov            REAL
   )
 `)
 
@@ -183,9 +185,12 @@ try {
 
 // Migrate: promote existing project.client TEXT values into the clients table
 {
-  const unmigrated = db.prepare(
-    `SELECT id, client FROM projects WHERE client IS NOT NULL AND client_id IS NULL`
-  ).all()
+  const projCols = db.prepare('PRAGMA table_info(projects)').all()
+  const hasClientCol = projCols.some(c => c.name === 'client')
+
+  const unmigrated = hasClientCol
+    ? db.prepare(`SELECT id, client FROM projects WHERE client IS NOT NULL AND client_id IS NULL`).all()
+    : []
 
   if (unmigrated.length > 0) {
     const insertClientMigrate = db.prepare(
@@ -211,27 +216,75 @@ try {
   }
 }
 
+// Migrate: add focal_length_in_35mm for accurate FOV calculation
+try {
+  db.exec('ALTER TABLE photos ADD COLUMN focal_length_in_35mm REAL')
+} catch {
+  // Column already exists — ignore
+}
+
+// Migrate: add pano_hfov for panoramic photo FOV
+try {
+  db.exec('ALTER TABLE photos ADD COLUMN pano_hfov REAL')
+} catch {
+  // Column already exists — ignore
+}
+
+// Migrate: add survey_date (date part only, YYYY-MM-DD, derived from date_taken)
+try {
+  db.exec('ALTER TABLE photos ADD COLUMN survey_date TEXT')
+} catch {
+  // Column already exists — ignore
+}
+db.exec(`UPDATE photos SET survey_date = substr(date_taken, 1, 10) WHERE survey_date IS NULL AND date_taken IS NOT NULL`)
+
+// Migrate: fix projects.name uniqueness from global to per-client
+{
+  const indexes = db.prepare('PRAGMA index_list(projects)').all()
+  const hasGlobalUnique = indexes.some(i => i.name === 'sqlite_autoindex_projects_1')
+  if (hasGlobalUnique) {
+    db.exec(`
+      BEGIN;
+      CREATE TABLE projects_new (
+        id         TEXT PRIMARY KEY,
+        name       TEXT NOT NULL,
+        client_id  TEXT REFERENCES clients(id) ON DELETE SET NULL,
+        status     TEXT NOT NULL DEFAULT 'active',
+        color      TEXT NOT NULL DEFAULT '#e97b25',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      INSERT INTO projects_new SELECT id, name, client_id, status, color, created_at, updated_at FROM projects;
+      DROP TABLE projects;
+      ALTER TABLE projects_new RENAME TO projects;
+      CREATE UNIQUE INDEX idx_projects_name_per_client ON projects(client_id, name);
+      CREATE INDEX idx_projects_client_id2 ON projects(client_id);
+      COMMIT;
+    `)
+  }
+}
+
 // ─── Prepared statements ────────────────────────────────────────────────────
 
 const insertStmt = db.prepare(`
   INSERT INTO photos (
     id, filename, thumbnail_filename, original_name, uploaded_at, has_gps,
     lat, lng, altitude, img_direction,
-    date_taken, camera_make, camera_model,
-    focal_length, f_number, iso, exposure_time, file_hash, location_name, project_id
+    date_taken, survey_date, camera_make, camera_model,
+    focal_length, f_number, iso, exposure_time, file_hash, location_name, project_id,
+    focal_length_in_35mm, pano_hfov
   ) VALUES (
     @id, @filename, @thumbnailFilename, @originalName, @uploadedAt, @hasGps,
     @lat, @lng, @altitude, @imgDirection,
-    @dateTaken, @cameraMake, @cameraModel,
-    @focalLength, @fNumber, @iso, @exposureTime, @fileHash, @locationName, @projectId
+    @dateTaken, @surveyDate, @cameraMake, @cameraModel,
+    @focalLength, @fNumber, @iso, @exposureTime, @fileHash, @locationName, @projectId,
+    @focalLengthIn35mm, @panoHFov
   )
 `)
 
 const selectAllStmt = db.prepare(`
-  SELECT p.*, GROUP_CONCAT(pc.collection_id) as collection_ids
+  SELECT p.*
   FROM photos p
-  LEFT JOIN photo_collections pc ON p.id = pc.photo_id
-  GROUP BY p.id
   ORDER BY p.uploaded_at DESC
 `)
 
@@ -273,47 +326,9 @@ const updateStmt = db.prepare(`
   WHERE id = @id
 `)
 
-const insertCollectionStmt = db.prepare(`
-  INSERT INTO collections (id, name, description, color, project_id, created_at, updated_at)
-  VALUES (@id, @name, @description, @color, @projectId, @createdAt, @updatedAt)
-`)
+const updateSurveyDateStmt = db.prepare('UPDATE photos SET survey_date = @surveyDate WHERE id = @id')
+const updatePhotoProjectStmt = db.prepare('UPDATE photos SET project_id = @projectId WHERE id = @id')
 
-const selectAllCollectionsStmt = db.prepare(`
-  SELECT c.*, COUNT(pc.photo_id) as photo_count
-  FROM collections c
-  LEFT JOIN photo_collections pc ON c.id = pc.collection_id
-  GROUP BY c.id
-  ORDER BY c.created_at DESC
-`)
-
-const selectCollectionsByProjectStmt = db.prepare(`
-  SELECT c.*, COUNT(pc.photo_id) as photo_count
-  FROM collections c
-  LEFT JOIN photo_collections pc ON c.id = pc.collection_id
-  WHERE c.project_id = ?
-  GROUP BY c.id
-  ORDER BY c.created_at DESC
-`)
-
-const updateCollectionStmt = db.prepare(`
-  UPDATE collections
-  SET name        = COALESCE(@name, name),
-      description = COALESCE(@description, description),
-      color       = COALESCE(@color, color),
-      updated_at  = @updatedAt
-  WHERE id = @id
-`)
-
-const deleteCollectionStmt = db.prepare('DELETE FROM collections WHERE id = ?')
-
-const addPhotoToCollectionStmt = db.prepare(`
-  INSERT OR IGNORE INTO photo_collections (photo_id, collection_id, added_at)
-  VALUES (@photoId, @collectionId, @addedAt)
-`)
-
-const removePhotoFromCollectionStmt = db.prepare(`
-  DELETE FROM photo_collections WHERE collection_id = ? AND photo_id = ?
-`)
 
 const insertClientStmt = db.prepare(`
   INSERT INTO clients (id, name, created_at, updated_at)
@@ -355,9 +370,12 @@ export function getPhotoByHash(hash) {
     altitude: row.altitude,
     imgDirection: row.img_direction,
     dateTaken: row.date_taken,
+    surveyDate: row.survey_date ?? null,
     cameraMake: row.camera_make,
     cameraModel: row.camera_model,
     focalLength: row.focal_length,
+    focalLengthIn35mm: row.focal_length_in_35mm ?? null,
+    panoHFov: row.pano_hfov ?? null,
     fNumber: row.f_number,
     iso: row.iso,
     exposureTime: row.exposure_time,
@@ -399,55 +417,12 @@ export function batchUpdatePhotos(updates) {
   run()
 }
 
-export function createCollection({ id, name, description, color, projectId, createdAt, updatedAt }) {
-  insertCollectionStmt.run({ id, name, description: description ?? null, color, projectId: projectId ?? null, createdAt, updatedAt })
+export function updatePhotoSurveyDate(id, surveyDate) {
+  updateSurveyDateStmt.run({ id, surveyDate: surveyDate ?? null })
 }
 
-export function getAllCollections() {
-  return selectAllCollectionsStmt.all().map(row => ({
-    id: row.id,
-    name: row.name,
-    description: row.description ?? null,
-    color: row.color,
-    projectId: row.project_id ?? null,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    photoCount: row.photo_count
-  }))
-}
-
-export function getCollectionsByProject(projectId) {
-  return selectCollectionsByProjectStmt.all(projectId).map(row => ({
-    id: row.id,
-    name: row.name,
-    description: row.description ?? null,
-    color: row.color,
-    projectId: row.project_id ?? null,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    photoCount: row.photo_count
-  }))
-}
-
-export function updateCollection(id, { name, description, color, updatedAt }) {
-  updateCollectionStmt.run({ id, name: name ?? null, description: description ?? null, color: color ?? null, updatedAt })
-}
-
-export function deleteCollection(id) {
-  return deleteCollectionStmt.run(id).changes
-}
-
-export function addPhotosToCollection(collectionId, photoIds, addedAt) {
-  const run = db.transaction(() => {
-    for (const photoId of photoIds) {
-      addPhotoToCollectionStmt.run({ photoId, collectionId, addedAt })
-    }
-  })
-  run()
-}
-
-export function removePhotoFromCollection(collectionId, photoId) {
-  removePhotoFromCollectionStmt.run(collectionId, photoId)
+export function updatePhotoProject(id, projectId) {
+  updatePhotoProjectStmt.run({ id, projectId: projectId ?? null })
 }
 
 export function getAllPhotos() {
@@ -466,13 +441,15 @@ export function getAllPhotos() {
     cameraMake: row.camera_make,
     cameraModel: row.camera_model,
     focalLength: row.focal_length,
+    focalLengthIn35mm: row.focal_length_in_35mm ?? null,
+    panoHFov: row.pano_hfov ?? null,
     fNumber: row.f_number,
     iso: row.iso,
     exposureTime: row.exposure_time,
     locationName: row.location_name ?? null,
     description: row.description ?? null,
     tags: row.tags ? (() => { try { return JSON.parse(row.tags) } catch { return [] } })() : [],
-    collectionIds: row.collection_ids ? row.collection_ids.split(',') : [],
+    surveyDate: row.survey_date ?? null,
     projectId: row.project_id ?? null
   }))
 }
