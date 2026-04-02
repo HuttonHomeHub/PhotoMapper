@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 /*
  * heatmap.js v2.0.5 | JavaScript Heatmap Library
  *
@@ -300,18 +301,18 @@ var Canvas2dRenderer = (function Canvas2dRendererClosure() {
     var min = data.min;
     var max = data.max;
     var radi = data.radi;
-    var data = data.data;
+    var dataPoints = data.data;
 
-    var xValues = Object.keys(data);
+    var xValues = Object.keys(dataPoints);
     var xValuesLen = xValues.length;
 
     while(xValuesLen--) {
       var xValue = xValues[xValuesLen];
-      var yValues = Object.keys(data[xValue]);
+      var yValues = Object.keys(dataPoints[xValue]);
       var yValuesLen = yValues.length;
       while(yValuesLen--) {
         var yValue = yValues[yValuesLen];
-        var value = data[xValue][yValue];
+        var value = dataPoints[xValue][yValue];
         var radius = radi[xValue][yValue];
         renderData.push({
           x: xValue,
@@ -413,14 +414,14 @@ var Canvas2dRenderer = (function Canvas2dRendererClosure() {
     _drawAlpha: function(data) {
       var min = this._min = data.min;
       var max = this._max = data.max;
-      var data = data.data || [];
-      var dataLen = data.length;
+      var dataPoints = data.data || [];
+      var dataLen = dataPoints.length;
       // on a point basis?
       var blur = 1 - this._blur;
 
       while(dataLen--) {
 
-        var point = data[dataLen];
+        var point = dataPoints[dataLen];
 
         var x = point.x;
         var y = point.y;

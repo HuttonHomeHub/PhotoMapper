@@ -259,7 +259,7 @@ export function PhotoList({
 
       {searchQuery && displayed.length === 0 && (
         <div className="photo-list-empty" style={{ padding: '16px' }}>
-          <p className="photo-list-empty-title" style={{ fontSize: 13 }}>No results for "{searchQuery}"</p>
+          <p className="photo-list-empty-title" style={{ fontSize: 13 }}>No results for &quot;{searchQuery}&quot;</p>
         </div>
       )}
 
