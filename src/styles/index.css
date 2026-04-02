@@ -2577,21 +2577,6 @@ textarea:focus-visible {
   border-bottom: 1px solid var(--color-border);
 }
 
-.client-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px 8px 16px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.client-panel-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
 
 .client-panel-header-btns {
   display: flex;
@@ -3095,24 +3080,26 @@ textarea:focus-visible {
   align-items: center;
   justify-content: space-between;
   padding: 10px var(--space-lg);
+  padding-left: calc(var(--space-lg) - 2px);
   background: none;
   border: none;
+  border-left: 2px solid rgba(233, 123, 37, 0.25);
+  border-top: 1px solid var(--color-border);
   cursor: pointer;
-  color: #a0b0c8;
+  color: var(--color-text);
   font-size: var(--font-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  transition: color var(--transition-fast), background var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
   font-family: inherit;
 }
 .sidebar-section-header:hover {
-  color: var(--color-text);
   background: rgba(255, 255, 255, 0.02);
+  border-left-color: rgba(233, 123, 37, 0.6);
 }
 .sidebar-section-header[aria-expanded="true"] {
-  border-left: 2px solid var(--color-accent);
-  padding-left: calc(var(--space-lg) - 2px);
+  border-left-color: var(--color-accent);
 }
 .sidebar-section-title { flex: 1; text-align: left; }
 .sidebar-section-badge {

@@ -118,10 +118,6 @@ export default function ClientPanel({
 
   return (
     <div className="client-panel">
-      <div className="client-panel-header">
-        <span className="client-panel-title">Clients</span>
-      </div>
-
       <div className="client-tree">
         {/* Client rows */}
         {clients.map(cl => {
