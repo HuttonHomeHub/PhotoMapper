@@ -65,7 +65,6 @@ export function App() {
     batchUpdate, batchDelete,
     projects, createProject, updateProject, deleteProject, assignToProject
   } = usePhotos()
-  const gpsCount = photos.filter(p => p.hasGps).length
 
   const minDate = useMemo(() => {
     const dates = photos.map(p => p.dateTaken?.slice(0, 10)).filter(Boolean)
@@ -231,6 +230,7 @@ export function App() {
     : ''
 
   const displayPhotos = timelineActive ? timelineSlicePhotos : filteredPhotos
+  const displayGpsCount = displayPhotos.filter(p => p.hasGps).length
 
   function togglePhotoSelection(id) {
     setSelectedPhotoIds(prev => {
@@ -388,6 +388,51 @@ export function App() {
 
         {error && <div className="error-banner">Failed to load photos. Please refresh.</div>}
 
+        {photos.length === 0 && !loading ? (
+          <>
+            <div className="sidebar-empty-state">
+              <DropZone
+                onUploadComplete={refreshAll}
+                setResults={setResults}
+                openDrawer={() => setDrawerOpen(true)}
+                clients={clients}
+                projects={projects}
+                activeProjectId={activeProjectId}
+              />
+            </div>
+            <div className="sidebar-footer">
+              <div className="sidebar-footer-row">
+                <button
+                  className={`footer-btn footer-btn--log${drawerOpen ? ' active' : ''}`}
+                  onClick={() => setDrawerOpen(o => !o)}
+                  title="Upload log"
+                  aria-label="Toggle upload log"
+                >
+                  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <rect x="2" y="3" width="12" height="2" rx="1" fill="currentColor"/>
+                    <rect x="2" y="7" width="8" height="2" rx="1" fill="currentColor"/>
+                    <rect x="2" y="11" width="10" height="2" rx="1" fill="currentColor"/>
+                  </svg>
+                  Log
+                  {results.length > 0 && !drawerOpen && <span className="log-toggle-dot" />}
+                </button>
+                <button
+                  className="footer-btn footer-btn--help"
+                  onClick={() => setShortcutsOpen(true)}
+                  title="Keyboard shortcuts"
+                  aria-label="Show keyboard shortcuts"
+                >
+                  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M6 6.2C6 5 6.9 4.2 8 4.2s2 .8 2 1.8c0 1.2-2 1.8-2 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    <circle cx="8" cy="11.5" r="0.75" fill="currentColor"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
         <div className="sidebar-tab-panel sidebar-tab-panel--browse">
             <SidebarSection title="Navigation tree">
             <ClientPanel
@@ -406,7 +451,16 @@ export function App() {
               onDeleteProject={deleteProject}
             />
             </SidebarSection>
-            <SidebarSection title="Photos" badge={photos.length || null}>
+            <SidebarSection title="Photos" badge={displayPhotos.length > 0 ? (
+              <span
+                title={displayGpsCount === displayPhotos.length
+                  ? `${displayPhotos.length} photos · all have GPS`
+                  : `${displayPhotos.length} photos · ${displayGpsCount} mapped · ${displayPhotos.length - displayGpsCount} missing GPS`}
+                style={displayGpsCount < displayPhotos.length ? { color: 'var(--color-warning)' } : {}}
+              >
+                {displayGpsCount < displayPhotos.length ? `📍 ${displayGpsCount}/${displayPhotos.length}` : `📍 ${displayPhotos.length}`}
+              </span>
+            ) : null}>
             {(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId) && (
               <div className="header-filter-chips-row" style={{ padding: '4px 12px 8px' }}>
                 {isFiltered && (
@@ -454,19 +508,7 @@ export function App() {
                 </button>
               </div>
             )}
-            {!loading && photos.length > 0 && (
-              <div className="photo-stat-row">
-                <span className="photo-stat-pill">
-                  <span className="pill-icon">📍</span>
-                  {gpsCount} on map
-                </span>
-                {photos.length - gpsCount > 0 && (
-                  <span className="photo-stat-pill pill-warn">
-                    ⚠ {photos.length - gpsCount} no GPS
-                  </span>
-                )}
-              </div>
-            )}
+
             <PhotoList
               photos={displayPhotos}
               totalCount={photos.length}
@@ -707,6 +749,8 @@ export function App() {
             </button>
           </div>
         </div>
+          </>
+        )}
       </aside>
 
       <div className="map-panel">

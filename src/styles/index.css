@@ -332,6 +332,21 @@ textarea:focus-visible {
   padding: var(--space-sm) var(--space-lg);
 }
 
+.sidebar-empty-state {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-md);
+  gap: var(--space-sm);
+  overflow: hidden;
+}
+.sidebar-empty-state .dropzone-wrapper {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
 
 .map-container {
   flex: 1;
@@ -777,27 +792,6 @@ textarea:focus-visible {
   letter-spacing: -0.01em;
 }
 .photo-list-empty-sub { font-size: var(--font-base); line-height: 1.7; }
-
-.photo-stat-row {
-  display: flex;
-  gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-lg) var(--space-xs);
-  flex-wrap: wrap;
-}
-.photo-stat-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-xl);
-  padding: 3px 12px;
-  font-size: var(--font-sm);
-  color: var(--color-muted);
-  font-weight: 500;
-}
-.photo-stat-pill .pill-icon { font-size: var(--font-xs); }
-.pill-warn { border-color: rgba(255,183,3,0.3); color: var(--color-warning); }
 
 /* ── Map pins ────────────────────────────────────────────────────────── */
 
@@ -4069,10 +4063,59 @@ textarea:focus-visible {
 }
 
 .client-tree-children {
+  position: relative;
   padding-left: 20px;
+  margin-left: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.10);
 }
 .client-tree-children--l2 {
+  position: relative;
   padding-left: 20px;
+  margin-left: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+/* Horizontal branch stubs for child rows */
+.client-tree-children > div > .client-tree-row,
+.client-tree-children--l2 > .client-tree-row,
+.client-tree-children--l2 > div > .client-tree-row {
+  position: relative;
+}
+.client-tree-children > div > .client-tree-row::before,
+.client-tree-children--l2 > .client-tree-row::before,
+.client-tree-children--l2 > div > .client-tree-row::before {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 50%;
+  width: 12px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.10);
+  pointer-events: none;
+}
+
+/* Tree node icons */
+.client-tree-icon {
+  flex-shrink: 0;
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.65;
+  transition: opacity 0.12s;
+}
+.client-tree-row:hover .client-tree-icon,
+.client-tree-row.active .client-tree-icon {
+  opacity: 1;
+}
+.client-tree-icon--date {
+  font-size: 11px;
+  opacity: 0.5;
+}
+
+/* Spacer aligns date rows (no chevron) with rows that have one */
+.client-tree-chevron-spacer {
+  width: 16px;
+  flex-shrink: 0;
+  display: inline-block;
 }
 
 /* ── Leaflet attribution collapsible ────────────────────────── */

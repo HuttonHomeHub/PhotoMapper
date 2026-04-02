@@ -136,6 +136,9 @@ export default function ClientPanel({
                 >
                   {isExpanded ? '▾' : '▸'}
                 </button>
+                <span className="client-tree-icon" aria-hidden="true">
+                  {isExpanded ? '📂' : '📁'}
+                </span>
                 {isRenamingClient ? (
                   <input
                     className="client-tree-rename-input"
@@ -185,6 +188,9 @@ export default function ClientPanel({
                           >
                             {isProjExpanded ? '▾' : '▸'}
                           </button>
+                          <span className="client-tree-icon" aria-hidden="true">
+                            {isProjExpanded ? '📂' : '📁'}
+                          </span>
                           {isRenamingProject ? (
                             <input
                               className="client-tree-rename-input"
@@ -240,6 +246,8 @@ export default function ClientPanel({
                                     onSelectSurveyDate(isActive ? null : filterVal)
                                   }}
                                 >
+                                  <span className="client-tree-chevron-spacer" aria-hidden="true" />
+                                  <span className="client-tree-icon client-tree-icon--date" aria-hidden="true">📅</span>
                                   <span className="client-tree-name survey-date-label">{display}</span>
                                   <span className="client-tree-badge">{photoCount}</span>
                                 </div>
