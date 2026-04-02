@@ -7,6 +7,9 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import { MarkerClusterGroup } from 'leaflet.markercluster'
 import HeatmapOverlay from 'leaflet-heatmap'
 import mapIconUrl from '../assets/map.svg'
+import layersIconUrl from '../assets/layers.svg'
+import exportIconUrl from '../assets/export.svg'
+import drawIconUrl from '../assets/draw.svg'
 
 // Fix Leaflet's default icon path issues with bundlers
 delete L.Icon.Default.prototype._getIconUrl
@@ -209,8 +212,11 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
   const [heatmapActive, setHeatmapActive] = useState(false)
   const [heatExtrema, setHeatExtrema] = useState(null)
   const [heatControlEl, setHeatControlEl] = useState(null)
+  const [legendEl, setLegendEl] = useState(null)
+  const [exportEl, setExportEl] = useState(null)
   const [activeLayer, setActiveLayer] = useState('Satellite')
   const [layerMenuOpen, setLayerMenuOpen] = useState(false)
+  const layerBeforeOpenRef = useRef(null)
   const [showRoute, setShowRoute] = useState(false)
   const [drawMode, setDrawMode] = useState(false)
   const [hasRegion, setHasRegion] = useState(false)
@@ -268,16 +274,21 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
 
     map.on('baselayerchange', (e) => setActiveLayer(e.name))
 
-    const HeatmapControlClass = L.Control.extend({
-      onAdd() {
-        const el = L.DomUtil.create('div')
-        L.DomEvent.disableClickPropagation(el)
-        L.DomEvent.disableScrollPropagation(el)
-        setHeatControlEl(el)
-        return el
-      }
-    })
-    new HeatmapControlClass({ position: 'topright' }).addTo(map)
+    const makeControl = (position, setter) => {
+      const Cls = L.Control.extend({
+        onAdd() {
+          const el = L.DomUtil.create('div')
+          L.DomEvent.disableClickPropagation(el)
+          L.DomEvent.disableScrollPropagation(el)
+          setter(el)
+          return el
+        }
+      })
+      new Cls({ position }).addTo(map)
+    }
+    makeControl('topright', setHeatControlEl)
+    makeControl('bottomleft', setLegendEl)
+    makeControl('topright', setExportEl)
 
     const clusterGroup = new MarkerClusterGroup({
       maxClusterRadius: 80,
@@ -617,7 +628,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
 
   const hasGeoPhotos = photos.some(p => p.hasGps && p.lat != null && p.lng != null)
 
-  function switchLayer(name) {
+  function applyLayer(name) {
     const map = mapInstanceRef.current
     if (!map) return
     const layers = layersRef.current
@@ -626,6 +637,27 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
       else { if (map.hasLayer(layer)) map.removeLayer(layer) }
     })
     setActiveLayer(name)
+  }
+
+  function openLayerMenu() {
+    if (layerMenuOpen) {
+      layerBeforeOpenRef.current = null
+      setLayerMenuOpen(false)
+      return
+    }
+    layerBeforeOpenRef.current = activeLayer
+    setLayerMenuOpen(true)
+  }
+
+  function switchLayer(name) {
+    applyLayer(name)
+    layerBeforeOpenRef.current = null
+    setLayerMenuOpen(false)
+  }
+
+  function cancelLayerMenu() {
+    if (layerBeforeOpenRef.current) applyLayer(layerBeforeOpenRef.current)
+    layerBeforeOpenRef.current = null
     setLayerMenuOpen(false)
   }
 
@@ -633,7 +665,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
     const { default: html2canvas } = await import('html2canvas')
     const canvas = await html2canvas(mapRef.current, { useCORS: true, allowTaint: true, logging: false })
     const link = document.createElement('a')
-    link.download = 'heatmap.png'
+    link.download = 'map.png'
     link.href = canvas.toDataURL('image/png')
     link.click()
   }
@@ -644,89 +676,101 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
     <>
       <div ref={mapRef} className="map-container" />
       {heatControlEl && createPortal(
-        <div className="mc-panel">
-          <div className="mc-section">
-            <button
-              className={`mc-row mc-layer-header${layerMenuOpen ? ' open' : ''}`}
-              onClick={() => setLayerMenuOpen(o => !o)}
-            >
+        <div className="mc-stack">
+          <div className="mc-panel" onMouseLeave={layerMenuOpen ? cancelLayerMenu : undefined}>
+            <div className="mc-section-label">
               <img src={mapIconUrl} className="mc-layer-header-icon" alt="" />
-              <span className="mc-layer-header-text">
-                <span className="mc-layer-header-label">Map style</span>
-                <span className="mc-layer-header-value">{activeLayer}</span>
-              </span>
-              <span className="mc-layer-header-chevron">›</span>
-            </button>
-            {layerMenuOpen && (
-              <div className="mc-layer-menu">
-                {LAYER_NAMES.map(name => (
-                  <button
-                    key={name}
-                    className={`mc-row mc-layer-option${activeLayer === name ? ' active' : ''}`}
-                    onClick={() => switchLayer(name)}
-                  >
-                    {name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <button
-            className={`mc-row${showRoute ? ' active' : ''}`}
-            onClick={() => setShowRoute(r => !r)}
-          >
-            Route
-          </button>
-          <button
-            className={`mc-row${fovVisible ? ' active' : ''}`}
-            onClick={() => setFovVisible(v => !v)}
-            title="Toggle FOV cones"
-          >
-            FOV Cones
-          </button>
-          <div className="mc-section">
+              Map style
+            </div>
             <button
-              className={`mc-row mc-section-header${heatmapActive ? ' active' : ''}`}
-              onClick={() => setHeatmapActive(h => !h)}
-              disabled={!hasGeoPhotos}
-              title={!hasGeoPhotos ? 'Upload geotagged photos to enable heatmap' : undefined}
+              className={`mc-row mc-row--picker${layerMenuOpen ? ' open' : ''}`}
+              onClick={openLayerMenu}
             >
-              Heatmap
+              <span>{activeLayer}</span>
+              <span className="mc-row-chevron">›</span>
             </button>
-            {heatmapActive && (
-              <>
-                <button
-                  className="mc-row mc-row--sub"
-                  onClick={handleExport}
-                  title="Download heatmap as PNG"
-                >
-                  ↓ Export
-                </button>
-                <div className="mc-legend">
-                  <div className="mc-legend-bar" />
-                  <div className="mc-legend-labels">
-                    <span>sparse</span>
-                    <span>dense</span>
-                  </div>
-                </div>
-              </>
+            {layerMenuOpen && LAYER_NAMES.filter(name => name !== activeLayer).map(name => (
+              <button
+                key={name}
+                className="mc-row mc-layer-option"
+                onClick={() => switchLayer(name)}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          <div className="mc-panel">
+            <div className="mc-section-label">
+              <img src={layersIconUrl} className="mc-layer-header-icon" alt="" />
+              Overlays
+            </div>
+            <div className="mc-overlay-grid">
+              <button
+                className={`mc-row mc-overlay-btn${fovVisible ? ' active' : ''}`}
+                onClick={() => setFovVisible(v => !v)}
+                title="Toggle FOV cones"
+              >
+                FOV Cones
+              </button>
+              <button
+                className={`mc-row mc-overlay-btn${heatmapActive ? ' active' : ''}`}
+                onClick={() => setHeatmapActive(h => !h)}
+                disabled={!hasGeoPhotos}
+                title={!hasGeoPhotos ? 'Upload geotagged photos to enable heatmap' : undefined}
+              >
+                Heatmap
+              </button>
+            </div>
+            <button
+              className={`mc-row${showRoute ? ' active' : ''}`}
+              onClick={() => setShowRoute(r => !r)}
+            >
+              Route
+            </button>
+          </div>
+          <div className="mc-panel">
+            <div className="mc-section-label">
+              <img src={drawIconUrl} className="mc-layer-header-icon" alt="" />
+              Filters
+            </div>
+            <button
+              className={`mc-row${drawMode || hasRegion ? ' active' : ''}`}
+              onClick={() => {
+                if (hasRegion) { clearRegion(); return }
+                setDrawMode(d => !d)
+              }}
+              title={drawMode ? 'Click map to add vertices, double-click to finish' : hasRegion ? 'Clear region filter' : 'Draw region filter'}
+            >
+              {drawMode ? '✕ Cancel Draw' : hasRegion ? '✕ Clear Region' : 'Draw Region'}
+            </button>
+            {drawMode && (
+              <div className="mc-hint">Click to add points · Double-click to finish</div>
             )}
           </div>
-          <button
-            className={`mc-row${drawMode || hasRegion ? ' active' : ''}`}
-            onClick={() => {
-              if (hasRegion) { clearRegion(); return }
-              setDrawMode(d => !d)
-            }}
-            title={drawMode ? 'Click map to add vertices, double-click to finish' : hasRegion ? 'Clear region filter' : 'Draw region filter'}
-          >
-            {drawMode ? '✕ Cancel Draw' : hasRegion ? '✕ Clear Region' : '⬡ Draw Region'}
-          </button>
-          {drawMode && (
-            <div className="mc-hint">Click to add points · Double-click to finish</div>
-          )}
         </div>,
         heatControlEl
+      )}
+      {legendEl && heatmapActive && createPortal(
+        <div className="map-legend">
+          <div className="map-legend-bar" />
+          <div className="map-legend-labels">
+            <span>sparse</span>
+            <span>dense</span>
+          </div>
+        </div>,
+        legendEl
+      )}
+      {exportEl && createPortal(
+        <div className="mc-panel map-export-panel">
+          <div className="mc-section-label">
+            <img src={exportIconUrl} className="mc-layer-header-icon" alt="" />
+            Save map
+          </div>
+          <button className="mc-row" onClick={handleExport} title="Save map as PNG">
+            Export as PNG
+          </button>
+        </div>,
+        exportEl
       )}
     </>
   )
