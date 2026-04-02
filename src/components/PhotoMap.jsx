@@ -6,6 +6,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import { MarkerClusterGroup } from 'leaflet.markercluster'
 import HeatmapOverlay from 'leaflet-heatmap'
+import mapIconUrl from '../assets/map.svg'
 
 // Fix Leaflet's default icon path issues with bundlers
 delete L.Icon.Default.prototype._getIconUrl
@@ -15,14 +16,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href
 })
 
-const METRICS = [
-  { key: 'density', label: 'Photo Density' },
-  { key: 'coverage', label: 'Coverage Density' },
-  { key: 'altitude', label: 'Altitude' },
-  { key: 'iso', label: 'ISO' },
-  { key: 'focalLength', label: 'Focal length' },
-  { key: 'fNumber', label: 'Aperture' },
-]
 
 function fovGroundRadius(photo) {
   const DEFAULT_RADIUS = 100
@@ -214,12 +207,15 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
   const prevGeoCountRef = useRef(0)
 
   const [heatmapActive, setHeatmapActive] = useState(false)
-  const [heatMetric, setHeatMetric] = useState('density')
+  const [heatExtrema, setHeatExtrema] = useState(null)
   const [heatControlEl, setHeatControlEl] = useState(null)
+  const [activeLayer, setActiveLayer] = useState('Satellite')
+  const [layerMenuOpen, setLayerMenuOpen] = useState(false)
   const [showRoute, setShowRoute] = useState(false)
   const [drawMode, setDrawMode] = useState(false)
   const [hasRegion, setHasRegion] = useState(false)
   const [fovVisible, setFovVisible] = useState(false)
+  const layersRef = useRef({})
   const drawStateRef = useRef({ active: false, vertices: [], previewLayer: null })
 
   useEffect(() => { onDeleteRef.current = onDelete }, [onDelete])
@@ -268,12 +264,9 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
     )
 
     satellite.addTo(map)
+    layersRef.current = { Satellite: satellite, Streets: streets, Dark: dark, Terrain: terrain }
 
-    L.control.layers(
-      { Satellite: satellite, Streets: streets, Dark: dark, Terrain: terrain },
-      {},
-      { position: 'topright' }
-    ).addTo(map)
+    map.on('baselayerchange', (e) => setActiveLayer(e.name))
 
     const HeatmapControlClass = L.Control.extend({
       onAdd() {
@@ -314,14 +307,22 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
     map.addLayer(clusterGroup)
 
     const heatmapLayer = new HeatmapOverlay({
-      radius: 30,
-      maxOpacity: 0.85,
+      radius: 32,
+      maxOpacity: 0.82,
+      minOpacity: 0.05,
       scaleRadius: false,
-      useLocalExtrema: false,
+      useLocalExtrema: true,
       latField: 'lat',
       lngField: 'lng',
       valueField: 'value',
-      gradient: { 0.0: 'rgba(15,52,96,0)', 0.2: '#0f3460', 0.5: '#e97b25', 0.8: '#ff8c69', 1.0: '#ffffff' }
+      gradient: {
+        0.0: 'rgba(0,0,255,0)',
+        0.25: 'blue',
+        0.45: 'cyan',
+        0.65: 'lime',
+        0.80: 'yellow',
+        1.0: 'red'
+      }
     })
 
     mapInstanceRef.current = map
@@ -367,57 +368,33 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
     if (heatmapActive) {
       if (map.hasLayer(clusterGroup)) map.removeLayer(clusterGroup)
       if (!map.hasLayer(heatmapLayer)) heatmapLayer.addTo(map)
+      if (heatmapLayer._heatmap) {
+        heatmapLayer._heatmap.configure({
+          onExtremaChange: (data) => setHeatExtrema({ min: data.min, max: data.max })
+        })
+      }
     } else {
       if (map.hasLayer(heatmapLayer)) map.removeLayer(heatmapLayer)
       if (!map.hasLayer(clusterGroup)) map.addLayer(clusterGroup)
+      setHeatExtrema(null)
     }
   }, [heatmapActive])
 
-  // Update heatmap data when photos or metric changes
+  // Update heatmap data when photos change
   useEffect(() => {
     const heatmapLayer = heatmapLayerRef.current
     if (!heatmapLayer) return
 
     const geoPhotos = photos.filter(p => p.hasGps && p.lat != null && p.lng != null)
 
-    if (heatMetric === 'density') {
-      if (!geoPhotos.length) {
-        heatmapLayer.setData({ max: 1, data: [] })
-        return
-      }
-      const data = geoPhotos.map(p => ({ lat: p.lat, lng: p.lng, value: 1 }))
-      heatmapLayer.setData({ max: 1, data })
-      return
-    }
-
-    if (heatMetric === 'coverage') {
-      if (!geoPhotos.length) {
-        heatmapLayer.setData({ max: 1, data: [] })
-        return
-      }
-      const data = geoPhotos.flatMap(p =>
-        syntheticPoints(p.lat, p.lng, fovGroundRadius(p), 7)
-      )
-      heatmapLayer.setData({ max: 1, data })
-      return
-    }
-
-    const metricPhotos = geoPhotos.filter(p => p[heatMetric] != null)
-
-    if (!metricPhotos.length) {
+    if (!geoPhotos.length) {
       heatmapLayer.setData({ max: 1, data: [] })
       return
     }
 
-    const maxVal = Math.max(...metricPhotos.map(p => p[heatMetric]))
-    const data = metricPhotos.map(p => ({
-      lat: p.lat,
-      lng: p.lng,
-      value: maxVal > 0 ? p[heatMetric] / maxVal : 1,
-    }))
-
+    const data = geoPhotos.map(p => ({ lat: p.lat, lng: p.lng, value: 0.35 }))
     heatmapLayer.setData({ max: 1, data })
-  }, [photos, heatMetric])
+  }, [photos])
 
   // Draw or remove trip route polyline
   useEffect(() => {
@@ -621,6 +598,12 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
     prevGeoCountRef.current = geoPhotos.length
   }, [photoIds, fovVisible])
 
+  useEffect(() => {
+    if (heatmapActive && !photos.some(p => p.hasGps && p.lat != null && p.lng != null)) {
+      setHeatmapActive(false)
+    }
+  }, [photos, heatmapActive])
+
   function clearRegion() {
     const map = mapInstanceRef.current
     if (regionLayerRef.current && map) {
@@ -632,43 +615,105 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
     onRegionChangeRef.current?.(null)
   }
 
+  const hasGeoPhotos = photos.some(p => p.hasGps && p.lat != null && p.lng != null)
+
+  function switchLayer(name) {
+    const map = mapInstanceRef.current
+    if (!map) return
+    const layers = layersRef.current
+    Object.entries(layers).forEach(([n, layer]) => {
+      if (n === name) { if (!map.hasLayer(layer)) layer.addTo(map) }
+      else { if (map.hasLayer(layer)) map.removeLayer(layer) }
+    })
+    setActiveLayer(name)
+    setLayerMenuOpen(false)
+  }
+
+  async function handleExport() {
+    const { default: html2canvas } = await import('html2canvas')
+    const canvas = await html2canvas(mapRef.current, { useCORS: true, allowTaint: true, logging: false })
+    const link = document.createElement('a')
+    link.download = 'heatmap.png'
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  }
+
+  const LAYER_NAMES = ['Satellite', 'Streets', 'Dark', 'Terrain']
+
   return (
     <>
       <div ref={mapRef} className="map-container" />
       {heatControlEl && createPortal(
-        <div className="heatmap-controls">
+        <div className="mc-panel">
+          <div className="mc-section">
+            <button
+              className={`mc-row mc-layer-header${layerMenuOpen ? ' open' : ''}`}
+              onClick={() => setLayerMenuOpen(o => !o)}
+            >
+              <img src={mapIconUrl} className="mc-layer-header-icon" alt="" />
+              <span className="mc-layer-header-text">
+                <span className="mc-layer-header-label">Map style</span>
+                <span className="mc-layer-header-value">{activeLayer}</span>
+              </span>
+              <span className="mc-layer-header-chevron">›</span>
+            </button>
+            {layerMenuOpen && (
+              <div className="mc-layer-menu">
+                {LAYER_NAMES.map(name => (
+                  <button
+                    key={name}
+                    className={`mc-row mc-layer-option${activeLayer === name ? ' active' : ''}`}
+                    onClick={() => switchLayer(name)}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
-            className={`heatmap-toggle${showRoute ? ' active' : ''}`}
+            className={`mc-row${showRoute ? ' active' : ''}`}
             onClick={() => setShowRoute(r => !r)}
           >
             Route
           </button>
           <button
-            className={`heatmap-toggle${fovVisible ? ' active' : ''}`}
+            className={`mc-row${fovVisible ? ' active' : ''}`}
             onClick={() => setFovVisible(v => !v)}
             title="Toggle FOV cones"
           >
             FOV Cones
           </button>
-          <button
-            className={`heatmap-toggle${heatmapActive ? ' active' : ''}`}
-            onClick={() => setHeatmapActive(h => !h)}
-          >
-            Heatmap
-          </button>
-          {heatmapActive && (
-            <select
-              className="heatmap-metric-select"
-              value={heatMetric}
-              onChange={e => setHeatMetric(e.target.value)}
+          <div className="mc-section">
+            <button
+              className={`mc-row mc-section-header${heatmapActive ? ' active' : ''}`}
+              onClick={() => setHeatmapActive(h => !h)}
+              disabled={!hasGeoPhotos}
+              title={!hasGeoPhotos ? 'Upload geotagged photos to enable heatmap' : undefined}
             >
-              {METRICS.map(m => (
-                <option key={m.key} value={m.key}>{m.label}</option>
-              ))}
-            </select>
-          )}
+              Heatmap
+            </button>
+            {heatmapActive && (
+              <>
+                <button
+                  className="mc-row mc-row--sub"
+                  onClick={handleExport}
+                  title="Download heatmap as PNG"
+                >
+                  ↓ Export
+                </button>
+                <div className="mc-legend">
+                  <div className="mc-legend-bar" />
+                  <div className="mc-legend-labels">
+                    <span>sparse</span>
+                    <span>dense</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
           <button
-            className={`heatmap-toggle${drawMode ? ' active' : ''}`}
+            className={`mc-row${drawMode || hasRegion ? ' active' : ''}`}
             onClick={() => {
               if (hasRegion) { clearRegion(); return }
               setDrawMode(d => !d)
@@ -678,7 +723,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
             {drawMode ? '✕ Cancel Draw' : hasRegion ? '✕ Clear Region' : '⬡ Draw Region'}
           </button>
           {drawMode && (
-            <div className="draw-hint">Click to add points · Double-click to finish</div>
+            <div className="mc-hint">Click to add points · Double-click to finish</div>
           )}
         </div>,
         heatControlEl

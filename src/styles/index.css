@@ -210,52 +210,216 @@ textarea:focus-visible {
   height: 100%;
 }
 
-.heatmap-controls {
+/* ── Map controls panel ──────────────────────────────────────────────── */
+
+.mc-panel {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  align-items: flex-end;
-}
-
-.heatmap-toggle {
+  width: 152px;
   background: var(--color-sidebar);
-  color: var(--color-text-dim);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 5px 12px;
-  font-size: var(--font-sm);
-  cursor: pointer;
-  white-space: nowrap;
-  font-family: inherit;
-  font-weight: 500;
-  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+  box-shadow: var(--shadow-md);
 }
 
-.heatmap-toggle:hover {
-  border-color: var(--color-accent);
+/* Every direct child after the first gets a top divider */
+.mc-panel > * + * {
+  border-top: 1px solid var(--color-border);
+}
+
+/* Corner rounding: first and last visible rows */
+.mc-panel > :first-child > .mc-row:first-child,
+.mc-panel > :first-child > .mc-layer-header:first-child,
+.mc-panel > .mc-row:first-child {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.mc-panel > :last-child > .mc-row:last-child,
+.mc-panel > :last-child > .mc-legend:last-child,
+.mc-panel > .mc-row:last-child,
+.mc-panel > .mc-hint:last-child {
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+/* ── Rows ── */
+
+.mc-row {
+  display: block;
+  width: 100%;
+  background: transparent;
+  color: var(--color-text-dim);
+  border: none;
+  border-radius: 0;
+  padding: 7px 12px;
+  font-size: var(--font-sm);
+  font-family: inherit;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.mc-row:hover {
+  background: var(--color-surface-hover);
   color: var(--color-accent);
 }
 
-.heatmap-toggle.active {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: #fff;
+.mc-row.active {
+  background: var(--color-accent-dim);
+  color: var(--color-accent);
+  font-weight: 600;
 }
 
-.heatmap-metric-select {
-  background: var(--color-sidebar);
+.mc-row:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.mc-row:disabled:hover {
+  background: transparent;
   color: var(--color-text-dim);
+}
+
+.mc-row--sub {
+  padding-left: 20px;
+  font-size: var(--font-xs);
+  color: var(--color-muted);
+}
+
+.mc-row--sub:hover {
+  color: var(--color-accent);
+}
+
+.mc-row-icon {
+  margin-right: 4px;
+  opacity: 0.55;
+  font-size: var(--font-base);
+}
+
+/* ── Sections (layer picker, heatmap group) ── */
+
+.mc-section {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Sub-rows inside a section get dividers between them */
+.mc-section > .mc-row + .mc-row,
+.mc-section > .mc-row + .mc-legend {
+  border-top: 1px solid var(--color-border);
+}
+
+/* ── Layer dropdown menu (escapes panel) ── */
+
+.mc-layer-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 100%;
+  background: var(--color-sidebar);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 5px 8px;
-  font-size: var(--font-sm);
-  cursor: pointer;
-  outline: none;
-  font-family: inherit;
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  z-index: 1100;
 }
 
-.heatmap-metric-select:focus {
-  border-color: var(--color-accent);
+.mc-layer-option + .mc-layer-option {
+  border-top: 1px solid var(--color-border);
+}
+
+/* ── Layer header row ── */
+
+.mc-layer-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 8px 12px;
+}
+
+.mc-layer-header-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.5;
+  flex-shrink: 0;
+  transition: opacity var(--transition-fast), filter var(--transition-fast);
+}
+
+.mc-layer-header:hover .mc-layer-header-icon {
+  opacity: 0.9;
+  filter: invert(55%) sepia(60%) saturate(600%) hue-rotate(5deg) brightness(1.1);
+}
+
+.mc-layer-header-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.mc-layer-header-label {
+  font-size: var(--font-xs);
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
+.mc-layer-header-value {
+  font-size: var(--font-sm);
+  color: var(--color-text-dim);
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+.mc-layer-header-chevron {
+  font-size: 14px;
+  color: var(--color-muted);
+  flex-shrink: 0;
+  transition: transform var(--transition-fast);
+  transform: rotate(90deg);
+  line-height: 1;
+}
+
+.mc-layer-header.open .mc-layer-header-chevron {
+  transform: rotate(-90deg);
+}
+
+.mc-layer-header:hover .mc-layer-header-value,
+.mc-layer-header:hover .mc-layer-header-chevron {
+  color: var(--color-accent);
+}
+
+/* ── Legend ── */
+
+.mc-legend {
+  padding: 6px 12px 8px;
+  background: var(--color-surface);
+}
+
+.mc-legend-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, blue, cyan, lime, yellow, red);
+  margin-bottom: 3px;
+}
+
+.mc-legend-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--font-xs);
+  color: var(--color-muted);
+}
+
+/* ── Hint text ── */
+
+.mc-hint {
+  font-size: var(--font-xs);
+  color: var(--color-accent);
+  padding: 4px 12px 6px;
+  white-space: nowrap;
 }
 
 /* ── Error banner ────────────────────────────────────────────────────── */
