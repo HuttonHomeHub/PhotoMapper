@@ -32,6 +32,9 @@
    the camelCase/snake_case mappers, boolean `hasGps`, JSON tag round-trip and
    empty-array fallback, survey-date update, delete counts, client/project joins
    and counts, and `resetAll`.
+3. **OPS-01 + DEP-04 Completed:** CI now runs `npm test` and an advisory
+   `npm audit --audit-level=high`; triggers extended to `claude/**` so this and
+   future remediation branches get CI. Triaged the 11 audit findings (see below).
 
 ### Quality gates (TEST-01)
 - `npm run build` ✅ · `npm run lint` ✅ (15 pre-existing warnings, **0 new**) ·
@@ -43,24 +46,30 @@
   the audit step.
 - Confirmed the 15-warning lint baseline (dead exports etc.) — covered by CQ-03.
 
+### Audit triage (DEP-04)
+11 advisories. Dev/build-time (lower urgency): @babel/core, js-yaml, postcss,
+shell-quote (via concurrently), vite. **Production-relevant:** multer 1.0.0–2.1.1
+(High, upload DoS — ties to SEC-07); express/qs (Moderate DoS); uuid <11.1.1
+(Moderate, but affects v3/v5/v6 only — we use v4, so not exploitable). All fixes
+are semver-compatible. → logged **DEP-05**.
+
 ### Selected next task + rationale
-**OPS-01 — wire tests + `npm audit` into CI, and run CI on the working branch.**
-Why next: TEST-01 created tests, but they only protect us if CI enforces them.
-Currently `.github/workflows/ci.yml` runs on `main` only and does lint+build.
-OPS-01 is low-risk, closes the gap that makes every later "Completed" trustworthy,
-and folds in DEP-04 (audit) so the 2 critical vulns become visible/tracked.
-Plan: add `npm test` + `npm audit --audit-level=high` (non-blocking triage step
-first, then ratchet) to CI; add `pull_request`/`push` triggers for
-`claude/**` branches; keep build.
+**DEP-05 — apply `npm audit fix`, then make the CI audit gate blocking.**
+Why next: the audit step is currently advisory; the production multer DoS is a
+real, cheap-to-fix risk that also hardens SEC-07. TEST-01 lets us confirm the
+dependency bumps don't regress the data layer. Kept separate from OPS-01 (CI
+wiring) to keep changes cohesive.
 
 ### End-of-session state
-- Phase 1: 1/4 (TEST-01 ✅). Next: OPS-01 → then TEST-05 (coverage threshold) →
-  Phase 2 (DEP-02 → BE-01 → SEC-02/04/09/07 …).
+- Phase 1: 3/4 (TEST-01 ✅, OPS-01 ✅, DEP-04 ✅). Remaining: DEP-05 (next),
+  TEST-05 (coverage threshold). Then Phase 2 (DEP-02 → BE-01 → SEC-02/04/09/07 …).
+- 3 commits pushed to `claude/engineering-review-production-dwlfup`.
 
 ### Next session start-here
-Read this log + BACKLOG (Programme status). Execute OPS-01 plan above. After CI
-is green with tests, begin Phase 2 with DEP-02 (prod deps) then BE-01 (async
-error handling) with its regression test.
+Read this log + BACKLOG (Programme status). Execute **DEP-05**: `npm audit fix`,
+run build+lint+test, and if green flip `.github/workflows/ci.yml` audit step to
+blocking (remove `continue-on-error`). Then TEST-05, then open Phase 2 with
+DEP-02 (helmet/rate-limit/compression/async-errors/zod) and BE-01.
 
 ---
 

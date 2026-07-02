@@ -13,13 +13,13 @@
 
 ## Programme status
 
-- **Findings:** 71 · **Completed:** 1 (TEST-01) · **In Progress:** 0 · **Deferred:** 3 (+FEAT-06)
-- **Current phase:** Phase 1 — Verification foundation (1/4 done; OPS-01 next)
+- **Findings:** 72 (71 imported + DEP-05 discovered) · **Completed:** 3 (TEST-01, OPS-01, DEP-04) · **In Progress:** 0 · **Deferred:** 4
+- **Current phase:** Phase 1 — Verification foundation (3/4 done; DEP-05 next, then TEST-05)
 
 | Phase | Theme | Done / Total | Status |
 |---|---|---|---|
 | 0 | Programme setup | ✅ | Complete |
-| 1 | Verification foundation | 1 / 4 | **Active** |
+| 1 | Verification foundation | 3 / 4 | **Active** |
 | 2 | Critical security & reliability | 0 / 13 | Not started |
 | 3 | Backend architecture & correctness | 0 / 10 | Not started |
 | 4 | Frontend architecture & quality | 0 / 10 | Not started |
@@ -48,15 +48,15 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 67 |
+| Not Started | 65 |
 | Blocked | 0 |
 | In Progress | 0 |
 | Needs Review | 0 |
-| Completed | 1 |
-| Deferred | 3 |
-| **Total** | **71** |
+| Completed | 3 |
+| Deferred | 4 |
+| **Total** | **72** |
 
-Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 · OPS 7 · DEP 4 · DOC 6 · FEAT 9.
+Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 · OPS 7 · DEP 5 · DOC 6 · FEAT 9.
 
 ---
 
@@ -463,11 +463,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 ## DEVOPS / INFRASTRUCTURE
 
 ### OPS-01 — CI runs lint+build only (no tests/audit/typecheck)
-- **Category:** DevOps · **Severity:** High · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Category:** DevOps · **Severity:** High · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
 - **Description:** `.github/workflows/ci.yml` never runs tests or `npm audit`.
-- **Recommended solution:** Add `npm test` + `npm audit --audit-level=high` steps; run on the working branch too (currently only `main`).
-- **Files affected:** `.github/workflows/ci.yml`, `package.json`.
-- **Dependencies:** Needs TEST-01 to have something to run. Satisfies DEP-04.
+- **Resolution:** Added a `Test` step (`npm test`) and an advisory `Audit dependencies` step (`npm audit --audit-level=high`, `continue-on-error` until DEP-05 clears known vulns). Extended triggers to run on `claude/**` branches (push) so remediation branches get CI, keeping `main` push + PR. Typecheck intentionally omitted (no TypeScript yet — see ARCH-05).
+- **Files affected:** `.github/workflows/ci.yml`.
+- **Dependencies:** Needed TEST-01 (done). Satisfies DEP-04. Unblocks trustworthy "Completed" going forward.
 
 ### OPS-02 — No Dockerfile / container / deploy pipeline
 - **Category:** DevOps · **Severity:** Medium · **Priority:** P2 · **Effort:** M · **Risk:** Low · **Status:** Not Started
@@ -537,11 +537,20 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Needs TEST-02 first. Alternative to BE-01 shim.
 
 ### DEP-04 — No `npm audit` in CI
-- **Category:** Dependencies · **Severity:** Medium · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Category:** Dependencies · **Severity:** Medium · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
 - **Description:** Vulnerability status unknown.
-- **Recommended solution:** Add `npm audit` to CI (OPS-01) and triage output.
+- **Resolution:** Added advisory `npm audit --audit-level=high` step to CI (OPS-01). Triage done: 11 vulns, mostly dev/build-time; the actionable production ones (multer, express/qs, uuid) are now tracked as **DEP-05**.
 - **Files affected:** `.github/workflows/ci.yml`.
-- **Dependencies:** Part of OPS-01.
+- **Dependencies:** Delivered with OPS-01. Feeds DEP-05.
+
+### DEP-05 — Remediate known-vulnerable dependencies (`npm audit fix`) — *discovered Session 002*
+- **Category:** Dependencies · **Severity:** High · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Description:** `npm audit` reports 11 advisories. Production-relevant: **multer 1.0.0–2.1.1** (High — upload DoS, directly related to SEC-07), **express/qs** (Moderate DoS), **uuid <11.1.1** (Moderate — v3/v5/v6 only; we use v4, so not exploitable but should bump). Remainder are dev/build deps (babel, js-yaml, postcss, shell-quote via concurrently, vite).
+- **Root cause:** Dependencies drifted behind published security fixes.
+- **Recommended solution:** `npm audit fix` (all fixes are semver-compatible per audit); run full gate (build+lint+test) to confirm no regression; then flip the CI audit step from advisory to blocking (remove `continue-on-error`).
+- **Files affected:** `package.json`, `package-lock.json`, `.github/workflows/ci.yml`.
+- **Dependencies:** Enabled by TEST-01 (verify no regression). Hardens SEC-07. Ratchets OPS-01's audit gate to blocking.
+- **Notes:** Kept separate from OPS-01 (CI wiring) per "avoid fixing unrelated issues in one change". Selected as the next task.
 
 ---
 
@@ -609,6 +618,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **OPS-01 + DEP-04 Completed.** CI now runs
+  `npm test` and an advisory `npm audit`; triggers extended to `claude/**`.
+  Triage surfaced production-relevant vulns → logged **DEP-05** (new). [OPS-01, DEP-04]
 - **2026-07-02 (Session 002)** — ✅ **TEST-01 Completed.** Added Vitest harness,
   config, npm scripts, injectable `PHOTOS_DB_PATH`, and `tests/db.test.js`
   (11 passing data-layer tests). Build/lint/tests all green. Pure-helper tests

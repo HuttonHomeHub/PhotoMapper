@@ -27,10 +27,11 @@ Establish PM documentation, import findings, build backlog + dependency graph.
 
 ## Phase 1 — Verification foundation (enabler)
 *Goal: make quality gates real before touching risky code.*
-- **TEST-01** Vitest harness + pure-function/db unit tests `[P0]`
-- **OPS-01 / DEP-04** CI runs tests + `npm audit`; run CI on the working branch `[P0]`
+- **TEST-01** ✅ Vitest harness + db-layer unit tests (pure-helper tests → CQ-01)
+- **OPS-01 / DEP-04** ✅ CI runs tests + advisory `npm audit`; triggers on `claude/**`
+- **DEP-05** apply `npm audit fix`; then flip CI audit gate to blocking `[P1, next]`
 - **TEST-05** coverage reporting (threshold low initially) `[P2, tail of phase]`
-- **Exit criteria:** `npm test` runs green in CI; a failing test blocks merge.
+- **Exit criteria:** `npm test` runs green in CI; known vulns cleared; audit gate blocking.
 
 ## Phase 2 — Critical security & reliability
 *Goal: close the disqualifying holes; all low-risk, high-value, now verifiable.*
