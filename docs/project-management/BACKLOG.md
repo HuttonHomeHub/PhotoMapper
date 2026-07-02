@@ -1,10 +1,36 @@
-# Master Backlog — PhotoMapper Remediation Programme
+# Backlog — PhotoMapper Remediation Programme
 
 > **Authoritative source of truth.** Every finding from the deep-dive engineering
 > review is tracked here. Completed work is never deleted — its status changes to
-> `Completed` and the change is recorded in `CHANGELOG.md`.
+> `Completed` and it is recorded in the **Completed log** at the bottom of this file.
 >
-> Last updated: 2026-07-02 (Session 001 — programme bootstrap)
+> Under the 4-document structure (ADR-0005, accepted Session 002) this file also
+> carries **programme status** (was PROGRESS.md) and the **completed/change log**
+> (was CHANGELOG.md). Roadmap + dependency graph live in `ROADMAP.md`; decisions
+> in `ARCHITECTURE_DECISIONS.md`; per-session narrative in `SESSION_LOG.md`.
+>
+> Last updated: 2026-07-02 (Session 002)
+
+## Programme status
+
+- **Findings:** 71 · **Completed:** 0 · **In Progress:** 1 (TEST-01) · **Deferred:** 3 (+FEAT-06)
+- **Current phase:** Phase 1 — Verification foundation
+
+| Phase | Theme | Done / Total | Status |
+|---|---|---|---|
+| 0 | Programme setup | ✅ | Complete |
+| 1 | Verification foundation | 0 / 4 | **Active** |
+| 2 | Critical security & reliability | 0 / 13 | Not started |
+| 3 | Backend architecture & correctness | 0 / 10 | Not started |
+| 4 | Frontend architecture & quality | 0 / 10 | Not started |
+| 5 | Performance | 0 / 6 | Not started |
+| 6 | Testing depth | 0 / 2 | Not started |
+| 7 | Documentation | 0 / 5 | Not started |
+| 8 | DevOps & infra | 0 / 7 | Not started |
+
+**Quality gates:** build ✅ · lint ✅ · tests ⏳ (TEST-01) · CI = lint+build only (OPS-01 pending).
+
+**Top open risks:** (1) no automated verification until TEST-01 lands; (2) ARCH-03 migration-runner change is high-risk — must not run before TEST-01/02 + a DB backup step.
 
 ## Legend
 
@@ -18,9 +44,9 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 68 |
+| Not Started | 67 |
 | Blocked | 0 |
-| In Progress | 0 |
+| In Progress | 1 |
 | Needs Review | 0 |
 | Completed | 0 |
 | Deferred | 3 |
@@ -392,7 +418,7 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 ## TESTING
 
 ### TEST-01 — No unit test harness (bootstrap)
-- **Category:** Testing · **Severity:** Critical (enabler) · **Priority:** P0 · **Effort:** M · **Risk:** Low · **Status:** Not Started
+- **Category:** Testing · **Severity:** Critical (enabler) · **Priority:** P0 · **Effort:** M · **Risk:** Low · **Status:** In Progress (Session 002)
 - **Description:** No runner, no `test` script, no tests. Quality gates are unenforceable.
 - **Recommended solution:** Add Vitest; seed unit tests for pure helpers (`pointInPolygon`, `haversineKm`, FOV math, exposure/date format, `escapeHtml`) and `db.js` against in-memory SQLite; add `test` script.
 - **Files affected:** `package.json`, new `tests/`, `vitest.config`.
@@ -572,5 +598,18 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 
 ---
 
-## Change history for this file
-- 2026-07-02 — Session 001: created; imported all 71 findings from the deep-dive review.
+## Completed log
+
+> Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
+> completed items and structural changes, newest first. Backlog IDs in brackets.
+
+- **2026-07-02 (Session 002)** — Consolidated PM docs 7 → 4 (ADR-0005 accepted):
+  merged PROGRESS.md + CHANGELOG.md into this file; merged DEPENDENCIES.md into
+  ROADMAP.md; removed the three merged files. Marked ADR-0002/0003 Accepted.
+  Started **TEST-01** (→ In Progress).
+- **2026-07-02 (Session 001)** — Created `docs/project-management/`; imported all
+  71 findings from the deep-dive review with full metadata [DOC-04, ADR-0001].
+
+## File history
+- 2026-07-02 — Session 001: created as MASTER_BACKLOG.md; imported 71 findings.
+- 2026-07-02 — Session 002: renamed to BACKLOG.md; absorbed status + changelog.

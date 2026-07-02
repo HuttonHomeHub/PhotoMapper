@@ -20,8 +20,8 @@
 - **Disadvantages:** Manual discipline to keep in sync; risk of doc drift.
 - **Future implications:** Could later mirror the backlog into GitHub Issues if a human team joins.
 
-## ADR-0002 — Assume single-operator / internal deployment (provisional)
-- **Status:** Accepted (provisional) · **Date:** 2026-07-02 · **Session:** 001
+## ADR-0002 — Single-operator / internal deployment
+- **Status:** Accepted (confirmed by user, Session 002) · **Date:** 2026-07-02 · **Session:** 001
 - **Context:** The review's top finding is "no auth/tenancy". The correct fix depends on the user model, which could not be confirmed (clarifying question failed to deliver). Evidence: local SQLite, single operator, "clients/projects" are *data entities* (a contractor's customers), personal email, no user table.
 - **Problem:** Do we build multi-tenant auth (weeks) or a simple gate (hours)?
 - **Options considered:**
@@ -33,8 +33,8 @@
 - **Disadvantages:** If the product is actually multi-tenant, SEC-01 re-scopes to L and ARCH-07 activates.
 - **Future implications:** Revisit trigger — user states multiple untrusted customers. Backlog/roadmap already carry the dormant ARCH-07/FEAT-05 items so nothing is lost on revision.
 
-## ADR-0003 — Target a single VPS/container host with persistent disk (provisional)
-- **Status:** Accepted (provisional) · **Date:** 2026-07-02 · **Session:** 001
+## ADR-0003 — Target a single VPS/container host with persistent disk
+- **Status:** Accepted (confirmed by user, Session 002) · **Date:** 2026-07-02 · **Session:** 001
 - **Context:** Persistence, Docker, and object-storage findings depend on where the app runs; the target was not confirmed.
 - **Problem:** Keep SQLite + local uploads, or move to managed DB + object storage?
 - **Options considered:**
@@ -58,14 +58,19 @@
 - **Disadvantages:** Delays the first visible security fix by one short phase.
 - **Future implications:** All subsequent "Completed" statuses are backed by tests.
 
-## ADR-0005 — PM document set: follow the 7-doc spec, propose consolidation (proposed)
-- **Status:** Proposed · **Date:** 2026-07-02 · **Session:** 001
-- **Context:** The programme brief specifies 7 living documents. Experience suggests 4 (backlog, roadmap+deps, ADRs, session log) are easier to keep consistent for a single maintainer.
-- **Problem:** More documents = more surfaces to drift.
-- **Decision (pending approval):** Maintain all 7 as specified for now. **Recommend** consolidating CHANGELOG+PROGRESS into the backlog (status history) and DEPENDENCIES into ROADMAP at a future checkpoint.
-- **Advantages of consolidation:** Fewer seams, less drift.
-- **Disadvantages:** Larger individual files; deviates from the brief.
-- **Future implications:** Requires user sign-off before changing the doc structure. Until then, all 7 are maintained.
+## ADR-0005 — Consolidate PM document set from 7 to 4
+- **Status:** Accepted (user approved, Session 002) · **Date:** 2026-07-02 · **Session:** 001→002
+- **Context:** The programme brief specified 7 living documents. For a single maintainer across sessions, fewer surfaces mean less drift.
+- **Problem:** More documents = more places to fall out of sync.
+- **Decision:** Maintain **4** documents:
+  1. `BACKLOG.md` — findings + programme status (was PROGRESS) + completed log (was CHANGELOG).
+  2. `ROADMAP.md` — phased plan + dependency graph (was DEPENDENCIES).
+  3. `ARCHITECTURE_DECISIONS.md` — ADR log.
+  4. `SESSION_LOG.md` — per-session narrative.
+  `PROGRESS.md`, `CHANGELOG.md`, `DEPENDENCIES.md` removed; content merged.
+- **Advantages:** Fewer seams, less drift, faster start-of-session read.
+- **Disadvantages:** Larger individual files; deviates from the original 7-doc brief.
+- **Future implications:** If a human team joins and needs finer separation, revisit.
 
 ## ADR-0006 — Git workflow: commit & push PM docs to the working branch
 - **Status:** Accepted (provisional) · **Date:** 2026-07-02 · **Session:** 001
@@ -83,7 +88,8 @@
 ---
 
 ## Pending decisions (need user input; tracked so they are not forgotten)
-- **ADR-0002 / ADR-0003** confirmation (user model, deploy target).
-- **ADR-0005** consolidation approval.
 - **ARCH-04** keep vs drop dead `collections` tables.
-- **DOC-02** canonical product name.
+- **DOC-02** canonical product name (fuzzy-guide / PhotoMap / PhotoMapper).
+
+_Resolved Session 002: ADR-0002 (single-operator), ADR-0003 (single VPS),
+ADR-0005 (4-doc consolidation) all confirmed by the user._
