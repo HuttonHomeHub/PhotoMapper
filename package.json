@@ -8,7 +8,10 @@
     "build": "vite build",
     "start": "node server/index.js",
     "lint": "eslint src server",
-    "format": "prettier --write src server"
+    "format": "prettier --write src server",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "better-sqlite3": "^11.9.1",
@@ -27,6 +30,7 @@
   "devDependencies": {
     "@eslint/js": "^9.0.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^4.1.9",
     "concurrently": "^9.1.2",
     "eslint": "^9.0.0",
     "eslint-plugin-react": "^7.37.0",
@@ -35,6 +39,7 @@
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
     "prettier": "^3.0.0",
-    "vite": "^6.2.4"
+    "vite": "^6.2.4",
+    "vitest": "^4.1.9"
   }
 }

@@ -3,7 +3,9 @@ import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const db = new Database(join(__dirname, 'photos.db'))
+// DB path is injectable so tests can run against a throwaway file (PHOTOS_DB_PATH).
+const dbPath = process.env.PHOTOS_DB_PATH || join(__dirname, 'photos.db')
+const db = new Database(dbPath)
 
 db.pragma('foreign_keys = ON')
 

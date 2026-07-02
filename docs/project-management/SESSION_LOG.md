@@ -5,6 +5,65 @@
 
 ---
 
+## Session 002 — 2026-07-02 — Consolidation + TEST-01
+
+**Role:** Principal Architect / Tech Lead / Quality Gatekeeper.
+
+### Start-of-session workflow
+1. Read BACKLOG / ROADMAP / ADRs / this log.
+2. User confirmed: ADR-0002 (single-operator) + ADR-0003 (single VPS) correct;
+   green light to modify code; adopt the 4-doc consolidation (ADR-0005).
+3. Recalculated priorities → unchanged: TEST-01 is the highest-value task
+   (verification foundation) per ADR-0004.
+
+### Decisions
+- Marked ADR-0002/0003/0005 Accepted. Executed the doc consolidation.
+- **Testability micro-decision:** made the SQLite path injectable via
+  `PHOTOS_DB_PATH` rather than refactoring `db.js` to take a constructor arg —
+  smallest change that unblocks isolated tests; no behavioural change in prod.
+- Held the line on scope: did **not** extract inline pure helpers just to test
+  them (that is CQ-01); tested the highest-value reachable surface (data layer).
+
+### Work completed
+1. **Doc consolidation 7 → 4** (BACKLOG absorbs PROGRESS+CHANGELOG; ROADMAP
+   absorbs DEPENDENCIES). Committed.
+2. **TEST-01 Completed:** Vitest + coverage installed; `vitest.config.js`; npm
+   scripts; `PHOTOS_DB_PATH`; `tests/db.test.js` with 11 passing tests covering
+   the camelCase/snake_case mappers, boolean `hasGps`, JSON tag round-trip and
+   empty-array fallback, survey-date update, delete counts, client/project joins
+   and counts, and `resetAll`.
+
+### Quality gates (TEST-01)
+- `npm run build` ✅ · `npm run lint` ✅ (15 pre-existing warnings, **0 new**) ·
+  `npm test` ✅ 11/11. No new security concerns; no perf-sensitive code touched.
+
+### Newly discovered issues
+- **`npm audit`: 11 vulnerabilities** (1 low, 6 moderate, 2 high, 2 critical).
+  Routed to DEP-04/OPS-01 (do not silently ignore). To be triaged when CI gains
+  the audit step.
+- Confirmed the 15-warning lint baseline (dead exports etc.) — covered by CQ-03.
+
+### Selected next task + rationale
+**OPS-01 — wire tests + `npm audit` into CI, and run CI on the working branch.**
+Why next: TEST-01 created tests, but they only protect us if CI enforces them.
+Currently `.github/workflows/ci.yml` runs on `main` only and does lint+build.
+OPS-01 is low-risk, closes the gap that makes every later "Completed" trustworthy,
+and folds in DEP-04 (audit) so the 2 critical vulns become visible/tracked.
+Plan: add `npm test` + `npm audit --audit-level=high` (non-blocking triage step
+first, then ratchet) to CI; add `pull_request`/`push` triggers for
+`claude/**` branches; keep build.
+
+### End-of-session state
+- Phase 1: 1/4 (TEST-01 ✅). Next: OPS-01 → then TEST-05 (coverage threshold) →
+  Phase 2 (DEP-02 → BE-01 → SEC-02/04/09/07 …).
+
+### Next session start-here
+Read this log + BACKLOG (Programme status). Execute OPS-01 plan above. After CI
+is green with tests, begin Phase 2 with DEP-02 (prod deps) then BE-01 (async
+error handling) with its regression test.
+
+---
+
 ## Session 001 — 2026-07-02 — Programme bootstrap
 
 **Role:** Principal Architect / Tech Lead / Quality Gatekeeper.

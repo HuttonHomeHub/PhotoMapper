@@ -13,13 +13,13 @@
 
 ## Programme status
 
-- **Findings:** 71 · **Completed:** 0 · **In Progress:** 1 (TEST-01) · **Deferred:** 3 (+FEAT-06)
-- **Current phase:** Phase 1 — Verification foundation
+- **Findings:** 71 · **Completed:** 1 (TEST-01) · **In Progress:** 0 · **Deferred:** 3 (+FEAT-06)
+- **Current phase:** Phase 1 — Verification foundation (1/4 done; OPS-01 next)
 
 | Phase | Theme | Done / Total | Status |
 |---|---|---|---|
 | 0 | Programme setup | ✅ | Complete |
-| 1 | Verification foundation | 0 / 4 | **Active** |
+| 1 | Verification foundation | 1 / 4 | **Active** |
 | 2 | Critical security & reliability | 0 / 13 | Not started |
 | 3 | Backend architecture & correctness | 0 / 10 | Not started |
 | 4 | Frontend architecture & quality | 0 / 10 | Not started |
@@ -28,9 +28,13 @@
 | 7 | Documentation | 0 / 5 | Not started |
 | 8 | DevOps & infra | 0 / 7 | Not started |
 
-**Quality gates:** build ✅ · lint ✅ · tests ⏳ (TEST-01) · CI = lint+build only (OPS-01 pending).
+**Quality gates:** build ✅ · lint ✅ (15 pre-existing warnings, 0 new) · tests ✅ 11 passing (`npm test`) · CI = lint+build only (OPS-01 pending — tests not yet run in CI).
 
-**Top open risks:** (1) no automated verification until TEST-01 lands; (2) ARCH-03 migration-runner change is high-risk — must not run before TEST-01/02 + a DB backup step.
+**Top open risks:** (1) tests exist locally but CI does not run them yet → OPS-01 is now the top priority; (2) ARCH-03 migration-runner change is high-risk — must not run before TEST-01/02 + a DB backup step.
+
+**Discovered during Session 002 (triage under noted items):**
+- `npm audit` reports **11 vulnerabilities** (1 low, 6 moderate, 2 high, 2 critical) in the dependency tree → triage under **DEP-04 / OPS-01**.
+- Lint baseline carries **15 pre-existing warnings** (dead exports, one intentional `exhaustive-deps`) → covered by **CQ-03** and related.
 
 ## Legend
 
@@ -46,9 +50,9 @@
 |---|---|
 | Not Started | 67 |
 | Blocked | 0 |
-| In Progress | 1 |
+| In Progress | 0 |
 | Needs Review | 0 |
-| Completed | 0 |
+| Completed | 1 |
 | Deferred | 3 |
 | **Total** | **71** |
 
@@ -418,7 +422,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 ## TESTING
 
 ### TEST-01 — No unit test harness (bootstrap)
-- **Category:** Testing · **Severity:** Critical (enabler) · **Priority:** P0 · **Effort:** M · **Risk:** Low · **Status:** In Progress (Session 002)
+- **Category:** Testing · **Severity:** Critical (enabler) · **Priority:** P0 · **Effort:** M · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Added Vitest + `@vitest/coverage-v8`; `vitest.config.js`; `test`/`test:watch`/`test:coverage` scripts. Made the SQLite path injectable via `PHOTOS_DB_PATH` (one line, testability-only) so tests run against a throwaway DB. Seeded `tests/db.test.js` — 11 passing tests over the data layer (camelCase mapping, boolean `hasGps`, JSON tag round-trip/empty-array fallback, survey-date update, delete counts, client/project joins + counts, `resetAll`). Build ✅, lint ✅ (0 new warnings), `npm test` green.
+- **Deliberately deferred (tracked, not forgotten):** unit tests for the inline pure helpers (`pointInPolygon`, `haversineKm`, `escapeHtml`, exposure/KML formatting) were **not** added here because they are unexported and inline in components; testing them cleanly requires the CQ-01 helper extraction. Moved to **CQ-01 (Phase 4)**, where their tests land with the extraction — avoids a premature refactor now (KISS / "no unnecessary refactoring").
 - **Description:** No runner, no `test` script, no tests. Quality gates are unenforceable.
 - **Recommended solution:** Add Vitest; seed unit tests for pure helpers (`pointInPolygon`, `haversineKm`, FOV math, exposure/date format, `escapeHtml`) and `db.js` against in-memory SQLite; add `test` script.
 - **Files affected:** `package.json`, new `tests/`, `vitest.config`.
@@ -603,10 +609,13 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **TEST-01 Completed.** Added Vitest harness,
+  config, npm scripts, injectable `PHOTOS_DB_PATH`, and `tests/db.test.js`
+  (11 passing data-layer tests). Build/lint/tests all green. Pure-helper tests
+  deferred to CQ-01. [TEST-01]
 - **2026-07-02 (Session 002)** — Consolidated PM docs 7 → 4 (ADR-0005 accepted):
   merged PROGRESS.md + CHANGELOG.md into this file; merged DEPENDENCIES.md into
   ROADMAP.md; removed the three merged files. Marked ADR-0002/0003 Accepted.
-  Started **TEST-01** (→ In Progress).
 - **2026-07-02 (Session 001)** — Created `docs/project-management/`; imported all
   71 findings from the deep-dive review with full metadata [DOC-04, ADR-0001].
 
