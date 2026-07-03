@@ -73,17 +73,33 @@ wiring) to keep changes cohesive.
 - Commits pushed to `claude/engineering-review-production-dwlfup`:
   programme setup, doc consolidation, TEST-01, OPS-01, DEP-05, TEST-05, BE-01.
 
-### Next session start-here (Phase 2 continues)
-Read this log + BACKLOG (Programme status). Highest-value next items (all low-risk,
-now regression-testable):
-1. **SEC-02** remove/guard `DELETE /api/reset` (+ test it's gone/guarded).
-2. **SEC-04** CORS allowlist via config; **OPS-07** `server/config.js` + `.env.example` first (enabler).
-3. **SEC-09** `helmet` + CSP compatible with Leaflet tiles; **SEC-07** `express-rate-limit`; **PERF-08** `compression`.
-4. **SEC-08** stop leaking `err.message`.
-5. **SEC-01** auth gate — **needs a 2-min decision on mechanism** (shared secret
-   header vs signed session cookie + simple login). Raise with user before building.
-6. **SEC-03** protect `/uploads` (after SEC-01). **FE-01** error boundary + **FE-04** delete confirms (independent, can slot any time).
-Add each SEC test to `tests/api.test.js` as it lands.
+### Continued — Phase 2 completed in this session
+- User chose **edge auth** → **ADR-0007**; SEC-01 & SEC-03 dispositioned to infra
+  with `docs/DEPLOYMENT-SECURITY.md`. SEC-02 hardened in-app (reset gated).
+- **Security-middleware batch:** OPS-07 (config+zod), SEC-04 (CORS), SEC-07
+  (rate-limit + 60 MB cap), SEC-08 (error masking), SEC-09 (helmet+CSP), PERF-08
+  (compression). **FE-01** (error boundary) + **FE-04** (delete confirms).
+- **CSP verification note:** attempted a real-browser Playwright smoke test, but
+  this sandbox terminates persistent local servers (exit 144 whether backgrounded
+  via `&` or the tool's background mode; foreground `sleep` is also blocked).
+  Verified instead by: prod-mode boot, end-to-end inspection of the emitted CSP
+  header, automated header-presence tests, and deterministic directive analysis
+  (script-src 'self' → bundle loads; all tile hosts + Nominatim allowlisted). A
+  real-browser smoke test is the right home for **TEST-04** (CI/staging).
+- **Phase 2 complete: 13/13.** Suite now **24 tests**; build/lint(0-new)/audit(0) green.
+
+### End-of-session state (Session 002 final)
+- Phases 0 ✅, 1 ✅ (5/5), 2 ✅ (13/13). Completed 15 · In Progress 2 (DEP-02 tail, TEST-02) · Deferred 6 · Not Started 49.
+- Commits pushed: programme setup, doc consolidation, TEST-01, OPS-01, DEP-05,
+  TEST-05, BE-01, edge-auth/SEC-02, security-middleware batch, FE-01+FE-04.
+
+### Next session start-here (Phase 3 — Backend architecture & correctness)
+Read this log + BACKLOG. Suggested order (low-risk correctness first, then the
+big refactors under test cover):
+1. **BE-03** fix `updateProject` COALESCE unset bug (+ test). **BE-04** clients PATCH validation/404/409 (+ test). Small, high-value, already testable.
+2. **BE-02** zod validation layer for routes (reuse the zod dep).
+3. **ARCH-03** versioned migration runner + DB backup on destructive steps — **high-risk**; must land with expanded TEST-02 and a backup step. Precedes PERF-03 indexes.
+4. **ARCH-01** split `server/index.js` into routes/services/repositories (grow TEST-02 alongside). Folds in BE-06. Then **BE-07/SEC-05** background geocoding, **CQ-05/OPS-06** logging (adds pino → closes DEP-02).
 
 ---
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { ConfirmModal } from './ConfirmModal.jsx'
 
 export default function ClientPanel({
   clients,
@@ -23,6 +24,9 @@ export default function ClientPanel({
   const [renameClientValue, setRenameClientValue] = useState('')
   const [renamingProjectId, setRenamingProjectId] = useState(null)
   const [renameProjectValue, setRenameProjectValue] = useState('')
+
+  // FE-04: confirm destructive client/project deletes. { type, id, name }
+  const [pendingDelete, setPendingDelete] = useState(null)
 
   useEffect(() => {
     if (activeClientId) setExpandedClientIds(prev => new Set([...prev, activeClientId]))
@@ -164,7 +168,7 @@ export default function ClientPanel({
                 <span className="client-tree-actions">
                   <button
                     className="client-tree-delete-btn"
-                    onClick={e => { e.stopPropagation(); onDeleteClient(cl.id) }}
+                    onClick={e => { e.stopPropagation(); setPendingDelete({ type: 'client', id: cl.id, name: cl.name }) }}
                     title="Delete"
                   >×</button>
                 </span>
@@ -221,7 +225,7 @@ export default function ClientPanel({
                           <span className="client-tree-actions">
                             <button
                               className="client-tree-delete-btn"
-                              onClick={e => { e.stopPropagation(); onDeleteProject(proj.id) }}
+                              onClick={e => { e.stopPropagation(); setPendingDelete({ type: 'project', id: proj.id, name: proj.name }) }}
                               title="Delete"
                             >×</button>
                           </span>
@@ -271,6 +275,28 @@ export default function ClientPanel({
           <p className="panel-empty-hint">No clients yet — upload photos to get started.</p>
         )}
       </div>
+
+      {pendingDelete && (
+        <ConfirmModal
+          title={pendingDelete.type === 'client' ? 'Delete client?' : 'Delete project?'}
+          message={
+            <>
+              <span className="confirm-modal-filename">{pendingDelete.name}</span><br />
+              {pendingDelete.type === 'client'
+                ? 'Its projects will be unassigned (not deleted).'
+                : 'Its photos will be unassigned (not deleted).'}
+              {' '}This cannot be undone.
+            </>
+          }
+          confirmLabel="Delete"
+          onConfirm={() => {
+            if (pendingDelete.type === 'client') onDeleteClient(pendingDelete.id)
+            else onDeleteProject(pendingDelete.id)
+            setPendingDelete(null)
+          }}
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
     </div>
   )
 }

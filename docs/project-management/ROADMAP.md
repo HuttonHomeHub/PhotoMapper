@@ -33,22 +33,22 @@ Establish PM documentation, import findings, build backlog + dependency graph.
 - **TEST-05** coverage reporting (threshold low initially) `[P2, tail of phase]`
 - **Exit criteria:** `npm test` runs green in CI; known vulns cleared; audit gate blocking.
 
-## Phase 2 — Critical security & reliability
-*Goal: close the disqualifying holes; all low-risk, high-value, now verifiable.*
-- **DEP-02** add `helmet`, `express-rate-limit`, `compression`, async-error handling, `zod`, session lib `[P0, enabler]`
-- **OPS-07** central `config.js` + `.env.example` (secret, origins, log level) `[P1, enabler]`
-- **BE-01** fix Express async error handling (+ regression test) `[P0]`
-- **SEC-02** remove/guard `DELETE /api/reset` `[P0]`
-- **SEC-04** lock down CORS `[P0]`
-- **SEC-09** helmet/CSP/nosniff/HSTS `[P0]`
-- **SEC-07 / FEAT-04** rate limiting + lower upload cap `[P0]`
-- **SEC-08** stop leaking error messages `[P1]`
-- **SEC-01** authentication gate (shared-secret/session per ADR-0002) `[P0]`
-- **SEC-03** protect `/uploads` behind auth `[P1, after SEC-01]`
-- **FE-01** React error boundary `[P1, independent]`
-- **FE-04** confirm dialogs for client/project delete `[P1, independent]`
-- **PERF-08** compression `[P2, rides DEP-02]`
-- **Exit criteria:** no unauthenticated access; no unauth wipe; async errors return 500; TEST-02 covers auth + the above.
+## Phase 2 — Critical security & reliability ✅ COMPLETE (Session 002)
+*Goal: close the disqualifying holes; all low-risk, high-value, verifiable.*
+- **DEP-02** ✅ (helmet, rate-limit, compression, async-errors, zod, supertest; no session lib — auth at proxy). *Closes fully with pino at CQ-05.*
+- **OPS-07** ✅ `server/config.js` (zod) + `.env.example`
+- **BE-01** ✅ async error handling + regression test
+- **SEC-02** ✅ reset gated behind `ALLOW_RESET`
+- **SEC-04** ✅ CORS off by default / allowlist
+- **SEC-09** ✅ helmet + tailored CSP
+- **SEC-07 / FEAT-04** ✅ rate limiting + 60 MB upload cap
+- **SEC-08** ✅ 5xx error masking in prod
+- **SEC-01** → infra (ADR-0007, `docs/DEPLOYMENT-SECURITY.md`)
+- **SEC-03** → infra (ADR-0007)
+- **FE-01** ✅ React error boundary
+- **FE-04** ✅ delete confirmations
+- **PERF-08** ✅ compression
+- **Outcome:** no unauthenticated public surface once behind the documented proxy; no unauth wipe; async errors return 500; 24 tests incl. security-header + async-error assertions.
 
 ## Phase 3 — Backend architecture & correctness
 *Goal: remove root causes that later phases would otherwise fight.*

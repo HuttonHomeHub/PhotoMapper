@@ -13,16 +13,16 @@
 
 ## Programme status
 
-- **Findings:** 72 · **Completed:** 13 · **In Progress:** 2 (DEP-02, TEST-02) · **Deferred:** 6 · **Not Started:** 51
-- **Current phase:** Phase 2 — Critical security & reliability (11/13 resolved; remaining: FE-01 error boundary, FE-04 delete confirms)
+- **Findings:** 72 · **Completed:** 15 · **In Progress:** 2 (DEP-02, TEST-02) · **Deferred:** 6 · **Not Started:** 49
+- **Current phase:** ✅ Phase 2 complete → entering Phase 3 (Backend architecture & correctness)
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
 |---|---|---|---|
 | 0 | Programme setup | ✅ | Complete |
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
-| 2 | Critical security & reliability | 11 / 13 | **Active** (only FE-01, FE-04 left) |
-| 3 | Backend architecture & correctness | 0 / 10 | Not started |
+| 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
+| 3 | Backend architecture & correctness | 0 / 10 | **Active (next: BE-03/BE-04 quick fixes → ARCH-03 → ARCH-01)** |
 | 4 | Frontend architecture & quality | 0 / 10 | Not started |
 | 5 | Performance | 0 / 6 | Not started |
 | 6 | Testing depth | 0 / 2 | Not started |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 51 |
+| Not Started | 49 |
 | Blocked | 0 |
 | In Progress | 2 |
 | Needs Review | 0 |
-| Completed | 13 |
+| Completed | 15 |
 | Deferred | 6 |
 | **Total** | **72** |
 
@@ -378,11 +378,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 ## FRONTEND / UX / ACCESSIBILITY
 
 ### FE-01 — No React error boundary
-- **Category:** Frontend · **Severity:** High · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** A single render throw white-screens the whole app.
-- **Recommended solution:** Add a top-level `ErrorBoundary` with a recoverable fallback; wrap `<App/>` in `main.jsx`.
-- **Files affected:** new `src/components/ErrorBoundary.jsx`, `src/main.jsx`.
-- **Dependencies:** Independent; verify via component test (TEST-03).
+- **Category:** Frontend · **Severity:** High · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Added `src/components/ErrorBoundary.jsx` (recoverable fallback with Try-again/Reload, dark-theme styled) wrapping `<App/>` in `main.jsx`. State-logic unit test added; full render test lands with TEST-03's jsdom harness.
+- **Files affected:** `src/components/ErrorBoundary.jsx`, `src/main.jsx`, `src/styles/index.css`, `tests/errorBoundary.test.js`.
 
 ### FE-02 — Color contrast fails WCAG AA
 - **Category:** Frontend/A11y · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
@@ -398,11 +396,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Do during ARCH-02 (FilterBar extraction).
 
 ### FE-04 — Client/project delete has no confirmation
-- **Category:** Frontend/UX · **Severity:** Medium · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** `ClientPanel.jsx:167,224` delete immediately — a mis-click removes a whole client/project; inconsistent with photo delete.
-- **Recommended solution:** Reuse `ConfirmModal`; warn about cascade impact.
+- **Category:** Frontend/UX · **Severity:** Medium · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Client/project delete buttons now open a `ConfirmModal` (reusing the photo-delete pattern) that names the target and states the cascade ("projects/photos will be unassigned, not deleted" — matching the `ON DELETE SET NULL` FKs). Consistent with photo deletion.
 - **Files affected:** `src/components/ClientPanel.jsx`.
-- **Dependencies:** Independent; pairs with CQ-04.
 
 ### FE-05 — Location search calls Nominatim directly from browser
 - **Category:** Frontend · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
@@ -619,6 +615,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **FE-01 + FE-04 → Phase 2 complete.** Added a
+  top-level React error boundary (recoverable fallback) and confirmation dialogs
+  for client/project deletion. Suite 24 tests. Phase 2: 13/13. [FE-01, FE-04]
 - **2026-07-02 (Session 002)** — ✅ **Security-middleware batch** (OPS-07, SEC-04,
   SEC-07, SEC-08, SEC-09, PERF-08). Added `server/config.js` (zod-validated env) +
   `.env.example`; helmet+CSP (tile hosts allowlisted), CORS allowlist (off by
