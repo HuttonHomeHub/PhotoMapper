@@ -39,25 +39,13 @@ import ClientPanel from './components/ClientPanel.jsx'
 import { LocationSearch } from './components/LocationSearch.jsx'
 import { TimelinePanel } from './components/TimelinePanel.jsx'
 import { useTimeline } from './hooks/useTimeline.js'
+import { filterPhotos } from './lib/filterPhotos.js'
 import PhotoComparison from './components/PhotoComparison.jsx'
 import { ToastContainer, useToast } from './components/Toast.jsx'
 
 const TODAY = new Date().toISOString().slice(0, 10)
 const dateToMs = d => new Date(d + 'T12:00:00Z').getTime()
 const msToDate = ms => new Date(ms).toISOString().slice(0, 10)
-
-// Ray-casting point-in-polygon; polygon is array of {lat, lng}
-function pointInPolygon([lat, lng], polygon) {
-  let inside = false
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].lat, yi = polygon[i].lng
-    const xj = polygon[j].lat, yj = polygon[j].lng
-    if (((yi > lng) !== (yj > lng)) && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi)) {
-      inside = !inside
-    }
-  }
-  return inside
-}
 
 export function App() {
   const { toast } = useToast()
@@ -126,36 +114,15 @@ export function App() {
     ? (dateFrom !== minDate || dateTo !== TODAY)
     : Boolean(dateFrom || dateTo)
 
-  const filteredPhotos = photos.filter(p => {
-    if (dateFrom || dateTo) {
-      if (p.dateTaken) {
-        const date = p.dateTaken.slice(0, 10)
-        if (dateFrom && date < dateFrom) return false
-        if (dateTo && date > dateTo) return false
-      }
-    }
-    if (mapBounds && p.hasGps && p.lat != null && p.lng != null) {
-      if (p.lat < mapBounds.south || p.lat > mapBounds.north) return false
-      if (p.lng < mapBounds.west || p.lng > mapBounds.east) return false
-    }
-    if (activeTag) {
-      if (!p.tags?.includes(activeTag)) return false
-    }
-    if (regionPolygon && p.hasGps && p.lat != null && p.lng != null) {
-      if (!pointInPolygon([p.lat, p.lng], regionPolygon)) return false
-    }
-    return true
-  }).filter(p => {
-    if (!activeSurveyDate && !activeProjectId) return true
-    if (activeProjectId && p.projectId !== activeProjectId) return false
-    if (activeSurveyDate === 'undated') return p.surveyDate == null
-    if (activeSurveyDate) return p.surveyDate === activeSurveyDate
-    return true
-  }).filter(p => {
-    if (!activeClientId) return true
-    const proj = projects.find(pr => pr.id === p.projectId)
-    return proj?.clientId === activeClientId
-  })
+  // PERF-05: memoize the (formerly inline, per-render) filter chain.
+  const filteredPhotos = useMemo(
+    () => filterPhotos(photos, {
+      dateFrom, dateTo, mapBounds, activeTag, regionPolygon,
+      activeSurveyDate, activeProjectId, activeClientId,
+    }, projects),
+    [photos, dateFrom, dateTo, mapBounds, activeTag, regionPolygon,
+     activeSurveyDate, activeProjectId, activeClientId, projects]
+  )
 
   // Fit map to relevant photos when hierarchy selection changes
   useEffect(() => {

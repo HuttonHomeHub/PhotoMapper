@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 27 · **In Progress:** 4 (ARCH-02, TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 36
-- **Current phase:** Phase 4 — Frontend architecture & quality (TEST-03 harness up; ARCH-02 started — LocationSearch extracted, App.jsx 866→794). Backend (Phases 0–3) complete.
+- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 28 · **In Progress:** 5 (ARCH-02, CQ-01, TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 34
+- **Current phase:** Phase 4 — Frontend architecture & quality. ARCH-02 well underway (LocationSearch + Timeline + filter logic extracted; App.jsx **866→674**); PERF-05 ✅. Backend (Phases 0–3) complete.
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -23,8 +23,8 @@
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
 | 3 | Backend architecture & correctness | 10 / 10 | ✅ Complete (BE-02/03/04/06/07, SEC-05, ARCH-01/03, CQ-05/OPS-06) |
-| 4 | Frontend architecture & quality | 0 / 10 | **Active** (TEST-03 harness up; next ARCH-02) |
-| 5 | Performance | 1 / 6 | PERF-03 ✅ (landed early via runner) |
+| 4 | Frontend architecture & quality | 0 / 10 | **Active** (ARCH-02 ~⅔; TEST-03 harness up) |
+| 5 | Performance | 2 / 6 | PERF-03 ✅, PERF-05 ✅ |
 | 6 | Testing depth | 0 / 2 | Not started |
 | 7 | Documentation | 0 / 5 | Not started |
 | 8 | DevOps & infra | 0 / 7 | Not started |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 38 |
+| Not Started | 34 |
 | Blocked | 0 |
-| In Progress | 2 |
+| In Progress | 5 |
 | Needs Review | 0 |
-| Completed | 27 |
+| Completed | 28 |
 | Deferred | 6 |
 | **Total** | **73** |
 
@@ -234,8 +234,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Progress:** Extracting App.jsx piece by piece, each verified by component tests (App.jsx **866 → 706 lines** so far):
   - ✅ **`LocationSearch`** — owns query/results/error state, `onFlyTo` callback (−5 useState/−1 ref/−2 handlers). Tests: single-result fly-to, multi-result list, no-result error.
   - ✅ **Timeline** → **`useTimeline` hook** (state + sort + auto-advance effects) + **`TimelinePanel`** UI (−4 useState/−1 memo/−2 effects/−3 derived from App.jsx). Tests: panel render + hook sort/slice.
-  - Remaining: `FilterBar`/filter-chips extraction, and consolidating the filter state via `useReducer`.
-- **Recommended solution:** Continue extracting `FilterBar`, `SidebarSections`; consolidate filter state via `useReducer` or context; memoize derived data (PERF-05).
+  - ✅ **Filter logic** → pure `src/lib/filterPhotos.js` + `src/lib/geo.js` (`pointInPolygon`), memoized in App.jsx (App.jsx 706→674; delivers **PERF-05** and part of **CQ-01**). 9 pure-function tests.
+  - Remaining: `FilterChips` UI extraction, and (optional) consolidating filter state via `useReducer`.
+- **Recommended solution:** Continue extracting `FilterChips`, `SidebarSections`; optionally consolidate filter state via `useReducer` or context.
 - **Files affected:** `src/App.jsx`, `src/components/LocationSearch.jsx` + `TimelinePanel.jsx` (new), `src/hooks/useTimeline.js` (new), `tests/components/`.
 - **Dependencies:** Do before PERF-05 (memoization) to avoid double work.
 
@@ -281,11 +282,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 ## CODE QUALITY
 
 ### CQ-01 — DRY violations (formatDate ×4, escapeHtml ×2, geoPhotos ×3)
-- **Category:** Code Quality · **Severity:** Medium · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** Duplicated helpers across `PhotoLightbox`, `PhotoComparison`, `PhotoMap`, `ElevationProfile`, `App`, and `server/index.js`.
-- **Recommended solution:** Shared `src/lib/format.js` and `src/lib/geo.js`; server-side `server/lib/`.
-- **Files affected:** the above.
-- **Dependencies:** Do alongside ARCH-02.
+- **Category:** Code Quality · **Severity:** Medium · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** In Progress (Session 002)
+- **Progress:** `src/lib/geo.js` created (`pointInPolygon`) with tests — the pure-helper extraction the TEST-01 note deferred. Remaining: shared `src/lib/format.js` for `formatDate` (×4: Lightbox, Comparison, Map, App) and consolidate the `geoPhotos` filter/sort (×3). Server `escapeHtml`/KML `esc` already isolated in `services/exportPhotos.js` (ARCH-01).
+- **Files affected:** `src/lib/geo.js` (done); `src/lib/format.js` (todo); consumers.
+- **Dependencies:** Continue alongside ARCH-02.
 
 ### CQ-02 — Magic numbers
 - **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
@@ -359,11 +359,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Deferral justification:** Not a problem at current scale; premature to optimize (per programme rules).
 
 ### PERF-05 — Frontend filter chain unmemoized; O(n·m) `projects.find`
-- **Category:** Performance · **Severity:** Medium · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** `filteredPhotos` (`App.jsx:134-163`) recomputes every render with a `projects.find` inside the filter.
-- **Recommended solution:** `useMemo` the chain; precompute a `projectId→clientId` map.
-- **Files affected:** `src/App.jsx`.
-- **Dependencies:** Do during/after ARCH-02.
+- **Category:** Performance · **Severity:** Medium · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Extracted the filter chain to a pure `filterPhotos()` (ARCH-02/CQ-01) and wrapped its call in `useMemo` keyed on the photos + filter inputs, so it no longer recomputes on every unrelated render (hover, drawer toggles, etc.). Covered by `tests/lib/filterPhotos.test.js`.
+- **Files affected:** `src/App.jsx`, `src/lib/filterPhotos.js`.
+- **Note:** The `projects.find` inside the client filter now runs only when filter inputs change (not every render); a `projectId→clientId` map is a minor optional micro-opt, not pursued.
 
 ### PERF-06 — PhotoMap rebuilds all markers on any change / FOV toggle
 - **Category:** Performance · **Severity:** Medium · **Priority:** P3 · **Effort:** M · **Risk:** Medium · **Status:** Not Started
@@ -623,6 +622,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **PERF-05** + ARCH-02/CQ-01 cont. Extracted the
+  filter chain to pure `src/lib/filterPhotos.js` + `src/lib/geo.js` and memoized it
+  in App.jsx (706→674); 9 pure-function tests. Suite **61 tests**. [PERF-05, ARCH-02, CQ-01]
 - **2026-07-02 (Session 002)** — ▶ **ARCH-02 cont.** Extracted the Timeline into a
   `useTimeline` hook + `TimelinePanel` component (App.jsx 794→706) with panel +
   hook tests. Suite **52 tests**. [ARCH-02]
