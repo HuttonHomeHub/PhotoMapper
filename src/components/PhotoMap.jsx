@@ -10,7 +10,8 @@ import mapIconUrl from '../assets/map.svg'
 import layersIconUrl from '../assets/layers.svg'
 import exportIconUrl from '../assets/export.svg'
 import drawIconUrl from '../assets/draw.svg'
-import { formatDate } from '../lib/format.js'
+import { createRoot } from 'react-dom/client'
+import { PhotoPopup } from './PhotoPopup.jsx'
 
 // Fix Leaflet's default icon path issues with bundlers
 delete L.Icon.Default.prototype._getIconUrl
@@ -77,68 +78,6 @@ function createFovConePolygon(photo) {
   })
 }
 
-function escapeHtml(str) {
-  if (!str) return str
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-}
-
-
-function buildPopupHtml(photo) {
-  const rows = []
-
-  if (photo.dateTaken) {
-    rows.push(['Taken', formatDate(photo.dateTaken)])
-  }
-  if (photo.cameraMake || photo.cameraModel) {
-    rows.push(['Camera', [photo.cameraMake, photo.cameraModel].filter(Boolean).map(escapeHtml).join(' ')])
-  }
-  if (photo.focalLength != null) {
-    rows.push(['Focal len.', `${photo.focalLength}mm`])
-  }
-  if (photo.fNumber != null) {
-    rows.push(['Aperture', `f/${photo.fNumber}`])
-  }
-  if (photo.iso != null) {
-    rows.push(['ISO', photo.iso])
-  }
-  if (photo.exposureTime) {
-    rows.push(['Exposure', escapeHtml(photo.exposureTime)])
-  }
-  if (photo.altitude != null) {
-    rows.push(['Altitude', `${Math.round(photo.altitude)}m`])
-  }
-  if (photo.imgDirection != null) {
-    rows.push(['Direction', `${Math.round(photo.imgDirection)}°`])
-  }
-
-  const rowsHtml = rows.map(([label, value]) => `
-    <div class="popup-row">
-      <span class="popup-label">${label}</span>
-      <span class="popup-value">${value}</span>
-    </div>
-  `).join('')
-
-  const mapsLink = (photo.hasGps && photo.lat != null && photo.lng != null)
-    ? `<a href="https://www.google.com/maps?q=${photo.lat},${photo.lng}" target="_blank" rel="noreferrer" class="popup-maps-link">Open in Google Maps ↗</a>`
-    : ''
-
-  return `
-    <div class="popup-content">
-      <div class="popup-title">${escapeHtml(photo.originalName)}</div>
-      ${rowsHtml}
-      <div class="popup-actions">
-        <button class="popup-view-btn" data-id="${photo.id}">View photo</button>
-        <button class="popup-delete-btn" data-id="${photo.id}">Delete photo</button>
-      </div>
-      ${mapsLink}
-    </div>
-  `
-}
 
 function createPhotoIcon(photo) {
   const arrowHtml = photo.imgDirection != null
@@ -562,34 +501,29 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
       })
       markersRef.current[photo.id] = marker
 
-      const popup = L.popup({ maxWidth: 280 }).setContent(buildPopupHtml(photo))
+      // SEC-12: render the popup as a React component into a container div. A
+      // fresh root is mounted when the popup opens and unmounted when it closes.
+      const popup = L.popup({ maxWidth: 280 })
+      const container = document.createElement('div')
+      popup.setContent(container)
+      let popupRoot = null
 
       popup.on('add', () => {
-        const el = popup.getElement()
-        if (!el) return
-
-        const viewBtn = el.querySelector('.popup-view-btn')
-        if (viewBtn) {
-          viewBtn.addEventListener('click', () => {
-            onViewRef.current?.(photo)
-          }, { once: true })
-        }
-
-        const deleteBtn = el.querySelector('.popup-delete-btn')
-        if (!deleteBtn) return
-        deleteBtn.addEventListener('click', async () => {
-          if (!window.confirm('Delete this photo? This cannot be undone.')) return
-          deleteBtn.disabled = true
-          deleteBtn.textContent = 'Deleting\u2026'
-          try {
-            await onDeleteRef.current(photo.id)
-            marker.closePopup()
-          } catch (err) {
-            deleteBtn.disabled = false
-            deleteBtn.textContent = 'Delete photo'
-            alert(`Could not delete: ${err.message}`)
-          }
-        }, { once: true })
+        popupRoot = createRoot(container)
+        popupRoot.render(
+          <PhotoPopup
+            photo={photo}
+            onView={p => onViewRef.current?.(p)}
+            onDelete={id => onDeleteRef.current(id)}
+            onClose={() => marker.closePopup()}
+          />
+        )
+      })
+      popup.on('remove', () => {
+        const root = popupRoot
+        popupRoot = null
+        // Defer unmount out of the Leaflet event so React isn't torn down mid-cycle.
+        if (root) setTimeout(() => root.unmount(), 0)
       })
 
       marker.on('mouseover', () => onPhotoHoverRef.current?.(photo.id))
