@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
+import sharp from 'sharp';
 import { join } from 'path';
 import { unlink } from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
@@ -59,9 +60,29 @@ const duplicate = (photo) => ({
   photo,
 });
 
+// SEC-06: don't trust the client-supplied MIME/extension (multer's fileFilter).
+// Decode the bytes with sharp and accept only real raster images — this also
+// rejects SVG (script-bearing) and any non-image renamed to look like one.
+const ALLOWED_CONTENT_FORMATS = new Set(['jpeg', 'png', 'webp', 'heif']);
+
+async function isSupportedImage(path) {
+  try {
+    const meta = await sharp(path).metadata();
+    return !!meta && meta.width > 0 && ALLOWED_CONTENT_FORMATS.has(meta.format);
+  } catch {
+    return false;
+  }
+}
+
 router.post('/', upload.single('photo'), async (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'No file uploaded' });
+
+  // SEC-06: verify actual content before storing anything.
+  if (!(await isSupportedImage(file.path))) {
+    await unlink(file.path).catch(() => {});
+    return res.status(400).json({ error: 'Uploaded file is not a supported image' });
+  }
 
   const fileHash = await hashFile(file.path);
   const existingByHash = getPhotoByHash(fileHash);

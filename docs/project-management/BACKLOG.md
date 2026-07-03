@@ -13,9 +13,9 @@
 
 ## Programme status
 
-- **Findings:** 80 (78 baseline + CQ-07 + CQ-08 discovered) · **Completed:** 59 · **In Progress:** 1 (DOC-04 ADRs, living) · **Deferred:** 8 · **Not Started:** 12
+- **Findings:** 80 (78 baseline + CQ-07 + CQ-08 discovered) · **Completed:** 62 · **In Progress:** 1 (DOC-04 ADRs, living) · **Deferred:** 8 · **Not Started:** 9
   - _(Reconciled Session 002: removed a duplicate BE-06 entry and corrected the headline total — the category counts had always summed to 80; the prior "74" was a stale miscount. See SESSION_LOG.)_
-- **Current phase:** Phases 0–4, **6 (testing) & 7 (docs) complete**. Recent: TEST-02/03, FEAT-02 (tag search), and closing FEAT-01/04 as delivered by PERF-01a/SEC-07. **110 tests.** Remaining: 12 Not Started (mostly low-priority SEC-06/11, CQ-02/04, DEP-01/03, TEST-04 E2E, and FEAT-03/05/07/08/09). **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
+- **Current phase:** Phases 0–4, **6 (testing) & 7 (docs) complete**. Recent: SEC-06 (upload content-decode gate), CQ-02 (named constants), CQ-04 (removed last native dialog). **112 tests.** Remaining: 9 Not Started — SEC-11 (TLS/infra), DEP-01/03 (deps), TEST-04 (E2E, needs staging), and FEAT-03/05/07/08/09 (real features). **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -50,11 +50,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 12 |
+| Not Started | 9 |
 | Blocked | 0 |
 | In Progress | 1 |
 | Needs Review | 0 |
-| Completed | 59 |
+| Completed | 62 |
 | Deferred | 8 |
 | **Total** | **80** |
 
@@ -100,12 +100,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Files affected:** `server/services/geocode.js`, `server/services/geocodeQueue.js`, `server/routes/photos.js`, `server/db.js` (cache table + migration v3).
 
 ### SEC-06 — Upload validation trusts client MIME; no content check
-- **Category:** Security · **Severity:** Medium · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** `fileFilter` trusts `file.mimetype` (`server/index.js:53-58`); `sharp` only runs for the (non-fatal) thumbnail, so non-images are stored.
-- **Root cause:** Extension/MIME-based validation only.
-- **Recommended solution:** Validate real content via `sharp.metadata()` (or `file-type`) before accepting; reject on failure; derive extension from verified type.
-- **Files affected:** `server/index.js`, geocode/thumbnail path.
-- **Dependencies:** Related to FEAT-08 (content scanning). Benefits from ARCH-01 (service extraction).
+- **Category:** Security · **Severity:** Medium · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Description:** `fileFilter` trusted `file.mimetype`; `sharp` only ran for the (non-fatal) thumbnail, so a non-image (or a script-bearing SVG) renamed `.jpg` was stored.
+- **Resolution:** The upload handler now decodes the saved bytes with `sharp(file.path).metadata()` **before** storing anything and accepts only real raster formats (`jpeg`/`png`/`webp`/`heif`); anything else (incl. SVG and spoofed non-images) is unlinked and rejected **400**. Runs before hashing/metadata/thumbnail work. Covered by a test uploading a text buffer as `evil.jpg` → 400, alongside the real-JPEG happy path.
+- **Files affected:** `server/routes/photos.js`, `tests/api.test.js`.
+- **Dependencies:** Related to FEAT-08 (deeper AV/content scanning, still deferred). Built on ARCH-01.
 
 ### SEC-07 — No rate limiting anywhere
 - **Category:** Security · **Severity:** Medium · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
@@ -281,21 +280,21 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Note:** The `geoPhotos` filter/sort duplication (App/PhotoMap/ElevationProfile) is a minor remaining micro-dedup, left as optional cleanup (each site has slightly different needs).
 
 ### CQ-02 — Magic numbers
-- **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** Upload cap, FOV sensor half-width (18), ground radius (40), cluster thresholds, etc., unnamed.
-- **Recommended solution:** Named constants with comments; central `constants` modules.
-- **Files affected:** `server/index.js`, `src/components/PhotoMap.jsx`.
+- **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Description:** Upload cap, FOV sensor half-width (18), ground radius (40), cluster thresholds, thumbnail size, etc., unnamed.
+- **Resolution:** Named the FOV constants in `PhotoMap.jsx` (`SENSOR_HALF_WIDTH_MM`, `DEFAULT_HFOV_RAD`, `FOV_GROUND_RADIUS_M`, `PANO_FULL_CIRCLE_DEG`, `ACCENT`) and the cluster-size buckets (`CLUSTER_SIZE_BREAKS`, replacing the if/else ladder), and the thumbnail params (`THUMB_SIZE_PX`, `THUMB_JPEG_QUALITY`) in `thumbnail.js`. The upload cap was already named (`config.uploadMaxBytes`, SEC-07).
+- **Files affected:** `src/components/PhotoMap.jsx`, `server/services/thumbnail.js`.
 
 ### CQ-03 — Dead code exports in `usePhotos`
 - **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002, via ARCH-06)
 - **Resolution:** The ARCH-06 hook split removed the 6 unused destructures from App.jsx (`refresh`(now used)/`updatePhotoSurveyDate`/`updatePhotoProject`/`createClient`/`createProject`/`assignToProject`) — App now destructures only what it uses; the operations remain available on their respective hooks' APIs. Lint no-unused warnings dropped 15 → 9.
 
 ### CQ-04 — Inconsistent error UX (toast/alert/confirm/silent)
-- **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** Mix of `toast()`, `window.alert/confirm` (`PhotoMap.jsx:588,597`), and silent catches.
-- **Recommended solution:** Standardize on toast + confirm modal; remove native dialogs.
-- **Files affected:** `PhotoMap.jsx`, others.
-- **Dependencies:** Pairs with FE-04.
+- **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Description:** Mix of `toast()`, native `window.confirm`, and silent catches. After the SEC-12/FE-04 refactors the only native dialog left was the delete `window.confirm` in `PhotoPopup`.
+- **Resolution:** Replaced that `window.confirm` with an **inline two-step confirm** (Delete → Confirm delete / Cancel) inside the popup — the app's `ConfirmModal` can't render into the Leaflet popup's isolated React root, so an inline confirm is the correct pattern there. No native dialogs remain in `src/`. 2 component tests (confirm + cancel paths) replace the old `window.confirm` mocks.
+- **Files affected:** `src/components/PhotoPopup.jsx`, `tests/components/PhotoPopup.test.jsx`.
+- **Dependencies:** Followed FE-04 (ConfirmModal) + SEC-12 (popup componentization).
 
 ### CQ-05 — No logging strategy
 - **Category:** Code Quality · **Severity:** Medium · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
@@ -625,6 +624,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-03 (Session 002)** — ✅ **SEC-06 + CQ-02 + CQ-04.** SEC-06: upload handler
+  now decodes bytes with `sharp` and accepts only real jpeg/png/webp/heif (rejects
+  SVG/spoofed non-images, 400) before storing. CQ-02: named the FOV/cluster/thumbnail
+  magic numbers. CQ-04: replaced the last native `window.confirm` (PhotoPopup) with an
+  inline two-step confirm. **112 tests.** [SEC-06, CQ-02, CQ-04]
 - **2026-07-03 (Session 002)** — ✅ **FEAT-01/02/04 + backlog reconciliation.** Closed
   **FEAT-01** (pagination → delivered by PERF-01a) and **FEAT-04** (rate limiting →
   SEC-07) as already-delivered; extended server search to **tags** (json1) so

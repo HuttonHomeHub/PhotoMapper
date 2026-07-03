@@ -22,6 +22,13 @@ L.Icon.Default.mergeOptions({
   shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href,
 });
 
+// CQ-02: FOV-cone geometry constants (see docs/geo-math.md for derivations).
+const ACCENT = '#e97b25';
+const SENSOR_HALF_WIDTH_MM = 18; // half of a 36mm full-frame sensor
+const DEFAULT_HFOV_RAD = (65 * Math.PI) / 180; // fallback when focal length is unknown
+const FOV_GROUND_RADIUS_M = 40; // fixed visual wedge length (not a real distance)
+const PANO_FULL_CIRCLE_DEG = 358; // ≥ this is treated as a full 360° panorama
+
 // Build a field-of-view wedge showing where the camera pointed and how wide its
 // view was. Requires a bearing (imgDirection). The horizontal FOV comes from the
 // panorama metadata when present, else is estimated from the 35mm-equivalent
@@ -31,14 +38,14 @@ function createFovConePolygon(photo) {
 
   const hasPanoHFov = photo.panoHFov != null && photo.panoHFov > 0;
 
-  // ≥358° is effectively a full 360° panorama, so a wedge is meaningless.
-  if (hasPanoHFov && photo.panoHFov >= 358) {
+  // A near-full panorama has no meaningful direction, so draw a ring instead.
+  if (hasPanoHFov && photo.panoHFov >= PANO_FULL_CIRCLE_DEG) {
     return L.circle([photo.lat, photo.lng], {
-      radius: 40,
-      color: '#e97b25',
+      radius: FOV_GROUND_RADIUS_M,
+      color: ACCENT,
       weight: 2,
       opacity: 0.9,
-      fillColor: '#e97b25',
+      fillColor: ACCENT,
       fillOpacity: 0.2,
       interactive: false,
     });
@@ -48,13 +55,13 @@ function createFovConePolygon(photo) {
   if (hasPanoHFov) {
     hFovRad = (photo.panoHFov * Math.PI) / 180;
   } else {
-    // HFOV = 2·atan((sensorWidth/2) / focalLength); 18 = half of a 36mm full-frame
-    // sensor, valid because efl is the 35mm-equivalent focal length. 65° fallback.
+    // HFOV = 2·atan((sensorWidth/2) / focalLength); using the 35mm-equivalent
+    // focal length keeps the fixed full-frame sensor width correct.
     const efl = photo.focalLengthIn35mm ?? photo.focalLength;
-    hFovRad = efl ? 2 * Math.atan(18 / efl) : (65 * Math.PI) / 180;
+    hFovRad = efl ? 2 * Math.atan(SENSOR_HALF_WIDTH_MM / efl) : DEFAULT_HFOV_RAD;
   }
 
-  const groundRadius = 40; // fixed visual length in metres (not derived from the photo)
+  const groundRadius = FOV_GROUND_RADIUS_M;
   const halfAngle = hFovRad / 2;
   const dirRad = (photo.imgDirection * Math.PI) / 180;
   const R = 6371000;
@@ -77,10 +84,10 @@ function createFovConePolygon(photo) {
     vertices.push([(lat2 * 180) / Math.PI, (lng2 * 180) / Math.PI]);
   }
   return L.polygon([[photo.lat, photo.lng], ...vertices, [photo.lat, photo.lng]], {
-    color: '#e97b25',
+    color: ACCENT,
     weight: 2,
     opacity: 0.9,
-    fillColor: '#e97b25',
+    fillColor: ACCENT,
     fillOpacity: 0.2,
     interactive: false,
   });
@@ -108,20 +115,17 @@ function createPhotoIcon(photo) {
   });
 }
 
+// CQ-02: cluster marker size buckets keyed by child count (ascending).
+const CLUSTER_SIZE_BREAKS = [
+  [5, 'xs'],
+  [10, 'sm'],
+  [25, 'md'],
+  [100, 'lg'],
+];
+
 function createClusterIcon(cluster) {
   const count = cluster.getChildCount();
-  let size;
-  if (count < 5) {
-    size = 'xs';
-  } else if (count < 10) {
-    size = 'sm';
-  } else if (count < 25) {
-    size = 'md';
-  } else if (count < 100) {
-    size = 'lg';
-  } else {
-    size = 'xl';
-  }
+  const size = CLUSTER_SIZE_BREAKS.find(([max]) => count < max)?.[1] ?? 'xl';
   return L.divIcon({
     html: `<div class="cluster-icon cluster-${size}" style="width:36px;height:36px"><span>${count}</span></div>`,
     className: '',

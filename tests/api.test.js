@@ -73,6 +73,13 @@ describe('photos API', () => {
     expect(del.status).toBe(200);
   });
 
+  it('SEC-06: rejects a non-image sent with an image extension (400)', async () => {
+    const notAnImage = Buffer.from('this is definitely not an image');
+    const res = await request(app).post('/api/photos').attach('photo', notAnImage, 'evil.jpg');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/not a supported image/i);
+  });
+
   it('PATCH /api/photos/:id for an unknown id returns 404', async () => {
     const res = await request(app).patch('/api/photos/does-not-exist').send({ description: 'x' });
     expect(res.status).toBe(404);

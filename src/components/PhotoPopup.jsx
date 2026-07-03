@@ -6,6 +6,7 @@ import { formatDate } from '../lib/format.js';
 // reintroduce a stored-XSS hole by adding an un-escaped field later.
 export function PhotoPopup({ photo, onView, onDelete, onClose }) {
   const [deleting, setDeleting] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState(null);
 
   const rows = [];
@@ -20,8 +21,9 @@ export function PhotoPopup({ photo, onView, onDelete, onClose }) {
   if (photo.altitude != null) rows.push(['Altitude', `${Math.round(photo.altitude)}m`]);
   if (photo.imgDirection != null) rows.push(['Direction', `${Math.round(photo.imgDirection)}°`]);
 
-  async function handleDelete() {
-    if (!window.confirm('Delete this photo? This cannot be undone.')) return;
+  // CQ-04: inline two-step confirm instead of window.confirm — the popup lives in
+  // an isolated Leaflet React root where the app's ConfirmModal can't render.
+  async function runDelete() {
     setDeleting(true);
     setError(null);
     try {
@@ -48,9 +50,24 @@ export function PhotoPopup({ photo, onView, onDelete, onClose }) {
         <button className="popup-view-btn" onClick={() => onView?.(photo)}>
           View photo
         </button>
-        <button className="popup-delete-btn" onClick={handleDelete} disabled={deleting}>
-          {deleting ? 'Deleting…' : 'Delete photo'}
-        </button>
+        {confirming ? (
+          <>
+            <button className="popup-delete-btn" onClick={runDelete} disabled={deleting}>
+              {deleting ? 'Deleting…' : 'Confirm delete'}
+            </button>
+            <button
+              className="popup-view-btn"
+              onClick={() => setConfirming(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </button>
+          </>
+        ) : (
+          <button className="popup-delete-btn" onClick={() => setConfirming(true)}>
+            Delete photo
+          </button>
+        )}
       </div>
       {error && <div className="popup-error">Could not delete: {error}</div>}
       {hasCoords && (

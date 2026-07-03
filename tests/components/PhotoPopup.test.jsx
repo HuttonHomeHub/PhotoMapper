@@ -43,25 +43,32 @@ describe('PhotoPopup', () => {
     expect(onView).toHaveBeenCalledWith(photo)
   })
 
-  it('deletes on confirm and calls onClose', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
+  it('CQ-04: deletes via the inline two-step confirm and calls onClose', async () => {
     const onDelete = vi.fn().mockResolvedValue(undefined)
     const onClose = vi.fn()
     render(<PhotoPopup photo={photo} onView={vi.fn()} onDelete={onDelete} onClose={onClose} />)
     fireEvent.click(screen.getByRole('button', { name: /delete photo/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirm delete/i }))
     await waitFor(() => expect(onClose).toHaveBeenCalled())
     expect(onDelete).toHaveBeenCalledWith('p1')
-    window.confirm.mockRestore()
+  })
+
+  it('CQ-04: cancel backs out without deleting', () => {
+    const onDelete = vi.fn()
+    render(<PhotoPopup photo={photo} onView={vi.fn()} onDelete={onDelete} />)
+    fireEvent.click(screen.getByRole('button', { name: /delete photo/i }))
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(screen.getByRole('button', { name: /delete photo/i })).toBeInTheDocument()
+    expect(onDelete).not.toHaveBeenCalled()
   })
 
   it('surfaces a delete error and stays open', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     const onDelete = vi.fn().mockRejectedValue(new Error('boom'))
     const onClose = vi.fn()
     render(<PhotoPopup photo={photo} onView={vi.fn()} onDelete={onDelete} onClose={onClose} />)
     fireEvent.click(screen.getByRole('button', { name: /delete photo/i }))
+    fireEvent.click(screen.getByRole('button', { name: /confirm delete/i }))
     expect(await screen.findByText(/Could not delete: boom/i)).toBeInTheDocument()
     expect(onClose).not.toHaveBeenCalled()
-    window.confirm.mockRestore()
   })
 })
