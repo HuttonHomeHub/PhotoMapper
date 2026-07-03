@@ -137,14 +137,6 @@ router.get('/export', (req, res) => {
   res.send(toKML(photos));
 });
 
-router.get('/check-hash', (req, res) => {
-  const { hash } = req.query;
-  if (!hash) return res.status(400).json({ error: 'hash required' });
-  const existing = getPhotoByHash(hash);
-  if (existing) return res.json({ duplicate: true, photo: existing });
-  res.status(404).json({ duplicate: false });
-});
-
 router.patch('/batch', validate(schemas.batchUpdatePhotos), (req, res) => {
   const { ids, tags, description, mergeTags } = req.body;
   const allPhotos = getAllPhotos();

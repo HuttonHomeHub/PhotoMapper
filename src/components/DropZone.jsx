@@ -1,13 +1,5 @@
 import { useState, useRef } from 'react'
 
-async function hashFile(file) {
-  const buffer = await file.arrayBuffer()
-  const digest = await crypto.subtle.digest('SHA-256', buffer)
-  return Array.from(new Uint8Array(digest))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
-}
-
 function AssignModal({ fileCount, clients, projects, onConfirm, onSkip }) {
   const defaultMode = clients.length > 0 ? 'existing' : 'new'
   const [mode, setMode] = useState(defaultMode)
@@ -185,15 +177,9 @@ export function DropZone({ onUploadComplete, setResults, openDrawer, clients = [
   const inputRef = useRef(null)
 
   async function uploadFile(file, projectId) {
-    const hash = await hashFile(file)
-
-    const checkRes = await fetch(`/api/photos/check-hash?hash=${hash}`)
-    if (checkRes.ok) {
-      const err = new Error('Already uploaded')
-      err.isDuplicate = true
-      throw err
-    }
-
+    // PERF-07: no client-side hashing/pre-check — the server dedupes by content
+    // hash (unique index) and returns 409 for duplicates. This avoids reading
+    // the whole file into memory in the browser and an extra round-trip.
     const formData = new FormData()
     formData.append('photo', file)
     if (projectId) formData.append('projectId', projectId)

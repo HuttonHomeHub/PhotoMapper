@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 34 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 30
-- **Current phase:** Phase 4 — Frontend architecture & quality. ARCH-02, ARCH-06, CQ-01, CQ-03, CQ-06, SEC-12 ✅; PERF-05 ✅. Remaining Phase 4: FE-05/06/02/03. Backend (Phases 0–3) complete.
+- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 37 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 27
+- **Current phase:** Phase 4 — Frontend architecture & quality (ARCH-02/06, CQ-01/03/06, SEC-12 ✅). PERF-05/07 ✅ (PERF-07 also retired SEC-10 + BE-05). Remaining Phase 4: FE-05/06/02/03. Backend (Phases 0–3) complete.
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -24,7 +24,7 @@
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
 | 3 | Backend architecture & correctness | 10 / 10 | ✅ Complete (BE-02/03/04/06/07, SEC-05, ARCH-01/03, CQ-05/OPS-06) |
 | 4 | Frontend architecture & quality | 6 / 10 | **Active** (ARCH-02/06, CQ-01/03/06, SEC-12 ✅; next FE-05/06/02/03) |
-| 5 | Performance | 2 / 6 | PERF-03 ✅, PERF-05 ✅ |
+| 5 | Performance | 3 / 6 | PERF-03, PERF-05, PERF-07 ✅ |
 | 6 | Testing depth | 0 / 2 | Not started |
 | 7 | Documentation | 0 / 5 | Not started |
 | 8 | DevOps & infra | 0 / 7 | Not started |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 30 |
+| Not Started | 27 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 34 |
+| Completed | 37 |
 | Deferred | 6 |
 | **Total** | **73** |
 
@@ -134,11 +134,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Needs DEP-02.
 
 ### SEC-10 — Hash-existence oracle (`check-hash`)
-- **Category:** Security · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** `GET /api/photos/check-hash` (`server/index.js:303`) reveals whether any hash exists.
-- **Recommended solution:** Gate behind auth (SEC-01); consider removing client pre-check entirely (see PERF-07).
-- **Files affected:** `server/index.js`, `src/components/DropZone.jsx`.
-- **Dependencies:** Resolved largely by SEC-01 + PERF-07.
+- **Category:** Security · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002, obsoleted by PERF-07)
+- **Description:** `GET /api/photos/check-hash` revealed whether any hash exists.
+- **Resolution:** The endpoint was removed entirely by PERF-07 (client no longer pre-checks). Also behind the edge-auth perimeter (ADR-0007) regardless.
 
 ### SEC-11 — No HTTPS/HSTS enforcement
 - **Category:** Security · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
@@ -191,11 +189,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Pairs with BE-02, BE-01.
 
 ### BE-05 — `check-hash` misuses 404 as a normal signal
-- **Category:** Backend · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** Returns `404 {duplicate:false}` as an expected (non-error) response (`server/index.js:303-309`).
-- **Recommended solution:** Return 200 with `{duplicate: boolean}`; or remove endpoint (PERF-07).
-- **Files affected:** `server/index.js`, `src/components/DropZone.jsx`.
-- **Dependencies:** May be obsoleted by PERF-07.
+- **Category:** Backend · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002, obsoleted by PERF-07)
+- **Description:** Returned `404 {duplicate:false}` as an expected (non-error) response.
+- **Resolution:** The `check-hash` route was removed by PERF-07, so the status-code misuse no longer exists.
 
 ### BE-06 — Route ordering: reset & catch-all after error handler/static
 - **Category:** Backend · **Severity:** Low · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** Not Started
@@ -366,11 +362,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Interacts with PERF-01 (bbox loading), SEC-12 (popup rendering).
 
 ### PERF-07 — Client hashes entire file in memory + redundant round-trip
-- **Category:** Performance · **Severity:** Medium · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** `DropZone.jsx:3-9` reads whole file (≤100 MB) into memory, duplicating the server hash, plus an extra `check-hash` round-trip.
-- **Recommended solution:** Drop client-side hashing/pre-check; rely on server dedupe (already enforced by unique index + 409). Removes SEC-10/BE-05 surface.
-- **Files affected:** `src/components/DropZone.jsx`, `server/index.js` (retire check-hash).
-- **Dependencies:** Obsoletes SEC-10, BE-05.
+- **Category:** Performance · **Severity:** Medium · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Removed the client-side `hashFile` (whole-file `arrayBuffer` + SHA-256) and the `check-hash` pre-fetch from `DropZone`. Uploads now rely on the server's content-hash dedupe (unique index → 409), which the client already handled. Saves reading the whole file into browser memory and an extra round-trip. Retired the `GET /api/photos/check-hash` route → **obsoletes SEC-10 and BE-05**.
+- **Files affected:** `src/components/DropZone.jsx`, `server/routes/photos.js`, `tests/api.test.js`.
 
 ### PERF-08 — No response compression
 - **Category:** Performance · **Severity:** Low · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
@@ -616,6 +610,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **PERF-07 (+ obsoletes SEC-10, BE-05).** Removed
+  client-side file hashing + `check-hash` pre-check from DropZone; rely on the
+  server 409 dedupe. Retired the `check-hash` route. Suite **76 tests**. [PERF-07, SEC-10, BE-05]
 - **2026-07-02 (Session 002)** — ✅ **ARCH-06 + CQ-03.** Split the 25-return `usePhotos`
   into `usePhotos`/`useClients`/`useProjects` (composed in App; project↔photo
   cross-refresh via `onPhotosChanged`). Cleared the 6 dead-destructure warnings

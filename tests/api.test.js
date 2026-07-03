@@ -40,10 +40,6 @@ describe('photos API', () => {
     expect(res.status).toBe(404);
   });
 
-  it('GET /api/photos/check-hash without a hash returns 400', async () => {
-    const res = await request(app).get('/api/photos/check-hash');
-    expect(res.status).toBe(400);
-  });
 });
 
 describe('clients & projects API', () => {
