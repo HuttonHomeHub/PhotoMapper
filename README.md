@@ -65,7 +65,8 @@ All runtime config is validated on startup (`server/config.js`). Copy
 | `ALLOW_RESET` | `false` | Enables the destructive `DELETE /api/reset` |
 | `UPLOAD_MAX_BYTES` | `62914560` (60 MB) | Upload size cap |
 | `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` | `900000` / `1000` | Per-IP API rate limit |
-| `LOG_LEVEL` | `info` | pino level (`silent` under test) |
+| `TRUST_PROXY` | _(off)_ | Express `trust proxy` for reverse-proxy deploys (hop count / `true` / IP list) |
+| `LOG_LEVEL` | `info` | pino level (`silent` under test; `warn` drops per-request logs) |
 
 ## Architecture
 
