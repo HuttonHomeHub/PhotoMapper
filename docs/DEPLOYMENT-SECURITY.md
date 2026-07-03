@@ -115,8 +115,10 @@ Key points:
   never exposed to the internet directly. Point your reverse proxy (above) at
   `127.0.0.1:3001`. If the proxy runs in its own container, put both on a shared
   Docker network and drop the published port entirely.
-- **Non-root** — the container runs as the unprivileged `node` user; `/config` is
-  pre-owned by it so a fresh named volume is writable.
+- **Non-root + PUID/PGID** — the entrypoint starts as root only to `chown /config`
+  to `PUID:PGID` (default `1000:1000`), then drops privileges via `gosu` and runs
+  the app as that user. So a bare bind mount works without a manual chown, and you
+  can set `PUID`/`PGID` like the rest of a typical stack.
 - **Graceful shutdown** — `stop_grace_period: 15s` gives the app's SIGTERM handler
   (OPS-05, 10 s force-exit guard) time to drain in-flight requests and close the
   DB before the container is killed.
@@ -145,8 +147,10 @@ photomapper:
   ports:
     - 127.0.0.1:3001:3001   # loopback only — the reverse proxy fronts it (no in-app auth)
   environment:
-    - NODE_ENV=production
+    - PUID=1000
+    - PGID=1000
     - TZ=Europe/London
+    - NODE_ENV=production
     # - ALLOWED_ORIGINS=https://photos.example.com
     # - ALLOW_RESET=false
   volumes:
@@ -156,10 +160,11 @@ photomapper:
 
 Notes:
 
-- **Bind-mount ownership** — the container runs as the `node` user (**uid 1000**).
-  If you bind-mount a host directory (as above) rather than a named volume, make it
-  writable by that uid first: `sudo mkdir -p /apps/photomapper/config && sudo chown -R 1000:1000 /apps/photomapper/config`.
-  (No `PUID`/`PGID` support — this isn't a linuxserver.io image; uid 1000 is fixed.)
+- **No manual chown needed** — the entrypoint chowns `/config` to `PUID:PGID` at
+  startup (like linuxserver/hotio images), so a bare bind mount just works. `PUID`/
+  `PGID` default to `1000` if unset. (One edge case: to adopt a *pre-existing* photo
+  library owned by a different uid, `chown -R` it once — the startup chown is
+  non-recursive so it stays fast as the library grows.)
 - **Package visibility** — GHCR packages are **private by default**. Either make the
   package public (repo → Packages → the image → Package settings → change visibility)
   for anonymous pulls, or `docker login ghcr.io` on the host with a token that has
