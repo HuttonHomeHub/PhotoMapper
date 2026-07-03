@@ -49,6 +49,17 @@ describe('photos API', () => {
     expect(res.status).toBe(404);
   });
 
+  it('GET /api/photos/:id for an unknown id returns 404', async () => {
+    const res = await request(app).get('/api/photos/does-not-exist');
+    expect(res.status).toBe(404);
+    expect(res.body).toHaveProperty('error');
+  });
+
+  it('GET /api/photos/export is not captured by the :id route', async () => {
+    const res = await request(app).get('/api/photos/export');
+    expect(res.status).toBe(200);
+  });
+
 });
 
 describe('clients & projects API', () => {

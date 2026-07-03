@@ -78,7 +78,28 @@ Upload a photo. `multipart/form-data`:
 - Oversize files or unsupported types are rejected with an error response.
 
 ### `GET /api/photos`
-- **200** → array of Photos, ordered by `uploadedAt` descending.
+List photos, newest first. **Backward-compatible dual shape:**
+- With **no query params** → **200** → a bare array of Photos (legacy).
+- With **any** filter/paging param below → **200** →
+  `{ "items": [Photo…], "total": <int>, "limit": <int|null>, "offset": <int> }`.
+
+| Param | Meaning |
+|---|---|
+| `limit`, `offset` | Pagination. `limit` is capped at 500. |
+| `projectId` | Filter by project; `none` = unassigned. |
+| `clientId` | Filter by client (via the photo's project); `none` = unassigned. |
+| `surveyDate` | `YYYY-MM-DD`; `undated` = no survey date. |
+| `tag` | Photos carrying this exact tag. |
+| `search` | Substring match on original name / location / description. |
+| `hasGps` | `true` → only geotagged photos. |
+| `from`, `to` | `YYYY-MM-DD` bounds on the date taken. |
+| `bbox` | `west,south,east,north` — geotagged photos within the box. |
+
+> Draw-region (polygon) filtering is applied client-side, not via this endpoint.
+
+### `GET /api/photos/:id`
+Single-photo detail (full EXIF), for the lightbox / deep-linking.
+- **200** → the Photo. **404** unknown id.
 
 ### `GET /api/photos/export?format=geojson|kml`
 Download geotagged photos as a file (defaults to GeoJSON).

@@ -179,6 +179,14 @@ router.get('/export', (req, res) => {
   res.send(toKML(photos));
 });
 
+// PERF-01/A: single-photo detail. A proper REST resource for the lightbox/detail
+// view and deep-linking. Declared after /export so ":id" doesn't capture it.
+router.get('/:id', (req, res) => {
+  const photo = getPhotoFullById(req.params.id);
+  if (!photo) return res.status(404).json({ error: 'Photo not found' });
+  res.json(photo);
+});
+
 router.patch('/batch', validate(schemas.batchUpdatePhotos), (req, res) => {
   const { ids, tags, description, mergeTags } = req.body;
   const allPhotos = getAllPhotos();
