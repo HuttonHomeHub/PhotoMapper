@@ -9,6 +9,9 @@
  *
  * Patched: line 527 changed from `img.data = imgData` to `img.data.set(imgData)`
  * to fix "Cannot assign to read only property 'data'" in modern browsers.
+ * Patched: the UMD global context below was `this`, which is `undefined` at the
+ * top level of a production ES module (Vite/Rollup). That made `context.h337`
+ * throw and blank the app. Use `window` in the browser so `window.h337` is set.
  */
 ;(function (name, context, factory) {
 
@@ -21,7 +24,7 @@
     context[name] = factory();
   }
 
-})("h337", this, function () {
+})("h337", typeof window !== "undefined" ? window : this, function () {
 
 // Heatmap Config stores default values and will be merged with instance config
 var HeatmapConfig = {
