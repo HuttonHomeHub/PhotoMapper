@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { validate, schemas } from '../validation.js';
-import { createClient, getAllClients, updateClient, deleteClient } from '../db.js';
+import { createClient, getAllClients, getClientById, updateClient, deleteClient } from '../db.js';
 
 const router = Router();
 
@@ -39,7 +39,7 @@ router.patch('/:id', validate(schemas.updateClient), (req, res) => {
     throw err;
   }
   if (!changed) return res.status(404).json({ error: 'Client not found' });
-  res.json(getAllClients().find((c) => c.id === req.params.id));
+  res.json(getClientById(req.params.id));
 });
 
 router.delete('/:id', (req, res) => {

@@ -301,6 +301,16 @@ const selectAllProjectsStmt = db.prepare(`
   ORDER BY pr.created_at DESC
 `);
 
+// PERF-02: single-project read-after-write, same aggregate shape as the list query.
+const selectProjectByIdStmt = db.prepare(`
+  SELECT pr.*, COUNT(p.id) as photo_count, cl.name as client_name
+  FROM projects pr
+  LEFT JOIN photos p ON p.project_id = pr.id
+  LEFT JOIN clients cl ON cl.id = pr.client_id
+  WHERE pr.id = ?
+  GROUP BY pr.id
+`);
+
 const insertProjectStmt = db.prepare(`
   INSERT INTO projects (id, name, client_id, status, color, created_at, updated_at)
   VALUES (@id, @name, @clientId, @status, @color, @createdAt, @updatedAt)
@@ -315,6 +325,9 @@ const selectByIdStmt = db.prepare(
   'SELECT id, filename, thumbnail_filename FROM photos WHERE id = ?'
 );
 const selectByHashStmt = db.prepare('SELECT * FROM photos WHERE file_hash = ?');
+// PERF-02: fetch a single fully-mapped photo by id (read-after-write) instead of
+// scanning every row with getAllPhotos().find().
+const selectPhotoByIdFullStmt = db.prepare('SELECT * FROM photos WHERE id = ?');
 const deleteStmt = db.prepare('DELETE FROM photos WHERE id = ?');
 const updateStmt = db.prepare(`
   UPDATE photos
@@ -351,6 +364,15 @@ const selectAllClientsStmt = db.prepare(`
   ORDER BY cl.name ASC
 `);
 
+// PERF-02: single-client read-after-write, same aggregate shape as the list query.
+const selectClientByIdStmt = db.prepare(`
+  SELECT cl.*, COUNT(DISTINCT pr.id) as project_count
+  FROM clients cl
+  LEFT JOIN projects pr ON pr.client_id = cl.id
+  WHERE cl.id = ?
+  GROUP BY cl.id
+`);
+
 const updateClientStmt = db.prepare(`
   UPDATE clients SET name = @name, updated_at = @updatedAt WHERE id = @id
 `);
@@ -363,8 +385,18 @@ export function insertPhoto(record) {
   insertStmt.run(record);
 }
 
-export function getPhotoByHash(hash) {
-  const row = selectByHashStmt.get(hash);
+// Shared snake_case row → camelCase DTO mappers, so the list, by-hash and by-id
+// queries can never drift out of sync (PERF-02 added the by-id readers).
+function parseTags(raw) {
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+function mapPhotoRow(row) {
   if (!row) return null;
   return {
     id: row.id,
@@ -389,16 +421,45 @@ export function getPhotoByHash(hash) {
     exposureTime: row.exposure_time,
     locationName: row.location_name ?? null,
     description: row.description ?? null,
-    tags: row.tags
-      ? (() => {
-          try {
-            return JSON.parse(row.tags);
-          } catch {
-            return [];
-          }
-        })()
-      : [],
+    tags: parseTags(row.tags),
+    projectId: row.project_id ?? null,
   };
+}
+
+function mapProjectRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    clientId: row.client_id ?? null,
+    clientName: row.client_name ?? null,
+    status: row.status,
+    color: row.color,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    photoCount: row.photo_count,
+  };
+}
+
+function mapClientRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    projectCount: row.project_count,
+  };
+}
+
+export function getPhotoByHash(hash) {
+  return mapPhotoRow(selectByHashStmt.get(hash));
+}
+
+// PERF-02: return only the affected photo after a write, instead of
+// getAllPhotos().find() scanning the whole table.
+export function getPhotoFullById(id) {
+  return mapPhotoRow(selectPhotoByIdFullStmt.get(id));
 }
 
 export function updatePhoto(id, { description, tags, locationName } = {}) {
@@ -458,54 +519,16 @@ export function setGeocodeCache(key, locationName) {
 }
 
 export function getAllPhotos() {
-  return selectAllStmt.all().map((row) => ({
-    id: row.id,
-    filename: row.filename,
-    thumbnailFilename: row.thumbnail_filename ?? null,
-    originalName: row.original_name,
-    uploadedAt: row.uploaded_at,
-    hasGps: row.has_gps === 1,
-    lat: row.lat,
-    lng: row.lng,
-    altitude: row.altitude,
-    imgDirection: row.img_direction,
-    dateTaken: row.date_taken,
-    cameraMake: row.camera_make,
-    cameraModel: row.camera_model,
-    focalLength: row.focal_length,
-    focalLengthIn35mm: row.focal_length_in_35mm ?? null,
-    panoHFov: row.pano_hfov ?? null,
-    fNumber: row.f_number,
-    iso: row.iso,
-    exposureTime: row.exposure_time,
-    locationName: row.location_name ?? null,
-    description: row.description ?? null,
-    tags: row.tags
-      ? (() => {
-          try {
-            return JSON.parse(row.tags);
-          } catch {
-            return [];
-          }
-        })()
-      : [],
-    surveyDate: row.survey_date ?? null,
-    projectId: row.project_id ?? null,
-  }));
+  return selectAllStmt.all().map(mapPhotoRow);
 }
 
 export function getAllProjects() {
-  return selectAllProjectsStmt.all().map((row) => ({
-    id: row.id,
-    name: row.name,
-    clientId: row.client_id ?? null,
-    clientName: row.client_name ?? null,
-    status: row.status,
-    color: row.color,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    photoCount: row.photo_count,
-  }));
+  return selectAllProjectsStmt.all().map(mapProjectRow);
+}
+
+// PERF-02: return only the affected project after a write.
+export function getProjectById(id) {
+  return mapProjectRow(selectProjectByIdStmt.get(id));
 }
 
 export function createProject({ id, name, clientId, status, color, createdAt, updatedAt }) {
@@ -565,13 +588,12 @@ export function createClient({ id, name, createdAt, updatedAt }) {
 }
 
 export function getAllClients() {
-  return selectAllClientsStmt.all().map((row) => ({
-    id: row.id,
-    name: row.name,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    projectCount: row.project_count,
-  }));
+  return selectAllClientsStmt.all().map(mapClientRow);
+}
+
+// PERF-02: return only the affected client after a write.
+export function getClientById(id) {
+  return mapClientRow(selectClientByIdStmt.get(id));
 }
 
 export function updateClient(id, { name, updatedAt }) {

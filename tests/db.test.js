@@ -77,6 +77,16 @@ describe('photos data layer', () => {
     expect(dbmod.getPhotoByHash('does-not-exist')).toBeNull();
   });
 
+  it('PERF-02: getPhotoFullById returns the full DTO or null', () => {
+    const row = dbmod.getPhotoFullById('photo-1');
+    expect(row).not.toBeNull();
+    expect(row.id).toBe('photo-1');
+    expect(row.hasGps).toBe(true);
+    expect(row.projectId).toBeNull();
+    expect(row.tags).toEqual([]);
+    expect(dbmod.getPhotoFullById('nope')).toBeNull();
+  });
+
   it('round-trips description and JSON tags through updatePhoto', () => {
     dbmod.updatePhoto('photo-1', { description: 'field note', tags: ['a', 'b'] });
     const row = dbmod.getAllPhotos().find((p) => p.id === 'photo-1');
@@ -128,6 +138,19 @@ describe('clients and projects', () => {
     expect(proj.photoCount).toBe(0);
     // client project count now reflects the new project
     expect(dbmod.getAllClients().find((c) => c.id === 'client-1').projectCount).toBe(1);
+  });
+
+  it('PERF-02: getProjectById / getClientById return the same aggregate shape', () => {
+    const proj = dbmod.getProjectById('project-1');
+    expect(proj).not.toBeNull();
+    expect(proj.clientName).toBe('Acme');
+    expect(proj.photoCount).toBe(0);
+    expect(dbmod.getProjectById('nope')).toBeNull();
+
+    const client = dbmod.getClientById('client-1');
+    expect(client).not.toBeNull();
+    expect(client.projectCount).toBe(1);
+    expect(dbmod.getClientById('nope')).toBeNull();
   });
 
   it('assigns a photo to a project and reflects it in the photo count', () => {

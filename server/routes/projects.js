@@ -4,6 +4,7 @@ import { validate, schemas } from '../validation.js';
 import {
   createProject,
   getAllProjects,
+  getProjectById,
   updateProject,
   deleteProject,
   assignPhotosToProject,
@@ -40,7 +41,7 @@ router.patch('/:id', validate(schemas.updateProject), (req, res) => {
   }
   const changed = updateProject(req.params.id, changes);
   if (!changed) return res.status(404).json({ error: 'Project not found' });
-  res.json(getAllProjects().find((p) => p.id === req.params.id));
+  res.json(getProjectById(req.params.id));
 });
 
 router.delete('/:id', (req, res) => {

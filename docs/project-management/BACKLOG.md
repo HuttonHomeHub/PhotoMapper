@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 42 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 7 · **Not Started:** 23
-- **Current phase:** Phase 4 tail + opportunistic wins. Done so far incl. DOC-01 (README), OPS-04/05 (health + graceful shutdown), ARCH-04 (dropped dead collections tables), OPS-02 (Docker + compose). Remaining: FE-05/06/02/03, Phase 5 (PERF-01/02/06), Phase 7 docs. Backend (Phases 0–3) complete. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
+- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 43 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 7 · **Not Started:** 22
+- **Current phase:** Phase 4 tail + opportunistic wins. Done so far incl. DOC-01 (README), OPS-04/05 (health + graceful shutdown), ARCH-04 (dropped dead collections tables), OPS-02 (Docker + compose), PERF-02 (by-id read-after-write). Remaining: FE-05/06/02/03, Phase 5 (PERF-01/06), Phase 7 docs. Backend (Phases 0–3) complete. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -24,7 +24,7 @@
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
 | 3 | Backend architecture & correctness | 10 / 10 | ✅ Complete (BE-02/03/04/06/07, SEC-05, ARCH-01/03, CQ-05/OPS-06) |
 | 4 | Frontend architecture & quality | 6 / 10 | **Active** (ARCH-02/06, CQ-01/03/06, SEC-12 ✅; next FE-05/06/02/03) |
-| 5 | Performance | 3 / 6 | PERF-03, PERF-05, PERF-07 ✅ |
+| 5 | Performance | 4 / 6 | PERF-02, PERF-03, PERF-05, PERF-07 ✅ |
 | 6 | Testing depth | 0 / 2 | Not started |
 | 7 | Documentation | 1 / 5 | DOC-01 ✅ (README); DOC-04 in progress (ADRs) |
 | 8 | DevOps & infra | 6 / 7 | OPS-01/02/04/05/06/07 ✅ (CI, Docker, health, shutdown, logging, config); OPS-03 ⏸️ deferred (backup destination) |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 23 |
+| Not Started | 22 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 42 |
+| Completed | 43 |
 | Deferred | 7 |
 | **Total** | **74** |
 
@@ -338,11 +338,12 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Satisfies FEAT-01. Do after ARCH-01. Interacts with PERF-06.
 
 ### PERF-02 — Read-after-write full scans
-- **Category:** Performance · **Severity:** Medium · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** Every `PATCH /api/photos/:id` calls `getAllPhotos().find` (`server/index.js:299`); batch endpoint scans all (`:265`).
-- **Recommended solution:** Add `getPhotoDtoById`; return only the affected row.
-- **Files affected:** `server/db.js`, `server/index.js`.
-- **Dependencies:** Pairs with PERF-03; needs a full DTO-by-id query.
+- **Category:** Performance · **Severity:** Medium · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Description:** Every `PATCH /api/photos/:id` calls `getAllPhotos().find`; the projects and clients PATCH routes had the same `getAllX().find` full-scan read-after-write.
+- **Resolution:** Added indexed by-id DTO getters — `getPhotoFullById` (`SELECT * WHERE id=?`), `getProjectById` and `getClientById` (single-row variants of the list aggregates, `WHERE id=?`). The three PATCH routes now return only the affected row. Extracted shared `mapPhotoRow`/`mapProjectRow`/`mapClientRow` mappers so list/by-hash/by-id readers can't drift (removed 3 duplicated inline mappings). `getPhotoByHash` now also carries `projectId` (superset, backward-compatible).
+- **Note on batch:** `PATCH /api/photos/batch` still reads all photos to merge tags across the id set — that's inherently multi-row and returns a count, not rows, so it's out of scope here (revisit under PERF-01 pagination if needed).
+- **Files affected:** `server/db.js`, `server/routes/{photos,projects,clients}.js`, `tests/db.test.js` (3 new getter tests).
+- **Dependencies:** Pairs with PERF-03 ✅ (uses `idx_photos_project_id` etc. for the aggregates).
 
 ### PERF-03 — Missing DB indexes
 - **Category:** Performance · **Severity:** Medium · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
@@ -621,6 +622,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-03 (Session 002)** — ✅ **PERF-02.** Replaced `getAllX().find()`
+  read-after-write full scans in the photos/projects/clients PATCH routes with
+  indexed by-id getters (`getPhotoFullById`, `getProjectById`, `getClientById`).
+  Extracted shared `mapPhotoRow`/`mapProjectRow`/`mapClientRow` (removed 3 duplicated
+  mappings). 3 new getter tests. Suite **80 tests**. [PERF-02]
 - **2026-07-03 (Session 002)** — ✅ **OPS-02** (+ ⏸️ OPS-03 deferred). Multi-stage
   `Dockerfile` + `docker-compose.yml` (non-root, `/data` named volume for DB+uploads,
   loopback-only port, `HEALTHCHECK` → `/health`, `stop_grace_period` for graceful

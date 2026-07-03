@@ -16,6 +16,7 @@ import {
   insertPhoto,
   getAllPhotos,
   getPhotoById,
+  getPhotoFullById,
   deletePhoto,
   getPhotoByHash,
   updatePhoto,
@@ -165,7 +166,7 @@ router.patch('/:id', validate(schemas.updatePhoto), (req, res) => {
     updatePhoto(req.params.id, { description, tags });
   if (projectId !== undefined) updatePhotoProject(req.params.id, projectId);
   if (surveyDate !== undefined) updatePhotoSurveyDate(req.params.id, surveyDate);
-  res.json(getAllPhotos().find((p) => p.id === req.params.id));
+  res.json(getPhotoFullById(req.params.id));
 });
 
 router.delete('/:id', async (req, res) => {
