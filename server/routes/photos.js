@@ -8,7 +8,7 @@ import { config } from '../config.js';
 import { validate, schemas } from '../validation.js';
 import { hashFile } from '../services/hash.js';
 import { extractPhotoMetadata } from '../services/exif.js';
-import { reverseGeocode } from '../services/geocode.js';
+import { cachedLocation, enqueueGeocode } from '../services/geocodeQueue.js';
 import { generateThumbnail } from '../services/thumbnail.js';
 import { toGeoJSON, toKML } from '../services/exportPhotos.js';
 import {
@@ -67,7 +67,10 @@ router.post('/', upload.single('photo'), async (req, res) => {
   }
 
   const meta = await extractPhotoMetadata(file.path);
-  const locationName = meta.hasGps ? await reverseGeocode(meta.lat, meta.lng) : null;
+  // BE-07/SEC-05: use the geocode cache synchronously if available; otherwise the
+  // photo is saved without a location and it's resolved in the background below.
+  const cachedName = meta.hasGps ? cachedLocation(meta.lat, meta.lng) : undefined;
+  const locationName = cachedName ?? null;
   const thumbnailFilename = await generateThumbnail(file.path, file.filename);
 
   const record = {
@@ -105,6 +108,12 @@ router.post('/', upload.single('photo'), async (req, res) => {
       return res.status(409).json(duplicate(getPhotoByHash(fileHash)));
     }
     throw err;
+  }
+
+  // Resolve the location in the background (rate-limited, cached) when it wasn't
+  // already cached. Fire-and-forget — the upload response is not blocked on it.
+  if (meta.hasGps && cachedName === undefined) {
+    enqueueGeocode(record.id, meta.lat, meta.lng);
   }
 
   res.status(201).json({ ...record, hasGps: !!record.hasGps, tags: [], description: null });

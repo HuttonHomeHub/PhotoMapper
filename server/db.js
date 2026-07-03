@@ -234,6 +234,21 @@ const migrations = [
       db.exec('CREATE INDEX IF NOT EXISTS idx_photos_survey_date ON photos(survey_date)');
     },
   },
+  {
+    // BE-07/SEC-05: persistent reverse-geocode cache keyed by rounded lat/lng so
+    // repeated/nearby coordinates don't re-hit Nominatim (survives restarts).
+    version: 3,
+    name: 'geocode-cache',
+    up(db) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS geocode_cache (
+          key           TEXT PRIMARY KEY,
+          location_name TEXT,
+          cached_at     TEXT NOT NULL
+        )
+      `);
+    },
+  },
 ];
 
 // Applies any pending migrations (records versions, backs up existing data first,
@@ -302,6 +317,13 @@ const updateSurveyDateStmt = db.prepare(
 const updatePhotoProjectStmt = db.prepare(
   'UPDATE photos SET project_id = @projectId WHERE id = @id'
 );
+
+const selectGeocodeStmt = db.prepare('SELECT location_name FROM geocode_cache WHERE key = ?');
+const upsertGeocodeStmt = db.prepare(`
+  INSERT INTO geocode_cache (key, location_name, cached_at)
+  VALUES (@key, @locationName, @cachedAt)
+  ON CONFLICT(key) DO UPDATE SET location_name = @locationName, cached_at = @cachedAt
+`);
 
 const insertClientStmt = db.prepare(`
   INSERT INTO clients (id, name, created_at, updated_at)
@@ -404,6 +426,22 @@ export function updatePhotoSurveyDate(id, surveyDate) {
 
 export function updatePhotoProject(id, projectId) {
   updatePhotoProjectStmt.run({ id, projectId: projectId ?? null });
+}
+
+// BE-07/SEC-05 reverse-geocode cache. Returns `undefined` on a cache miss and the
+// stored value (a string or null) on a hit, so callers can tell "never looked up"
+// from "looked up, no result".
+export function getGeocodeCache(key) {
+  const row = selectGeocodeStmt.get(key);
+  return row ? row.location_name : undefined;
+}
+
+export function setGeocodeCache(key, locationName) {
+  upsertGeocodeStmt.run({
+    key,
+    locationName: locationName ?? null,
+    cachedAt: new Date().toISOString(),
+  });
 }
 
 export function getAllPhotos() {
@@ -534,7 +572,7 @@ export function deleteClient(id) {
 export function resetAll() {
   db.pragma('foreign_keys = OFF');
   db.exec(
-    'DELETE FROM photo_collections; DELETE FROM photos; DELETE FROM collections; DELETE FROM projects; DELETE FROM clients;'
+    'DELETE FROM photo_collections; DELETE FROM photos; DELETE FROM collections; DELETE FROM projects; DELETE FROM clients; DELETE FROM geocode_cache;'
   );
   db.pragma('foreign_keys = ON');
 }

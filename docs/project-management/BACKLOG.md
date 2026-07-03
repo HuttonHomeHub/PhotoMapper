@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 22 · **In Progress:** 3 (DEP-02, TEST-02, CQ-07) · **Deferred:** 6 · **Not Started:** 42
-- **Current phase:** Phase 3 — Backend architecture & correctness (BE-02/03/04/06, ARCH-01/03 ✅; +PERF-03 early). Remaining: BE-07/SEC-05 (geocoding job), CQ-05/OPS-06 (logging)
+- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 24 · **In Progress:** 3 (DEP-02, TEST-02, CQ-07) · **Deferred:** 6 · **Not Started:** 40
+- **Current phase:** Phase 3 — Backend architecture & correctness (BE-02/03/04/06/07, SEC-05, ARCH-01/03 ✅; +PERF-03 early). Remaining: CQ-05/OPS-06 (logging) → then Phase 4 (frontend)
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -22,7 +22,7 @@
 | 0 | Programme setup | ✅ | Complete |
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
-| 3 | Backend architecture & correctness | 6 / 10 | **Active** (BE-02/03/04/06, ARCH-01/03 ✅; next BE-07/SEC-05, CQ-05) |
+| 3 | Backend architecture & correctness | 8 / 10 | **Active** (BE-02/03/04/06/07, SEC-05, ARCH-01/03 ✅; next CQ-05/OPS-06 logging) |
 | 4 | Frontend architecture & quality | 0 / 10 | Not started |
 | 5 | Performance | 1 / 6 | PERF-03 ✅ (landed early via runner) |
 | 6 | Testing depth | 0 / 2 | Not started |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 42 |
+| Not Started | 40 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 22 |
+| Completed | 24 |
 | Deferred | 6 |
 | **Total** | **73** |
 
@@ -93,12 +93,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Pairs with SEC-09; benefits from OPS-07.
 
 ### SEC-05 — Server-side reverse geocoding: third-party abuse + blocking + DoS
-- **Category:** Security · **Severity:** High · **Priority:** P1 · **Effort:** M · **Risk:** Medium · **Status:** Not Started
-- **Description:** Every upload synchronously calls Nominatim (`server/index.js:96-114`) with no timeout, cache, or rate limit — violates Nominatim policy (IP ban risk), blocks the response, and lets attackers proxy load through the server.
-- **Root cause:** External I/O inline in the request path.
-- **Recommended solution:** Move geocoding to a background job (BE-07) with a persistent cache keyed by rounded lat/lng, a request timeout, and a ≤1 req/s limiter. Fall back gracefully.
-- **Files affected:** `server/index.js`, new `server/services/geocode.js`, `server/db.js` (cache table).
-- **Dependencies:** Implements via BE-07. Related to FEAT-04.
+- **Category:** Security · **Severity:** High · **Priority:** P1 · **Effort:** M · **Risk:** Medium · **Status:** ✅ Completed (Session 002, via BE-07)
+- **Description:** Every upload synchronously called Nominatim with no timeout, cache, or rate limit — violated Nominatim policy (IP-ban risk), blocked the response, and let attackers proxy load through the server.
+- **Resolution:** Delivered by BE-07 — geocoding is now off the request path, cached (`geocode_cache` table keyed by ~111m-rounded lat/lng, survives restarts), rate-limited to ≥1 s between requests via a single serial worker, and given a 5 s fetch timeout. Cached coordinates resolve instantly at upload; uncached ones fill in in the background. Removes the blocking call and the unbounded third-party fan-out.
+- **Files affected:** `server/services/geocode.js`, `server/services/geocodeQueue.js`, `server/routes/photos.js`, `server/db.js` (cache table + migration v3).
 
 ### SEC-06 — Upload validation trusts client MIME; no content check
 - **Category:** Security · **Severity:** Medium · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** Not Started
@@ -209,11 +207,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Naturally resolved by ARCH-01.
 
 ### BE-07 — No background job / queue (for geocoding, thumbnails)
-- **Category:** Backend · **Severity:** Medium · **Priority:** P1 · **Effort:** M · **Risk:** Medium · **Status:** Not Started
-- **Description:** Expensive/external work runs inline in the upload request.
-- **Recommended solution:** Lightweight in-process job queue (or worker) that processes thumbnail + geocode after the upload responds; mark photo records as "enriching".
-- **Files affected:** `server/index.js`, new `server/services/`, `server/db.js`, frontend polling/refresh.
-- **Dependencies:** Implements SEC-05. Enabled by ARCH-01.
+- **Category:** Backend · **Severity:** Medium · **Priority:** P1 · **Effort:** M · **Risk:** Medium · **Status:** ✅ Completed (Session 002)
+- **Description:** Expensive/external work ran inline in the upload request.
+- **Resolution:** Added `server/services/geocodeQueue.js` — a single serial, rate-limited (≥1.1 s spacing) background worker that resolves + caches reverse-geocodes and writes the label back onto the photo, so the upload response no longer waits on Nominatim. Cache hits still resolve synchronously at upload. Tests cover the cache + cache-hit queue path (no network). Implements **SEC-05**.
+- **Files affected:** `server/services/geocodeQueue.js` (new), `server/services/geocode.js`, `server/routes/photos.js`, `server/db.js`, `tests/geocode.test.js`.
+- **Note:** Thumbnails remain inline (fast, local, `sharp`); only the external geocode was moved off-path. FE-05 can now proxy the client location-search through the server geocode cache if desired.
 
 ---
 
@@ -625,6 +623,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **BE-07 + SEC-05.** Reverse-geocoding moved off
+  the upload request into a cached (`geocode_cache`, migration v3), rate-limited
+  (≥1.1 s), timed-out (5 s) background worker (`services/geocodeQueue.js`); cache
+  hits still resolve at upload. Fixes a HIGH third-party-abuse/DoS finding. Suite
+  **44 tests**. [BE-07, SEC-05]
 - **2026-07-02 (Session 002)** — ✅ **ARCH-01 + BE-06.** Split the ~470-line
   `server/index.js` into `paths` + `services/` (hash, exif, geocode, thumbnail,
   exportPhotos) + `routes/` (photos, clients, projects) + `app.js` (createApp);

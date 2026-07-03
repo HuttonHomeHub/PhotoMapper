@@ -113,18 +113,24 @@ wiring) to keep changes cohesive.
   handler last (BE-06). Behavior identical, 41 tests unchanged. `server/` split
   into 12 focused modules.
 
-### Next session start-here (Phase 3 tail, then Phase 4)
-Read this log + BACKLOG. Remaining Phase 3:
-1. **BE-07 / SEC-05** — move geocoding off the request path: a background job +
-   persistent cache (keyed by rounded lat/lng) + <=1 req/s limiter + timeout.
-   `services/geocode.js` is already isolated, so this is now well-scoped.
-2. **CQ-05 / OPS-06** — structured logging (`pino` + `pino-http`, request ids);
-   wire log level via config. Closes DEP-02. Pairs with OPS-04 (health) later.
-Then Phase 4 (frontend architecture: ARCH-02 decompose App.jsx, ARCH-06 split
-hooks, CQ-01 shared helpers, SEC-12 portal popups, TEST-03 component harness).
-Quick wins available anytime: **ARCH-04** (drop dead tables — needs the pending
-product nod), **CQ-07** tail (`prettier` over `src/` + CI check), **FE-02** (contrast).
-TEST-02 now 41 tests: db 12 + api 25 + boundary 1 + migrate 3.
+### Phase 3 continued (Session 002)
+- ✅ **BE-07 + SEC-05** — reverse-geocoding moved off the upload path into a
+  cached (`geocode_cache`, migration v3), rate-limited (≥1.1 s), timed-out (5 s)
+  background worker (`services/geocodeQueue.js`); cache hits still resolve at
+  upload. `tests/geocode.test.js` covers cache + cache-hit queue (no network).
+
+### Next session start-here (Phase 3 tail → Phase 4)
+Read this log + BACKLOG. Last Phase-3 item:
+1. **CQ-05 / OPS-06** — structured logging (`pino` + `pino-http`, request ids);
+   log level via config. Closes DEP-02. Pairs with OPS-04 (health) in Phase 8.
+Then **Phase 4 (frontend)**: ARCH-02 (decompose the 866-line App.jsx), ARCH-06
+(split usePhotos), CQ-01 (shared format/geo helpers — brings the deferred pure-
+helper tests), CQ-06 (toast context), SEC-12 (portal map popups), TEST-03
+(jsdom component harness — also lands FE-01's full render test), FE-05 (proxy the
+client location search through the new server geocode cache).
+Quick wins anytime: **ARCH-04** (drop dead tables — pending product nod),
+**CQ-07** tail (`prettier` over `src/` + CI `--check`), **FE-02** (contrast).
+TEST-02 now 44 tests: db 13 + api 25 + boundary 1 + migrate 3 + geocode 3(+ cache in db).
 
 ---
 
