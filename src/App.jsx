@@ -903,10 +903,19 @@ export function App() {
                     <button
                       className="shortcuts-reset-confirm"
                       onClick={async () => {
-                        await fetch('/api/reset', { method: 'DELETE' });
-                        setResetConfirm(false);
-                        setShortcutsOpen(false);
-                        refreshAll();
+                        try {
+                          const res = await fetch('/api/reset', { method: 'DELETE' });
+                          if (!res.ok) {
+                            const body = await res.json().catch(() => ({}));
+                            throw new Error(body.error || `HTTP ${res.status}`);
+                          }
+                          setResetConfirm(false);
+                          setShortcutsOpen(false);
+                          await refreshAll();
+                          toast('All data cleared', 'success');
+                        } catch (err) {
+                          toast(err.message || 'Reset failed', 'error');
+                        }
                       }}
                     >
                       Yes, wipe everything

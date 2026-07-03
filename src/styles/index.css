@@ -941,7 +941,10 @@ textarea:focus-visible {
 
 /* ── Leaflet popup overrides ────────────────────────────────────────── */
 
-.leaflet-popup-content-wrapper {
+/* Scoped under .leaflet-popup so these beat Leaflet's own default popup rules,
+   which load later in the production CSS bundle (otherwise the wrapper stays
+   white and the dark-theme text is unreadable). */
+.leaflet-popup .leaflet-popup-content-wrapper {
   background: var(--color-sidebar);
   color: var(--color-text);
   border: 1px solid var(--color-border);
@@ -950,11 +953,11 @@ textarea:focus-visible {
   padding: 0;
 }
 
-.leaflet-popup-content {
+.leaflet-popup .leaflet-popup-content {
   margin: 0 !important;
 }
 
-.leaflet-popup-tip {
+.leaflet-popup .leaflet-popup-tip {
   background: var(--color-sidebar);
   border: 1px solid var(--color-border);
   border-top: none;
