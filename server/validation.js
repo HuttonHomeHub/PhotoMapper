@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from 'zod';
 
 // BE-02: centralized request-body validation. Each route declares a schema;
 // invalid bodies get a 400 with field-level detail before the handler runs, and
@@ -6,21 +6,21 @@ import { z } from 'zod'
 
 export function validate(schema) {
   return (req, res, next) => {
-    const result = schema.safeParse(req.body)
+    const result = schema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({
         error: 'Invalid request',
-        details: result.error.issues.map(i => ({ field: i.path.join('.'), message: i.message })),
-      })
+        details: result.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+      });
     }
-    req.body = result.data
-    next()
-  }
+    req.body = result.data;
+    next();
+  };
 }
 
-const name = z.string().trim().min(1, 'must be a non-empty string')
-const status = z.enum(['active', 'archived'])
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD')
+const name = z.string().trim().min(1, 'must be a non-empty string');
+const status = z.enum(['active', 'archived']);
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'must be YYYY-MM-DD');
 
 export const schemas = {
   createClient: z.object({ name }),
@@ -59,4 +59,4 @@ export const schemas = {
   assignPhotos: z.object({
     photoIds: z.array(z.string()).min(1, 'photoIds array required'),
   }),
-}
+};

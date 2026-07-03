@@ -3,5 +3,6 @@ dist/
 coverage/
 server/uploads/
 server/photos.db
+server/photos.db.backup-*
 .env
 *.local

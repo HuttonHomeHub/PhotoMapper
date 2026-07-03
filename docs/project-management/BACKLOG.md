@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 72 · **Completed:** 18 · **In Progress:** 2 (DEP-02, TEST-02) · **Deferred:** 6 · **Not Started:** 46
-- **Current phase:** Phase 3 — Backend architecture & correctness (BE-02/03/04 ✅; next: ARCH-03 migrations → ARCH-01 layering — each its own session)
+- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 19 · **In Progress:** 3 (DEP-02, TEST-02, CQ-07) · **Deferred:** 6 · **Not Started:** 45
+- **Current phase:** Phase 3 — Backend architecture & correctness (BE-02/03/04, ARCH-03 ✅; next: ARCH-01 layering — its own session)
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -22,7 +22,7 @@
 | 0 | Programme setup | ✅ | Complete |
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
-| 3 | Backend architecture & correctness | 3 / 10 | **Active** (BE-02/03/04 ✅; next ARCH-03 → ARCH-01) |
+| 3 | Backend architecture & correctness | 4 / 10 | **Active** (BE-02/03/04, ARCH-03 ✅; next ARCH-01) |
 | 4 | Frontend architecture & quality | 0 / 10 | Not started |
 | 5 | Performance | 0 / 6 | Not started |
 | 6 | Testing depth | 0 / 2 | Not started |
@@ -49,15 +49,15 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 46 |
+| Not Started | 45 |
 | Blocked | 0 |
-| In Progress | 2 |
+| In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 18 |
+| Completed | 19 |
 | Deferred | 6 |
-| **Total** | **72** |
+| **Total** | **73** |
 
-Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 · OPS 7 · DEP 5 · DOC 6 · FEAT 9.
+Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 · OPS 7 · DEP 5 · DOC 6 · FEAT 9.
 
 ---
 
@@ -235,12 +235,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Do before PERF-05 (memoization) to avoid double work.
 
 ### ARCH-03 — Migration system: try/catch, swallows all errors, no versioning
-- **Category:** Architecture · **Severity:** High · **Priority:** P2 · **Effort:** M · **Risk:** High · **Status:** Not Started
-- **Description:** `server/db.js:34-265` evolves schema via `try { ALTER } catch {}`; a genuine failure is hidden; two migrations drop/recreate tables with no backup.
-- **Root cause:** Ad-hoc idempotent DDL instead of a versioned runner.
-- **Recommended solution:** Introduce a `schema_migrations` version table + ordered migration files applied in a transaction; back up the DB file before destructive steps; fail loudly.
-- **Files affected:** `server/db.js` → `server/migrations/`.
-- **Dependencies:** High-risk change — must be gated behind TEST-01/02 and a DB backup step. Precedes ARCH-04, PERF-03 (index migrations).
+- **Category:** Architecture · **Severity:** High · **Priority:** P2 · **Effort:** M · **Risk:** High · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Added `server/migrate.js` — a `runMigrations(db, migrations)` runner that records applied versions in a `schema_migrations` table, takes a consistent `VACUUM INTO` **backup before mutating a DB that already holds data**, and **fails loudly** (a throwing migration propagates and is not recorded). The historical schema evolution is preserved verbatim as a recorded baseline migration (v1); the error-swallowing `try { ALTER } catch {}` blocks were replaced with an idempotent `addColumnIfMissing` helper and `CREATE … IF NOT EXISTS`, so genuine errors now surface. Future schema changes (e.g. PERF-03 indexes) become clean version-2+ entries.
+- **Verification:** New `tests/migrate.test.js` — runner applies-once/idempotent, loud-failure-not-recorded, and a **legacy upgrade path** test (seeds a pre-runner "v0" DB with a row, imports db.js, asserts the row survives, new columns are added, `survey_date` is back-filled, and a backup file is written). Fresh-schema path covered by the existing `db.test.js`. Suite 40 tests; all gates green.
+- **Files affected:** `server/migrate.js` (new), `server/db.js`, `tests/migrate.test.js`, `.gitignore` (backup files).
+- **Follow-on:** PERF-03 (indexes) now lands as a version-2 migration; ARCH-04 (drop dead tables) similarly.
 
 ### ARCH-04 — Dead schema (`collections`, `photo_collections`)
 - **Category:** Architecture · **Severity:** Medium · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
@@ -316,6 +315,14 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Recommended solution:** Context-based toast provider.
 - **Files affected:** `src/components/Toast.jsx`, `src/App.jsx`.
 - **Dependencies:** Fold into ARCH-02/ARCH-06 (context work).
+
+### CQ-07 — Code doesn't conform to its own `.prettierrc` — *discovered Session 002*
+- **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** In Progress (server/ done)
+- **Description:** `.prettierrc` declares `semi: true`, but the codebase was hand-written without semicolons — the `format` script was evidently never enforced. eslint has no `semi` rule so nothing flags it.
+- **Progress:** `server/` normalized to `.prettierrc` (Session 002, during ARCH-03) so the directory is internally consistent. `src/` (frontend) still uses the no-semi style.
+- **Recommended solution:** Run `npm run format` across `src/` in a dedicated whitespace-only commit; then add a `prettier --check` step to CI so the two can't drift again. Kept out of feature commits to avoid mixing churn with logic.
+- **Files affected:** `src/**`, `.github/workflows/ci.yml`.
+- **Dependencies:** Independent; do as its own formatting-only commit.
 
 ---
 
@@ -616,6 +623,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **ARCH-03** migration framework. `server/migrate.js`
+  (version table + `VACUUM INTO` backup + loud failures); legacy schema preserved
+  as recorded baseline v1; `try/catch` ALTERs → idempotent `addColumnIfMissing`.
+  New `migrate.test.js` incl. legacy-upgrade + backup verification. Normalized
+  `server/` to `.prettierrc` (→ logged **CQ-07** for `src/`). Suite **40 tests**. [ARCH-03]
 - **2026-07-02 (Session 002)** — ✅ **BE-02** validation layer. `server/validation.js`
   (`validate()` middleware + zod schemas) applied to all JSON body routes; ad-hoc
   checks removed. Suite **37 tests**. [BE-02]

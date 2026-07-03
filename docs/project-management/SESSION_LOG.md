@@ -97,20 +97,27 @@ wiring) to keep changes cohesive.
 - ✅ **BE-03** `updateProject` unset bug (presence-based dynamic SQL + route
   validation/404). ✅ **BE-04** clients PATCH validation/404/409.
 - ✅ **BE-02** validation layer: `server/validation.js` (`validate()` middleware +
-  zod schemas) on all JSON body routes; ad-hoc checks removed. Suite **37 tests**.
+  zod schemas) on all JSON body routes; ad-hoc checks removed.
+- ✅ **ARCH-03** migration framework: `server/migrate.js` (schema_migrations +
+  VACUUM INTO backup + loud failure); legacy schema kept as recorded baseline v1;
+  error-swallowing ALTERs → idempotent `addColumnIfMissing`. `migrate.test.js`
+  proves fresh, idempotent, loud-failure, and legacy-upgrade+backup paths.
+  Normalized `server/` to `.prettierrc` (semis) → logged **CQ-07** for `src/`.
+  Suite **40 tests**.
 
-### Next session start-here (Phase 3 continues — the two big ones)
-Read this log + BACKLOG. Remaining Phase 3 is the heavy architecture work; each
-is its own focused session:
-1. **ARCH-03** versioned migration runner + DB backup before destructive steps —
-   **HIGH RISK** (recreates tables). Prereqs: broaden TEST-02 first; add a file
-   backup step; run against a copy. Precedes PERF-03 (index migrations).
-2. **ARCH-01** split `server/index.js` (~460 lines) into routes/services/
-   repositories — **LARGE**; do as its own session, moving tests in lockstep.
-   Folds in BE-06 (route ordering). Then **BE-07/SEC-05** background geocoding,
+### Next session start-here (Phase 3 — one big item left: ARCH-01)
+Read this log + BACKLOG. Remaining Phase 3 work:
+1. **ARCH-01** split `server/index.js` (~470 lines) into routes/services/
+   repositories — **LARGE**; its own focused session, moving tests in lockstep.
+   Folds in BE-06 (route ordering). Unblocks the deferred multipart-upload
+   validation (BE-02 tail) and **BE-07/SEC-05** (background geocoding), then
    **CQ-05/OPS-06** pino logging (closes DEP-02).
-Note: ARCH-01 and ARCH-03 each deserve a dedicated focused session.
-TEST-02 keeps growing alongside (now 37 tests: db 11 + api 25 + boundary 1).
+2. With ARCH-03 done, **PERF-03** (indexes) and **ARCH-04** (drop dead
+   `collections` tables) now land trivially as version-2+ migrations in
+   `server/migrate.js` — good low-risk Phase-5/cleanup wins whenever.
+3. **CQ-07** tail: `npm run format` over `src/` + a `prettier --check` CI step
+   (own formatting-only commit).
+TEST-02 keeps growing alongside (now 40 tests: db 11 + api 25 + boundary 1 + migrate 3).
 
 ---
 
