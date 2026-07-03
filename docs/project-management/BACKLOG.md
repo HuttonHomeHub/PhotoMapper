@@ -235,7 +235,8 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
   - ✅ **`LocationSearch`** — owns query/results/error state, `onFlyTo` callback (−5 useState/−1 ref/−2 handlers). Tests: single-result fly-to, multi-result list, no-result error.
   - ✅ **Timeline** → **`useTimeline` hook** (state + sort + auto-advance effects) + **`TimelinePanel`** UI (−4 useState/−1 memo/−2 effects/−3 derived from App.jsx). Tests: panel render + hook sort/slice.
   - ✅ **Filter logic** → pure `src/lib/filterPhotos.js` + `src/lib/geo.js` (`pointInPolygon`), memoized in App.jsx (App.jsx 706→674; delivers **PERF-05** and part of **CQ-01**). 9 pure-function tests.
-  - Remaining: `FilterChips` UI extraction, and (optional) consolidating filter state via `useReducer`.
+  - ✅ **`FilterChips`** — active-filters chip row extracted (App.jsx 674→647); also DRY'd the duplicated clear-all logic into one `clearAllFilters` (used by the chips + PhotoList). 4 component tests.
+  - Remaining (optional): consolidate filter state via `useReducer` — the god-component symptom is largely resolved (App.jsx 866→647, four focused components + two hooks + two libs extracted).
 - **Recommended solution:** Continue extracting `FilterChips`, `SidebarSections`; optionally consolidate filter state via `useReducer` or context.
 - **Files affected:** `src/App.jsx`, `src/components/LocationSearch.jsx` + `TimelinePanel.jsx` (new), `src/hooks/useTimeline.js` (new), `tests/components/`.
 - **Dependencies:** Do before PERF-05 (memoization) to avoid double work.

@@ -38,6 +38,7 @@ import { ElevationProfile } from './components/ElevationProfile.jsx'
 import ClientPanel from './components/ClientPanel.jsx'
 import { LocationSearch } from './components/LocationSearch.jsx'
 import { TimelinePanel } from './components/TimelinePanel.jsx'
+import { FilterChips } from './components/FilterChips.jsx'
 import { useTimeline } from './hooks/useTimeline.js'
 import { filterPhotos } from './lib/filterPhotos.js'
 import PhotoComparison from './components/PhotoComparison.jsx'
@@ -171,6 +172,15 @@ export function App() {
   function clearSelection() {
     setSelectedPhotoIds(new Set())
     setSelectionMode(false)
+  }
+
+  function clearAllFilters() {
+    setUserTouchedFilter(false)
+    setActiveTag(null)
+    setRegionPolygon(null)
+    setActiveClientId(null)
+    setActiveProjectId(null)
+    setActiveSurveyDate(null)
   }
 
   function handleCompareClick(photoId) {
@@ -352,53 +362,23 @@ export function App() {
                 {displayGpsCount < displayPhotos.length ? `📍 ${displayGpsCount}/${displayPhotos.length}` : `📍 ${displayPhotos.length}`}
               </span>
             ) : null}>
-            {(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId) && (
-              <div className="header-filter-chips-row" style={{ padding: '4px 12px 8px' }}>
-                {isFiltered && (
-                  <button className="filter-chip" onClick={() => setUserTouchedFilter(false)}>
-                    Date range ×
-                  </button>
-                )}
-                {activeTag && (
-                  <button className="filter-chip" onClick={() => setActiveTag(null)}>
-                    #{activeTag} ×
-                  </button>
-                )}
-                {regionPolygon && (
-                  <button className="filter-chip" onClick={() => setRegionPolygon(null)}>
-                    Region ×
-                  </button>
-                )}
-                {activeClientId && (
-                  <button className="filter-chip" onClick={() => { setActiveClientId(null); setActiveProjectId(null); setActiveSurveyDate(null) }}>
-                    {clients.find(c => c.id === activeClientId)?.name ?? 'Client'} ×
-                  </button>
-                )}
-                {activeProjectId && (
-                  <button className="filter-chip" onClick={() => { setActiveProjectId(null); setActiveSurveyDate(null) }}>
-                    {projects.find(p => p.id === activeProjectId)?.name ?? 'Project'} ×
-                  </button>
-                )}
-                {activeSurveyDate && (
-                  <button className="filter-chip" onClick={() => setActiveSurveyDate(null)}>
-                    {activeSurveyDate === 'undated' ? 'Undated' : activeSurveyDate.split('-').reverse().join('/')} ×
-                  </button>
-                )}
-                <button
-                  className="header-filter-clear"
-                  onClick={() => {
-                    setUserTouchedFilter(false)
-                    setActiveTag(null)
-                    setRegionPolygon(null)
-                    setActiveClientId(null)
-                    setActiveProjectId(null)
-                    setActiveSurveyDate(null)
-                  }}
-                >
-                  Clear all
-                </button>
-              </div>
-            )}
+            <FilterChips
+              isFiltered={isFiltered}
+              activeTag={activeTag}
+              regionPolygon={regionPolygon}
+              activeClientId={activeClientId}
+              activeProjectId={activeProjectId}
+              activeSurveyDate={activeSurveyDate}
+              clients={clients}
+              projects={projects}
+              onClearDate={() => setUserTouchedFilter(false)}
+              onClearTag={() => setActiveTag(null)}
+              onClearRegion={() => setRegionPolygon(null)}
+              onClearClient={() => { setActiveClientId(null); setActiveProjectId(null); setActiveSurveyDate(null) }}
+              onClearProject={() => { setActiveProjectId(null); setActiveSurveyDate(null) }}
+              onClearSurvey={() => setActiveSurveyDate(null)}
+              onClearAll={clearAllFilters}
+            />
 
             <PhotoList
               photos={displayPhotos}
@@ -422,14 +402,7 @@ export function App() {
               toast={toast}
               hasActiveFilters={!!(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId)}
               timelinePhotoId={timeline.active ? timeline.currentPhoto?.id : null}
-              onClearAllFilters={() => {
-                setUserTouchedFilter(false)
-                setActiveTag(null)
-                setRegionPolygon(null)
-                setActiveClientId(null)
-                setActiveProjectId(null)
-                setActiveSurveyDate(null)
-              }}
+              onClearAllFilters={clearAllFilters}
             />
             </SidebarSection>
             <SidebarSection title="Search" defaultOpen={!activeSurveyDate}>
