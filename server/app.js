@@ -22,6 +22,11 @@ import geocodeRouter from './routes/geocode.js';
 export function createApp() {
   const app = express();
 
+  // Behind a reverse proxy, trust it so req.ip, the rate limiter, and protocol
+  // detection use the real client from X-Forwarded-For instead of the proxy IP.
+  // Off by default; set TRUST_PROXY (e.g. "2" for Cloudflare→nginx→app).
+  app.set('trust proxy', config.trustProxy);
+
   // SEC-09: security headers + CSP. The CSP allowlists the map tile hosts and the
   // client-side Nominatim search; 'unsafe-inline' styles are permitted because
   // Leaflet/markercluster inject inline styles (script stays 'self' only).

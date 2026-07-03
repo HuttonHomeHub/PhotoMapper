@@ -27,7 +27,22 @@ const schema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(1000),
   // Structured-log level (CQ-05/OPS-06). Forced to 'silent' under test.
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  // Express `trust proxy` setting for deployments behind a reverse proxy, so
+  // req.ip / rate-limiting / protocol reflect the real client (X-Forwarded-For)
+  // instead of the proxy. Off by default. Accepts a hop count (e.g. "2" for
+  // Cloudflare→nginx→app), "true"/"false", or a comma-separated IP/subnet list.
+  TRUST_PROXY: z.string().default(''),
 });
+
+// Parse TRUST_PROXY into a value Express accepts: false (off), true, a hop count,
+// or a raw string (comma-separated IPs/subnets or a preset like "loopback").
+export function parseTrustProxy(value) {
+  const s = (value ?? '').trim();
+  if (s === '' || s === 'false') return false;
+  if (s === 'true') return true;
+  if (/^\d+$/.test(s)) return Number(s);
+  return s;
+}
 
 const parsed = schema.safeParse(process.env);
 if (!parsed.success) {
@@ -50,4 +65,5 @@ export const config = {
   uploadMaxBytes: env.UPLOAD_MAX_BYTES,
   rateLimit: { windowMs: env.RATE_LIMIT_WINDOW_MS, max: env.RATE_LIMIT_MAX },
   logLevel: env.NODE_ENV === 'test' ? 'silent' : env.LOG_LEVEL,
+  trustProxy: parseTrustProxy(env.TRUST_PROXY),
 };

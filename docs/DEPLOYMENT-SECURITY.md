@@ -151,6 +151,8 @@ photomapper:
     - PGID=1000
     - TZ=Europe/London
     - NODE_ENV=production
+    - TRUST_PROXY=2       # Cloudflare→nginx→app: use the real client IP, not the proxy
+    - LOG_LEVEL=warn      # quieter logs (drop the per-request info lines)
     # - ALLOWED_ORIGINS=https://photos.example.com
     # - ALLOW_RESET=false
   volumes:
@@ -182,6 +184,8 @@ Notes:
 | `UPLOADS_DIR` | `server/uploads` | Uploaded-image + thumbnail directory (point at the same persistent volume). |
 | `ALLOW_RESET` | _unset_ | Set to `true` only if you want `DELETE /api/reset` enabled. |
 | `NODE_ENV` | _unset_ | `production` in prod; `test` is used by the test suite. |
+| `TRUST_PROXY` | _(off)_ | Express `trust proxy` for reverse-proxy deploys. A hop count (`2` = Cloudflare→nginx→app), `true`/`false`, or an IP/subnet list. Makes `req.ip`, rate-limiting and protocol use the real client. Prefer a hop count over `true` (the rate limiter rejects fully-permissive trust). |
+| `LOG_LEVEL` | `info` | pino level; set `warn` to drop per-request access logs. |
 
 > Full config reference is in `.env.example` and validated in `server/config.js` (OPS-07).
 
