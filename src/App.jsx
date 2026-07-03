@@ -42,7 +42,7 @@ import { FilterChips } from './components/FilterChips.jsx'
 import { useTimeline } from './hooks/useTimeline.js'
 import { filterPhotos } from './lib/filterPhotos.js'
 import PhotoComparison from './components/PhotoComparison.jsx'
-import { ToastContainer, useToast } from './components/Toast.jsx'
+import { useToast } from './components/Toast.jsx'
 
 const TODAY = new Date().toISOString().slice(0, 10)
 const dateToMs = d => new Date(d + 'T12:00:00Z').getTime()
@@ -591,8 +591,6 @@ export function App() {
           onChangeRight={id => setComparisonPair(([l]) => [l, id])}
         />
       )}
-
-      <ToastContainer />
 
       {shortcutsOpen && (
         <div

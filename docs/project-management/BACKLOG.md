@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 30 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 34
-- **Current phase:** Phase 4 — Frontend architecture & quality. ARCH-02 ✅ (App.jsx **866→647**, 4 components + 2 hooks + 2 libs extracted), CQ-01 ✅, PERF-05 ✅. Remaining Phase 4: ARCH-06, CQ-06, SEC-12, FE-05/06/02. Backend (Phases 0–3) complete.
+- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 31 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 33
+- **Current phase:** Phase 4 — Frontend architecture & quality. ARCH-02, CQ-01, CQ-06 ✅; PERF-05 ✅. Remaining Phase 4: ARCH-06 (split usePhotos), SEC-12 (portal popups), FE-05/06/02. Backend (Phases 0–3) complete.
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -23,7 +23,7 @@
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
 | 3 | Backend architecture & correctness | 10 / 10 | ✅ Complete (BE-02/03/04/06/07, SEC-05, ARCH-01/03, CQ-05/OPS-06) |
-| 4 | Frontend architecture & quality | 2 / 10 | **Active** (ARCH-02, CQ-01 ✅; TEST-03 harness up; next ARCH-06/CQ-06/SEC-12) |
+| 4 | Frontend architecture & quality | 3 / 10 | **Active** (ARCH-02, CQ-01, CQ-06 ✅; TEST-03 harness up; next ARCH-06/SEC-12) |
 | 5 | Performance | 2 / 6 | PERF-03 ✅, PERF-05 ✅ |
 | 6 | Testing depth | 0 / 2 | Not started |
 | 7 | Documentation | 0 / 5 | Not started |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 34 |
+| Not Started | 33 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 30 |
+| Completed | 31 |
 | Deferred | 6 |
 | **Total** | **73** |
 
@@ -315,11 +315,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Files affected:** `server/logger.js` (new), `server/app.js`, `server/index.js`, `server/routes/photos.js`, `server/config.js` (LOG_LEVEL).
 
 ### CQ-06 — Toast module-level singleton anti-pattern
-- **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** `_addToast` module global (`src/components/Toast.jsx:3`) breaks with >1 container; not idiomatic.
-- **Recommended solution:** Context-based toast provider.
-- **Files affected:** `src/components/Toast.jsx`, `src/App.jsx`.
-- **Dependencies:** Fold into ARCH-02/ARCH-06 (context work).
+- **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Replaced the module-global `_addToast` (assigned during render) with a proper `ToastProvider` context. `useToast()` reads from context (safe no-op outside a provider); the viewport renders inside the provider. `main.jsx` wraps `<App/>` in `<ToastProvider>`; removed the old `<ToastContainer/>`. 2 component tests (raise+dismiss; no-op-outside-provider).
+- **Files affected:** `src/components/Toast.jsx`, `src/main.jsx`, `src/App.jsx`, `tests/components/Toast.test.jsx`.
 
 ### CQ-07 — Code doesn't conform to its own `.prettierrc` — *discovered Session 002*
 - **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** In Progress (server/ done)
@@ -624,6 +622,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **CQ-06.** Toast module-global singleton →
+  `ToastProvider` context (main.jsx wraps App); `useToast()` reads context. 2
+  component tests. Suite **69 tests**. [CQ-06]
 - **2026-07-02 (Session 002)** — ✅ **ARCH-02 + CQ-01 complete.** Extracted `FilterChips`
   (App.jsx 674→647) and the shared `formatDate` helper (deduped ×4). App.jsx
   866→647 with 4 components + 2 hooks + 2 libs pulled out, all tested. Suite **67 tests**. [ARCH-02, CQ-01]
