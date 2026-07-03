@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 45 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 7 · **Not Started:** 20
-- **Current phase:** Phase 4 tail + opportunistic wins. Done so far incl. OPS-04/05, ARCH-04, OPS-02 (Docker), PERF-02, FE-06, FE-05 (geocode proxy + CSP tighten). Remaining: FE-02/03, Phase 5 (PERF-01/06), Phase 7 docs. Backend (Phases 0–3) complete. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
+- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 47 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 7 · **Not Started:** 18
+- **Current phase:** Phase 4 (frontend) **complete**. Recent: OPS-04/05, ARCH-04, OPS-02 (Docker), PERF-02, FE-05/06, FE-02/03 (a11y). Remaining: Phase 5 (PERF-01/06), Phase 7 docs (DOC-03/05/06), CQ-07/08. Backend (Phases 0–3) complete. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -23,7 +23,7 @@
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
 | 3 | Backend architecture & correctness | 10 / 10 | ✅ Complete (BE-02/03/04/06/07, SEC-05, ARCH-01/03, CQ-05/OPS-06) |
-| 4 | Frontend architecture & quality | 8 / 10 | **Active** (ARCH-02/06, CQ-01/03/06, SEC-12, FE-05/06 ✅; next FE-02/03) |
+| 4 | Frontend architecture & quality | 10 / 10 | ✅ Complete (ARCH-02/06, CQ-01/03/06, SEC-12, FE-02/03/05/06) |
 | 5 | Performance | 4 / 6 | PERF-02, PERF-03, PERF-05, PERF-07 ✅ |
 | 6 | Testing depth | 0 / 2 | Not started |
 | 7 | Documentation | 1 / 5 | DOC-01 ✅ (README); DOC-04 in progress (ADRs) |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 20 |
+| Not Started | 18 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 45 |
+| Completed | 47 |
 | Deferred | 7 |
 | **Total** | **74** |
 
@@ -390,17 +390,17 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Files affected:** `src/components/ErrorBoundary.jsx`, `src/main.jsx`, `src/styles/index.css`, `tests/errorBoundary.test.js`.
 
 ### FE-02 — Color contrast fails WCAG AA
-- **Category:** Frontend/A11y · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** `#555` text on dark chart (`ElevationProfile.jsx:102,109`) and similar low-contrast spots.
-- **Recommended solution:** Raise to a token meeting ≥4.5:1; audit palette.
-- **Files affected:** `ElevationProfile.jsx`, `src/styles/index.css`.
+- **Category:** Frontend/A11y · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Description:** `#555` axis labels on the dark elevation chart (~2:1 contrast, fails AA). A codebase scan found no other `#555/#666/#777` text spots.
+- **Resolution:** Replaced the three `#555` SVG axis labels with `#9fb0c9` (~7:1 against the `#16213e/#1a1a2e` panel), defined once as `AXIS_LABEL`. Tooltip text was already light (`#e0e0e0`).
+- **Files affected:** `src/components/ElevationProfile.jsx`.
 
 ### FE-03 — Dual-range date slider a11y
-- **Category:** Frontend/A11y · **Severity:** Low · **Priority:** P3 · **Effort:** M · **Risk:** Low · **Status:** Not Started
-- **Description:** Overlapping range inputs (`App.jsx:560-583`) are hard for keyboard/SR users.
-- **Recommended solution:** Proper labels/`aria-valuetext`; consider an accessible range component.
-- **Files affected:** `src/App.jsx`, `src/styles/index.css`.
-- **Dependencies:** Do during ARCH-02 (FilterBar extraction).
+- **Category:** Frontend/A11y · **Severity:** Low · **Priority:** P3 · **Effort:** M · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Description:** The two overlapping date-range inputs had no names, and screen readers announced the raw epoch-ms `value` instead of a date.
+- **Resolution:** Gave each thumb an `aria-label` ("Filter start/end date") and an `aria-valuetext` that reads the human date (`dateFrom||minDate`, `dateTo||TODAY`) instead of the ms value. Also added `aria-valuetext={currentDate}` to the timeline scrubber so it announces the date, not the index. Keyboard operation was already native to `input[type=range]`. Test asserts the scrubber's `aria-valuetext`.
+- **Files affected:** `src/App.jsx`, `src/components/TimelinePanel.jsx`, `tests/components/TimelinePanel.test.jsx`.
+- **Dependencies:** Done post-ARCH-02 (the slider stayed in App; the timeline had already been extracted).
 
 ### FE-04 — Client/project delete has no confirmation
 - **Category:** Frontend/UX · **Severity:** Medium · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
@@ -622,6 +622,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-03 (Session 002)** — ✅ **FE-02 + FE-03 (Phase 4 complete).** FE-02:
+  raised the elevation-chart axis labels from `#555` (~2:1) to `#9fb0c9` (~7:1, AA).
+  FE-03: `aria-label` + date-valued `aria-valuetext` on the dual date-range thumbs
+  and the timeline scrubber (SRs announce dates, not epoch-ms/index). Suite **88 tests**.
+  Phase 4 frontend now 10/10. [FE-02, FE-03]
 - **2026-07-03 (Session 002)** — ✅ **FE-05.** Proxied the browser's Nominatim
   location search through a new `GET /api/geocode/search` (server `searchPlaces()`
   with User-Agent, timeout, in-memory LRU cache; 400/502 handling). Tightened CSP

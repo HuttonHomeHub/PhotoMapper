@@ -442,6 +442,8 @@ export function App() {
                       max={maxTs}
                       value={fromTs}
                       style={{ zIndex: fromTs >= toTs ? 3 : 1 }}
+                      aria-label="Filter start date"
+                      aria-valuetext={dateFrom || minDate || 'earliest'}
                       onChange={e => {
                         const v = Number(e.target.value)
                         if (v <= toTs) { setDateFrom(msToDate(v)); setUserTouchedFilter(true) }
@@ -454,6 +456,8 @@ export function App() {
                       max={maxTs}
                       value={toTs}
                       style={{ zIndex: toTs <= fromTs ? 3 : 1 }}
+                      aria-label="Filter end date"
+                      aria-valuetext={dateTo || TODAY || 'latest'}
                       onChange={e => {
                         const v = Number(e.target.value)
                         if (v >= fromTs) { setDateTo(msToDate(v)); setUserTouchedFilter(true) }

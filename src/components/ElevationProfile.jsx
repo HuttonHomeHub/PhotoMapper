@@ -3,6 +3,9 @@ import { useMemo, useState } from 'react'
 const W = 800
 const H = 120
 const PAD = { top: 12, right: 16, bottom: 28, left: 48 }
+// FE-02: axis labels were #555 (~2:1 on the dark chart, fails WCAG AA). This
+// light slate clears ~7:1 against the #16213e/#1a1a2e panel background.
+const AXIS_LABEL = '#9fb0c9'
 const INNER_W = W - PAD.left - PAD.right
 const INNER_H = H - PAD.top - PAD.bottom
 
@@ -99,15 +102,15 @@ export function ElevationProfile({ photos, hoveredPhotoId, onHover }) {
           return (
             <g key={i}>
               <line x1={PAD.left} y1={y} x2={PAD.left + INNER_W} y2={y} stroke="#0f3460" strokeWidth="1" />
-              <text x={PAD.left - 4} y={y + 4} textAnchor="end" fill="#555" fontSize="9">{Math.round(v)}m</text>
+              <text x={PAD.left - 4} y={y + 4} textAnchor="end" fill={AXIS_LABEL} fontSize="9">{Math.round(v)}m</text>
             </g>
           )
         })}
 
         {/* X-axis */}
         <line x1={PAD.left} y1={PAD.top + INNER_H} x2={PAD.left + INNER_W} y2={PAD.top + INNER_H} stroke="#0f3460" strokeWidth="1" />
-        <text x={PAD.left} y={H - 6} fill="#555" fontSize="9">0 km</text>
-        <text x={PAD.left + INNER_W} y={H - 6} textAnchor="end" fill="#555" fontSize="9">{maxDist.toFixed(1)} km</text>
+        <text x={PAD.left} y={H - 6} fill={AXIS_LABEL} fontSize="9">0 km</text>
+        <text x={PAD.left + INNER_W} y={H - 6} textAnchor="end" fill={AXIS_LABEL} fontSize="9">{maxDist.toFixed(1)} km</text>
 
         {/* Polyline */}
         <polyline points={polyline} fill="none" stroke="#e97b25" strokeWidth="1.5" strokeLinejoin="round" />

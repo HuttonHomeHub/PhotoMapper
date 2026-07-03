@@ -27,6 +27,7 @@ export function TimelinePanel({ timeline, photoCount }) {
             max={Math.max(0, sorted.length - 1)}
             value={index}
             aria-label={`Timeline: photo ${index + 1} of ${sorted.length}`}
+            aria-valuetext={currentDate}
             onChange={(e) => {
               setIndex(Number(e.target.value))
               setPlaying(false)

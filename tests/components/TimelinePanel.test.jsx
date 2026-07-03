@@ -39,7 +39,10 @@ describe('TimelinePanel', () => {
     })
     render(<TimelinePanel timeline={timeline} photoCount={2} />)
     expect(screen.getByText('Jan 1, 2020')).toBeInTheDocument()
-    expect(screen.getByRole('slider')).toBeInTheDocument()
+    const slider = screen.getByRole('slider')
+    expect(slider).toBeInTheDocument()
+    // FE-03: screen readers announce the date, not the raw index.
+    expect(slider).toHaveAttribute('aria-valuetext', 'Jan 1, 2020')
     expect(screen.getByRole('button', { name: /play timeline \(space\)/i })).toBeInTheDocument()
   })
 })
