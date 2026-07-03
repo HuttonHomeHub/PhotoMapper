@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 72 · **Completed:** 17 · **In Progress:** 2 (DEP-02, TEST-02) · **Deferred:** 6 · **Not Started:** 47
-- **Current phase:** Phase 3 — Backend architecture & correctness (BE-03, BE-04 ✅; next: BE-02 validation → ARCH-03 migrations → ARCH-01 layering)
+- **Findings:** 72 · **Completed:** 18 · **In Progress:** 2 (DEP-02, TEST-02) · **Deferred:** 6 · **Not Started:** 46
+- **Current phase:** Phase 3 — Backend architecture & correctness (BE-02/03/04 ✅; next: ARCH-03 migrations → ARCH-01 layering — each its own session)
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -22,7 +22,7 @@
 | 0 | Programme setup | ✅ | Complete |
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
-| 3 | Backend architecture & correctness | 2 / 10 | **Active** (BE-03, BE-04 ✅; next BE-02 → ARCH-03 → ARCH-01) |
+| 3 | Backend architecture & correctness | 3 / 10 | **Active** (BE-02/03/04 ✅; next ARCH-03 → ARCH-01) |
 | 4 | Frontend architecture & quality | 0 / 10 | Not started |
 | 5 | Performance | 0 / 6 | Not started |
 | 6 | Testing depth | 0 / 2 | Not started |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 47 |
+| Not Started | 46 |
 | Blocked | 0 |
 | In Progress | 2 |
 | Needs Review | 0 |
-| Completed | 17 |
+| Completed | 18 |
 | Deferred | 6 |
 | **Total** | **72** |
 
@@ -172,11 +172,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Needs DEP-02. Should land with SEC-08. Verified by TEST-02.
 
 ### BE-02 — No request validation layer
-- **Category:** Backend · **Severity:** High · **Priority:** P1 · **Effort:** M · **Risk:** Low · **Status:** Not Started
-- **Description:** Bodies destructured and used raw; only `surveyDate` validated (`server/index.js:294`).
-- **Recommended solution:** Introduce `zod` schemas per route; centralize in a validation middleware; return 400 with field errors.
-- **Files affected:** `server/index.js` (all routes), new `server/schemas/`.
-- **Dependencies:** Cleaner after ARCH-01 (routes extracted). Fixes surface for BE-03/BE-04.
+- **Category:** Backend · **Severity:** High · **Priority:** P1 · **Effort:** M · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Added `server/validation.js` — a `validate(schema)` middleware (400 + field-level `details`, replaces `req.body` with parsed/trimmed data) plus zod schemas for every body-taking JSON route: clients create/update, projects create/update, photo patch, batch update, project photo-assign. Ad-hoc checks in those routes removed (kept 404/409 DB-error handling and the BE-03 presence-based forwarding). 5 new tests cover the validation paths. (POST `/api/photos` is multipart — its body is just `projectId`; left for the ARCH-01 upload-service refactor.)
+- **Files affected:** `server/validation.js`, `server/index.js`, `tests/api.test.js`.
+- **Dependencies:** Reused the `zod` dep from OPS-07. Superseded the manual validation added in BE-03/BE-04.
 
 ### BE-03 — `updateProject` COALESCE can never unset fields
 - **Category:** Backend · **Severity:** Medium · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
@@ -617,6 +616,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **BE-02** validation layer. `server/validation.js`
+  (`validate()` middleware + zod schemas) applied to all JSON body routes; ad-hoc
+  checks removed. Suite **37 tests**. [BE-02]
 - **2026-07-02 (Session 002)** — ✅ **BE-03 + BE-04** (Phase 3 opened). Fixed the
   `updateProject` COALESCE unset bug (explicit `clientId:null` now unassigns) with
   presence-based dynamic SQL + route validation/404; fixed clients PATCH

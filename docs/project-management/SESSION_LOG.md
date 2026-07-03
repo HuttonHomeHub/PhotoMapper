@@ -95,22 +95,22 @@ wiring) to keep changes cohesive.
 
 ### Phase 3 progress (Session 002)
 - ✅ **BE-03** `updateProject` unset bug (presence-based dynamic SQL + route
-  validation/404). ✅ **BE-04** clients PATCH validation/404/409. Suite 32 tests.
+  validation/404). ✅ **BE-04** clients PATCH validation/404/409.
+- ✅ **BE-02** validation layer: `server/validation.js` (`validate()` middleware +
+  zod schemas) on all JSON body routes; ad-hoc checks removed. Suite **37 tests**.
 
-### Next session start-here (Phase 3 continues)
-Read this log + BACKLOG. Remaining Phase 3, in order (rising risk — keep each
-isolated and grow TEST-02 alongside):
-1. **BE-02** zod validation layer for the remaining routes (photos upload/batch,
-   projects/clients create) — reuse the `zod` dep; centralize in a middleware.
-   Medium, mechanical, fully testable.
-2. **ARCH-03** versioned migration runner + DB backup before destructive steps —
+### Next session start-here (Phase 3 continues — the two big ones)
+Read this log + BACKLOG. Remaining Phase 3 is the heavy architecture work; each
+is its own focused session:
+1. **ARCH-03** versioned migration runner + DB backup before destructive steps —
    **HIGH RISK** (recreates tables). Prereqs: broaden TEST-02 first; add a file
    backup step; run against a copy. Precedes PERF-03 (index migrations).
-3. **ARCH-01** split `server/index.js` (439 lines) into routes/services/
+2. **ARCH-01** split `server/index.js` (~460 lines) into routes/services/
    repositories — **LARGE**; do as its own session, moving tests in lockstep.
    Folds in BE-06 (route ordering). Then **BE-07/SEC-05** background geocoding,
    **CQ-05/OPS-06** pino logging (closes DEP-02).
 Note: ARCH-01 and ARCH-03 each deserve a dedicated focused session.
+TEST-02 keeps growing alongside (now 37 tests: db 11 + api 25 + boundary 1).
 
 ---
 

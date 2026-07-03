@@ -9,6 +9,7 @@ import helmet from 'helmet'
 import compression from 'compression'
 import rateLimit from 'express-rate-limit'
 import { config } from './config.js'
+import { validate, schemas } from './validation.js'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { mkdirSync, createReadStream, readdirSync } from 'fs'
@@ -310,11 +311,8 @@ ${placemarks}
   res.send(kml)
 })
 
-app.patch('/api/photos/batch', (req, res) => {
+app.patch('/api/photos/batch', validate(schemas.batchUpdatePhotos), (req, res) => {
   const { ids, tags, description, mergeTags } = req.body
-  if (!Array.isArray(ids) || ids.length === 0) {
-    return res.status(400).json({ error: 'ids array required' })
-  }
   const allPhotos = getAllPhotos()
   const updates = ids.map(id => {
     const existing = allPhotos.find(p => p.id === id)
@@ -333,7 +331,7 @@ app.patch('/api/photos/batch', (req, res) => {
   res.json({ updated: updates.length })
 })
 
-app.patch('/api/photos/:id', (req, res) => {
+app.patch('/api/photos/:id', validate(schemas.updatePhoto), (req, res) => {
   const photo = getPhotoById(req.params.id)
   if (!photo) return res.status(404).json({ error: 'Photo not found' })
   const { description, tags, projectId, surveyDate } = req.body
@@ -344,9 +342,6 @@ app.patch('/api/photos/:id', (req, res) => {
     updatePhotoProject(req.params.id, projectId)
   }
   if (surveyDate !== undefined) {
-    if (surveyDate !== null && !/^\d{4}-\d{2}-\d{2}$/.test(surveyDate)) {
-      return res.status(400).json({ error: 'surveyDate must be YYYY-MM-DD or null' })
-    }
     updatePhotoSurveyDate(req.params.id, surveyDate)
   }
   const updated = getAllPhotos().find(p => p.id === req.params.id)
@@ -389,12 +384,11 @@ app.get('/api/clients', (_req, res) => {
   res.json(getAllClients())
 })
 
-app.post('/api/clients', (req, res) => {
-  const { name } = req.body
-  if (!name?.trim()) return res.status(400).json({ error: 'name required' })
+app.post('/api/clients', validate(schemas.createClient), (req, res) => {
+  const { name } = req.body // validated + trimmed
   const client = {
     id: uuidv4(),
-    name: name.trim(),
+    name,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }
@@ -409,15 +403,12 @@ app.post('/api/clients', (req, res) => {
   res.status(201).json({ ...client, projectCount: 0 })
 })
 
-app.patch('/api/clients/:id', (req, res) => {
-  // BE-04: validate name, 404 on missing client, 409 on duplicate name.
+app.patch('/api/clients/:id', validate(schemas.updateClient), (req, res) => {
+  // BE-04: 404 on missing client, 409 on duplicate name (name validated by schema).
   const { name } = req.body
-  if (typeof name !== 'string' || !name.trim()) {
-    return res.status(400).json({ error: 'name must be a non-empty string' })
-  }
   let changed
   try {
-    changed = updateClient(req.params.id, { name: name.trim(), updatedAt: new Date().toISOString() })
+    changed = updateClient(req.params.id, { name, updatedAt: new Date().toISOString() })
   } catch (err) {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       return res.status(409).json({ error: 'A client with that name already exists' })
@@ -439,12 +430,11 @@ app.get('/api/projects', (_req, res) => {
   res.json(getAllProjects())
 })
 
-app.post('/api/projects', (req, res) => {
-  const { name, clientId, status, color } = req.body
-  if (!name?.trim()) return res.status(400).json({ error: 'name required' })
+app.post('/api/projects', validate(schemas.createProject), (req, res) => {
+  const { name, clientId, status, color } = req.body // name validated + trimmed
   const project = {
     id: uuidv4(),
-    name: name.trim(),
+    name,
     clientId: clientId || null,
     status: status || 'active',
     color: color || '#e97b25',
@@ -455,18 +445,12 @@ app.post('/api/projects', (req, res) => {
   res.status(201).json({ ...project, photoCount: 0, clientName: null })
 })
 
-app.patch('/api/projects/:id', (req, res) => {
-  // BE-03: only forward keys the caller actually sent, so an explicit
-  // `clientId: null` can unassign the client.
+app.patch('/api/projects/:id', validate(schemas.updateProject), (req, res) => {
+  // BE-03: forward only keys the caller sent (schema strips absent ones), so an
+  // explicit `clientId: null` unassigns the client. name is validated by schema.
   const changes = {}
   for (const k of ['name', 'clientId', 'status', 'color']) {
     if (k in req.body) changes[k] = req.body[k]
-  }
-  if ('name' in changes) {
-    if (typeof changes.name !== 'string' || !changes.name.trim()) {
-      return res.status(400).json({ error: 'name must be a non-empty string' })
-    }
-    changes.name = changes.name.trim()
   }
   if (Object.keys(changes).length === 0) {
     return res.status(400).json({ error: 'no updatable fields provided' })
@@ -482,11 +466,8 @@ app.delete('/api/projects/:id', (req, res) => {
   res.json({ id: req.params.id })
 })
 
-app.patch('/api/projects/:id/photos', (req, res) => {
+app.patch('/api/projects/:id/photos', validate(schemas.assignPhotos), (req, res) => {
   const { photoIds } = req.body
-  if (!Array.isArray(photoIds) || photoIds.length === 0) {
-    return res.status(400).json({ error: 'photoIds array required' })
-  }
   assignPhotosToProject(req.params.id, photoIds)
   res.json({ assigned: photoIds.length })
 })

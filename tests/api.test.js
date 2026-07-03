@@ -129,6 +129,35 @@ describe('BE-03/BE-04: update semantics', () => {
   })
 })
 
+describe('BE-02: request validation', () => {
+  it('rejects a batch update with no ids (400)', async () => {
+    const res = await request(app).patch('/api/photos/batch').send({ ids: [] })
+    expect(res.status).toBe(400)
+    expect(res.body).toHaveProperty('details')
+  })
+
+  it('accepts a well-formed batch update (200)', async () => {
+    const res = await request(app).patch('/api/photos/batch').send({ ids: ['no-such-photo'], tags: ['x'] })
+    expect(res.status).toBe(200)
+    expect(res.body).toHaveProperty('updated')
+  })
+
+  it('rejects an invalid surveyDate before the 404 check (400)', async () => {
+    const res = await request(app).patch('/api/photos/any-id').send({ surveyDate: 'not-a-date' })
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects a non-array tags field (400)', async () => {
+    const res = await request(app).patch('/api/photos/any-id').send({ tags: 'nope' })
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects project photo assignment with no photoIds (400)', async () => {
+    const res = await request(app).patch('/api/projects/any-id/photos').send({ photoIds: [] })
+    expect(res.status).toBe(400)
+  })
+})
+
 describe('SEC-09/SEC-07: security middleware', () => {
   it('sets security headers (helmet + CSP)', async () => {
     const res = await request(app).get('/api/photos')
