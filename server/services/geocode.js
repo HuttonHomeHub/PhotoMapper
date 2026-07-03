@@ -1,5 +1,5 @@
 const NOMINATIM_TIMEOUT_MS = 5000;
-const USER_AGENT = 'fuzzy-guide/1.0';
+const USER_AGENT = 'PhotoMapper/1.0';
 
 // Cache key for a coordinate, rounded to ~111m so nearby points share an entry.
 export function geoKey(lat, lng) {

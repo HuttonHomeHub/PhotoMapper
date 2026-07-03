@@ -24,11 +24,16 @@ L.Icon.Default.mergeOptions({
 
 
 
+// Build a field-of-view wedge showing where the camera pointed and how wide its
+// view was. Requires a bearing (imgDirection). The horizontal FOV comes from the
+// panorama metadata when present, else is estimated from the 35mm-equivalent
+// focal length. See docs/geo-math.md for the formulas and the magic numbers.
 function createFovConePolygon(photo) {
-  if (photo.imgDirection == null) return null
+  if (photo.imgDirection == null) return null // no bearing → nothing to point at
 
   const hasPanoHFov = photo.panoHFov != null && photo.panoHFov > 0
 
+  // ≥358° is effectively a full 360° panorama, so a wedge is meaningless.
   if (hasPanoHFov && photo.panoHFov >= 358) {
     return L.circle([photo.lat, photo.lng], {
       radius: 40,
@@ -45,11 +50,13 @@ function createFovConePolygon(photo) {
   if (hasPanoHFov) {
     hFovRad = (photo.panoHFov * Math.PI) / 180
   } else {
+    // HFOV = 2·atan((sensorWidth/2) / focalLength); 18 = half of a 36mm full-frame
+    // sensor, valid because efl is the 35mm-equivalent focal length. 65° fallback.
     const efl = photo.focalLengthIn35mm ?? photo.focalLength
     hFovRad = efl ? 2 * Math.atan(18 / efl) : (65 * Math.PI) / 180
   }
 
-  const groundRadius = 40
+  const groundRadius = 40 // fixed visual length in metres (not derived from the photo)
   const halfAngle = hFovRad / 2
   const dirRad = (photo.imgDirection * Math.PI) / 180
   const R = 6371000

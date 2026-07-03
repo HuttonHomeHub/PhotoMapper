@@ -4,9 +4,6 @@ A full-stack web app for **photo geolocation mapping**. Upload photos; the app
 extracts GPS/EXIF data and plots them as interactive pins on a Leaflet map, with
 tools for organising them into clients, projects and survey dates.
 
-> The npm package is historically named `fuzzy-guide`. Canonical product name is
-> being consolidated to **PhotoMapper** (see backlog item DOC-02).
-
 ## Features
 
 - **Drag-and-drop upload** with per-file status and server-side de-duplication
@@ -110,6 +107,9 @@ existing database, and fails loudly on error. Add a new schema change as the nex
 All endpoints live under `/api` (plus `/health` and `/ready`). See the full
 reference — routes, request/response shapes, status codes and errors — in
 [`docs/API.md`](docs/API.md).
+
+The non-obvious FOV-cone / focal-length / distance math is documented in
+[`docs/geo-math.md`](docs/geo-math.md).
 
 ## Testing
 

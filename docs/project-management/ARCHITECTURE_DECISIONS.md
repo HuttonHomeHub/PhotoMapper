@@ -133,10 +133,10 @@
 ---
 
 ## Pending decisions (need user input; tracked so they are not forgotten)
-- **DOC-02** canonical product name (fuzzy-guide / PhotoMap / PhotoMapper).
 - **OPS-03** backup destination (S3-compatible / second SSH host / local disk) — needed before the automated backup script can be written. User answered "decide later" Session 002.
+- **PERF-01** photo-loading strategy — changes the `GET /api/photos` contract (frontend currently holds all photos for filter/timeline/heatmap). Options presented to the user Session 002; awaiting choice.
 
-_Resolved Session 002: ARCH-04 (drop collections → ADR-0008), OPS-02 (Docker → ADR-0009)._
+_Resolved Session 002: ARCH-04 (drop collections → ADR-0008), OPS-02 (Docker → ADR-0009), DOC-02 (name → PhotoMapper), OPS-07/edge-auth, etc._
 
 _Resolved Session 002: ADR-0002 (single-operator), ADR-0003 (single VPS),
 ADR-0005 (4-doc consolidation) all confirmed by the user._

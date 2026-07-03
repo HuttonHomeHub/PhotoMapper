@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 50 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 7 · **Not Started:** 15
-- **Current phase:** Phases 0–4 **complete**. Recent: PERF-06, DOC-03 (API.md), CQ-08 (dead CSS). Remaining: Phase 5 (PERF-01 only), Phase 7 docs (DOC-05/06), CQ-07. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
+- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 52 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 7 · **Not Started:** 13
+- **Current phase:** Phases 0–4 **complete**. Recent: PERF-06, DOC-03 (API.md), CQ-08, DOC-02 (renamed → PhotoMapper), DOC-06 (geo-math). Remaining: Phase 5 (PERF-01 only), Phase 7 docs (DOC-05), CQ-07, deeper tests. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -26,7 +26,7 @@
 | 4 | Frontend architecture & quality | 10 / 10 | ✅ Complete (ARCH-02/06, CQ-01/03/06, SEC-12, FE-02/03/05/06) |
 | 5 | Performance | 5 / 6 | PERF-02/03/05/06/07 ✅; PERF-01 (pagination/bbox) left |
 | 6 | Testing depth | 0 / 2 | Not started |
-| 7 | Documentation | 2 / 5 | DOC-01 ✅ (README), DOC-03 ✅ (API.md); DOC-04 ongoing (ADRs); DOC-05/06 left |
+| 7 | Documentation | 4 / 5 | DOC-01/03/06 ✅ + DOC-02 (rename); DOC-04 ongoing (ADRs); DOC-05 (CONTRIBUTING) left |
 | 8 | DevOps & infra | 6 / 7 | OPS-01/02/04/05/06/07 ✅ (CI, Docker, health, shutdown, logging, config); OPS-03 ⏸️ deferred (backup destination) |
 
 **Quality gates:** build ✅ · lint ✅ (8 pre-existing `src/` warnings, 0 new — PERF-06 cleared one) · tests ✅ 91 passing (`npm test`) · CI runs lint+build+test+audit on `main` and `claude/**` (OPS-01 ✅).
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 15 |
+| Not Started | 13 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 50 |
+| Completed | 52 |
 | Deferred | 7 |
 | **Total** | **74** |
 
@@ -569,10 +569,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Keep updated as architecture changes. Notes the DOC-02 name consolidation.
 
 ### DOC-02 — Name mismatch (fuzzy-guide / PhotoMap / PhotoMapper)
-- **Category:** Documentation · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** Package name, UI brand, and repo name differ.
-- **Recommended solution:** Pick one canonical name; update `package.json`, UI, docs. Record as ADR.
-- **Files affected:** `package.json`, `src/App.jsx`, `index.html`, docs.
+- **Category:** Documentation · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Description:** Package name (`fuzzy-guide`), UI brand ("PhotoMap"), and repo name differed.
+- **Decision:** Canonical name is **PhotoMapper** (confirmed by product owner, Session 002).
+- **Resolution:** Renamed npm package + lockfile to `photomapper`; UI brand `index.html <title>` and the sidebar `<h1>` to **PhotoMapper**; Nominatim `User-Agent` to `PhotoMapper/1.0`; devcontainer name, `CLAUDE.md`, and the two `.claude/agents/*.md` headers; removed the interim naming note from the README. No `fuzzy-guide` references remain (outside `node_modules`).
+- **Files affected:** `package.json`, `package-lock.json`, `index.html`, `src/App.jsx`, `server/services/geocode.js`, `.devcontainer/devcontainer.json`, `CLAUDE.md`, `.claude/agents/{frontend,backend}.md`, `README.md`.
 
 ### DOC-03 — No API reference
 - **Category:** Documentation · **Severity:** Medium · **Priority:** P2 · **Effort:** M · **Risk:** Low · **Status:** ✅ Completed (Session 002)
@@ -595,10 +596,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Files affected:** new `CONTRIBUTING.md`.
 
 ### DOC-06 — Undocumented non-obvious math
-- **Category:** Documentation · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** FOV cone / `pano_hfov` / sensor-width assumptions unexplained (`PhotoMap.jsx:24-77`).
-- **Recommended solution:** Doc comments + a short `docs/geo-math.md`.
-- **Files affected:** `PhotoMap.jsx`, new doc.
+- **Category:** Documentation · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Description:** FOV cone / `panoHFov` / sensor-width assumptions unexplained.
+- **Resolution:** Added `docs/geo-math.md` (FOV inputs, `HFOV = 2·atan((sensorWidth/2)/focalLength)` with the 36mm/35mm-equivalent rationale, the ≥358° full-circle case, 65° fallback, the spherical destination-point arc formula, the fixed 40 m visual radius, and the haversine distance used by the elevation profile). Added explanatory comments in `createFovConePolygon` at each magic number (18 / 65 / 40 / 358). Linked from README.
+- **Files affected:** `src/components/PhotoMap.jsx`, new `docs/geo-math.md`, `README.md`.
 
 ---
 
@@ -623,6 +624,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-03 (Session 002)** — ✅ **DOC-02 + DOC-06.** DOC-02: canonical name set to
+  **PhotoMapper** (user decision) — renamed package/lockfile to `photomapper`, UI title
+  + sidebar brand, Nominatim User-Agent, devcontainer, CLAUDE.md, agent docs; no
+  `fuzzy-guide` refs left. DOC-06: `docs/geo-math.md` + code comments for the FOV-cone
+  math (sensor width, HFOV, spherical arc). [DOC-02, DOC-06]
 - **2026-07-03 (Session 002)** — ✅ **DOC-03 + CQ-08.** DOC-03: wrote `docs/API.md`
   (conventions, object shapes, every route with params/status/errors) + README link.
   CQ-08: deleted ~230 lines of dead `.collection-*` CSS (bundle 87.9→84.3 kB, 0 refs

@@ -292,7 +292,7 @@ export function App() {
               <circle cx="23.1" cy="13.3" r="0.65" fill="white" fillOpacity="0.6"/>
             </svg>
             <div className="sidebar-header-text">
-              <h1>Photo<span className="brand-accent">Map</span></h1>
+              <h1>Photo<span className="brand-accent">Mapper</span></h1>
               <p>Upload photos and explore them on an interactive map</p>
             </div>
           </div>
