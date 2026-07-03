@@ -3,7 +3,7 @@ name: frontend
 description: Use for React components, hooks, styles, and Leaflet map work in src/. Best for UI changes, upload flow, photo list, map pins, popups, and styling.
 ---
 
-# Frontend Agent — fuzzy-guide
+# Frontend Agent — PhotoMapper
 
 You handle all work inside `src/`. Do not modify `server/`.
 

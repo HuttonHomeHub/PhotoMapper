@@ -1,5 +1,5 @@
 {
-  "name": "fuzzy-guide",
+  "name": "PhotoMapper",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22",
   "postCreateCommand": "npm install",
   "postStartCommand": "npm run dev",

@@ -1,0 +1,35 @@
+# OPS-02: single-VPS deployment. The app runs here; a reverse proxy (nginx/Caddy)
+# in front of it terminates TLS and enforces auth (ADR-0007). The published port
+# is bound to loopback so the Node port is never exposed to the internet directly.
+services:
+  app:
+    build: .
+    image: photomapper
+    restart: unless-stopped
+    ports:
+      # host:container — loopback-only; the reverse proxy connects to 127.0.0.1:3001.
+      - "127.0.0.1:3001:3001"
+    environment:
+      NODE_ENV: production
+      # ALLOW_RESET is intentionally left unset (defaults false, SEC-02).
+      # Add overrides here, e.g.:
+      #   ALLOWED_ORIGINS: "https://photos.example.com"
+      #   UPLOAD_MAX_BYTES: "62914560"
+    volumes:
+      # Named volume holds both the SQLite DB and uploads (see Dockerfile ENV).
+      - photomapper-data:/data
+    # Give the OPS-05 graceful shutdown (10s force-exit guard) time to drain.
+    stop_grace_period: 15s
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:'+(process.env.PORT||3001)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  photomapper-data:

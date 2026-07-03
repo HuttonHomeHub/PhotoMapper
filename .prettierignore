@@ -1,3 +1,6 @@
 dist/
 node_modules/
 server/uploads/
+coverage/
+# Vendored/patched upstream library — keep diffs against the original readable.
+src/lib/heatmap-patched.js

@@ -3,7 +3,7 @@ name: backend
 description: Use for Express API routes, SQLite database operations, EXIF parsing, and file upload handling in server/. Best for new endpoints, schema changes, and server-side logic.
 ---
 
-# Backend Agent — fuzzy-guide
+# Backend Agent — PhotoMapper
 
 You handle all work inside `server/`. Do not modify `src/`.
 

@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react'
-import React from 'react'
-import { useFocusTrap } from '../hooks/useFocusTrap.js'
-import { ConfirmModal } from './ConfirmModal.jsx'
+import { useState, useRef } from 'react';
+import React from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap.js';
+import { ConfirmModal } from './ConfirmModal.jsx';
 
 function SkeletonRow() {
   return (
@@ -12,42 +12,57 @@ function SkeletonRow() {
         <div className="skeleton skeleton-line skeleton-line-short" />
       </div>
     </div>
-  )
+  );
 }
 
 export function PhotoList({
-  photos, loading, onDelete, onView, activeTag, onTagClick,
-  selectionMode, selectedPhotoIds, onToggleSelection,
-  onToggleSelectionMode, onBatchUpdate, onBatchDelete,
-  comparingPhotoId, onCompareClick,
-  toast, hasActiveFilters, onClearAllFilters,
-  timelinePhotoId, totalCount
+  photos,
+  loading,
+  onDelete,
+  onView,
+  activeTag,
+  onTagClick,
+  selectionMode,
+  selectedPhotoIds,
+  onToggleSelection,
+  onToggleSelectionMode,
+  onBatchUpdate,
+  onBatchDelete,
+  comparingPhotoId,
+  onCompareClick,
+  toast,
+  hasActiveFilters,
+  onClearAllFilters,
+  timelinePhotoId,
+  totalCount,
 }) {
-  const [deletingId, setDeletingId] = useState(null)
-  const [pendingDelete, setPendingDelete] = useState(null)
-  const confirmTrapRef = useFocusTrap(!!pendingDelete)
-  const [tagPromptOpen, setTagPromptOpen] = React.useState(false)
-  const [batchTagValue, setBatchTagValue] = React.useState('')
-  const [batchConfirmOpen, setBatchConfirmOpen] = React.useState(false)
-  const [batchProgress, setBatchProgress] = React.useState(null) // {done, total}
-  const [searchQuery, setSearchQuery] = React.useState('')
-  const [sortBy, setSortBy] = React.useState('default')
-  const listRef = useRef(null)
+  const [deletingId, setDeletingId] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const confirmTrapRef = useFocusTrap(!!pendingDelete);
+  const [tagPromptOpen, setTagPromptOpen] = React.useState(false);
+  const [batchTagValue, setBatchTagValue] = React.useState('');
+  const [batchConfirmOpen, setBatchConfirmOpen] = React.useState(false);
+  const [batchProgress, setBatchProgress] = React.useState(null); // {done, total}
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [sortBy, setSortBy] = React.useState('default');
+  const listRef = useRef(null);
 
   // Scroll timeline-active photo into view
   React.useEffect(() => {
-    if (!timelinePhotoId || !listRef.current) return
-    const el = listRef.current.querySelector(`[data-photo-id="${timelinePhotoId}"]`)
-    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-  }, [timelinePhotoId])
+    if (!timelinePhotoId || !listRef.current) return;
+    const el = listRef.current.querySelector(`[data-photo-id="${timelinePhotoId}"]`);
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [timelinePhotoId]);
 
   // Loading skeleton
   if (loading) {
     return (
       <div className="photo-list" aria-label="Loading photos…">
-        {Array.from({ length: 6 }, (_, i) => <SkeletonRow key={i} />)}
+        {Array.from({ length: 6 }, (_, i) => (
+          <SkeletonRow key={i} />
+        ))}
       </div>
-    )
+    );
   }
 
   // Empty states
@@ -63,11 +78,15 @@ export function PhotoList({
           </div>
           <p className="photo-list-empty-title">No photos match your filters</p>
           <p className="photo-list-empty-sub">Try adjusting or clearing your filters.</p>
-          <button className="date-filter-clear" style={{ marginTop: 12 }} onClick={onClearAllFilters}>
+          <button
+            className="date-filter-clear"
+            style={{ marginTop: 12 }}
+            onClick={onClearAllFilters}
+          >
             Clear all filters
           </button>
         </div>
-      )
+      );
     }
     return (
       <div className="photo-list-empty">
@@ -82,82 +101,94 @@ export function PhotoList({
           Drop JPEGs above — those with GPS data will appear on the map automatically.
         </p>
       </div>
-    )
+    );
   }
 
   // Search + sort
-  let displayed = photos
+  let displayed = photos;
   if (searchQuery.trim()) {
-    const q = searchQuery.trim().toLowerCase()
-    displayed = displayed.filter(p =>
-      p.originalName?.toLowerCase().includes(q) ||
-      p.description?.toLowerCase().includes(q) ||
-      p.tags?.some(t => t.toLowerCase().includes(q)) ||
-      p.locationName?.toLowerCase().includes(q)
-    )
+    const q = searchQuery.trim().toLowerCase();
+    displayed = displayed.filter(
+      (p) =>
+        p.originalName?.toLowerCase().includes(q) ||
+        p.description?.toLowerCase().includes(q) ||
+        p.tags?.some((t) => t.toLowerCase().includes(q)) ||
+        p.locationName?.toLowerCase().includes(q)
+    );
   }
   if (sortBy === 'name-asc') {
-    displayed = [...displayed].sort((a, b) => (a.originalName ?? '').localeCompare(b.originalName ?? ''))
+    displayed = [...displayed].sort((a, b) =>
+      (a.originalName ?? '').localeCompare(b.originalName ?? '')
+    );
   } else if (sortBy === 'name-desc') {
-    displayed = [...displayed].sort((a, b) => (b.originalName ?? '').localeCompare(a.originalName ?? ''))
+    displayed = [...displayed].sort((a, b) =>
+      (b.originalName ?? '').localeCompare(a.originalName ?? '')
+    );
   } else if (sortBy === 'date-asc') {
-    displayed = [...displayed].sort((a, b) => (a.dateTaken ?? a.uploadedAt ?? '').localeCompare(b.dateTaken ?? b.uploadedAt ?? ''))
+    displayed = [...displayed].sort((a, b) =>
+      (a.dateTaken ?? a.uploadedAt ?? '').localeCompare(b.dateTaken ?? b.uploadedAt ?? '')
+    );
   } else if (sortBy === 'date-desc') {
-    displayed = [...displayed].sort((a, b) => (b.dateTaken ?? b.uploadedAt ?? '').localeCompare(a.dateTaken ?? a.uploadedAt ?? ''))
+    displayed = [...displayed].sort((a, b) =>
+      (b.dateTaken ?? b.uploadedAt ?? '').localeCompare(a.dateTaken ?? a.uploadedAt ?? '')
+    );
   } else if (sortBy === 'gps-first') {
-    displayed = [...displayed].sort((a, b) => (b.hasGps ? 1 : 0) - (a.hasGps ? 1 : 0))
+    displayed = [...displayed].sort((a, b) => (b.hasGps ? 1 : 0) - (a.hasGps ? 1 : 0));
   }
 
   async function handleDelete(photo) {
-    setPendingDelete(photo)
+    setPendingDelete(photo);
   }
 
   async function confirmDelete() {
-    const photo = pendingDelete
-    setPendingDelete(null)
-    setDeletingId(photo.id)
+    const photo = pendingDelete;
+    setPendingDelete(null);
+    setDeletingId(photo.id);
     try {
-      await onDelete(photo.id)
-      toast?.('Photo deleted', 'success')
+      await onDelete(photo.id);
+      toast?.('Photo deleted', 'success');
     } catch (err) {
-      toast?.(`Could not delete: ${err.message}`, 'error')
+      toast?.(`Could not delete: ${err.message}`, 'error');
     } finally {
-      setDeletingId(null)
+      setDeletingId(null);
     }
   }
 
   async function handleBatchDelete() {
-    const ids = [...selectedPhotoIds]
-    setBatchConfirmOpen(false)
-    setBatchProgress({ done: 0, total: ids.length })
-    const failures = []
+    const ids = [...selectedPhotoIds];
+    setBatchConfirmOpen(false);
+    setBatchProgress({ done: 0, total: ids.length });
+    const failures = [];
     for (let i = 0; i < ids.length; i++) {
       try {
-        await onDelete(ids[i])
+        await onDelete(ids[i]);
       } catch {
-        failures.push(ids[i])
+        failures.push(ids[i]);
       }
-      setBatchProgress({ done: i + 1, total: ids.length })
+      setBatchProgress({ done: i + 1, total: ids.length });
     }
-    setBatchProgress(null)
+    setBatchProgress(null);
     if (failures.length === 0) {
-      toast?.(`${ids.length} photo${ids.length !== 1 ? 's' : ''} deleted`, 'success')
+      toast?.(`${ids.length} photo${ids.length !== 1 ? 's' : ''} deleted`, 'success');
     } else {
-      toast?.(`${ids.length - failures.length} deleted, ${failures.length} failed`, 'error')
+      toast?.(`${ids.length - failures.length} deleted, ${failures.length} failed`, 'error');
     }
   }
 
   function handleKeyDown(e, photo, idx) {
-    if (e.key === 'Enter') { onView(photo); return }
+    if (e.key === 'Enter') {
+      onView(photo);
+      return;
+    }
     if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      const items = listRef.current?.querySelectorAll('[data-photo-item]')
-      items?.[idx + 1]?.focus()
+      e.preventDefault();
+      const items = listRef.current?.querySelectorAll('[data-photo-item]');
+      items?.[idx + 1]?.focus();
     }
     if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      const items = listRef.current?.querySelectorAll('[data-photo-item]')
-      items?.[idx - 1]?.focus()
+      e.preventDefault();
+      const items = listRef.current?.querySelectorAll('[data-photo-item]');
+      items?.[idx - 1]?.focus();
     }
   }
 
@@ -169,13 +200,13 @@ export function PhotoList({
           type="search"
           placeholder="Search photos…"
           value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
+          onChange={(e) => setSearchQuery(e.target.value)}
           aria-label="Search photos by name, tag, or location"
         />
         <select
           className="photo-list-sort-select"
           value={sortBy}
-          onChange={e => setSortBy(e.target.value)}
+          onChange={(e) => setSortBy(e.target.value)}
           aria-label="Sort photos"
         >
           <option value="default">Default order</option>
@@ -193,9 +224,7 @@ export function PhotoList({
         >
           {selectionMode ? 'Cancel' : 'Select'}
         </button>
-        {comparingPhotoId && (
-          <div className="comparing-hint">Pick a second photo to compare</div>
-        )}
+        {comparingPhotoId && <div className="comparing-hint">Pick a second photo to compare</div>}
       </div>
 
       {selectedPhotoIds?.size > 0 && (
@@ -214,34 +243,49 @@ export function PhotoList({
                     autoFocus
                     placeholder="Tag name"
                     value={batchTagValue}
-                    onChange={e => setBatchTagValue(e.target.value)}
-                    onKeyDown={e => {
+                    onChange={(e) => setBatchTagValue(e.target.value)}
+                    onKeyDown={(e) => {
                       if (e.key === 'Enter' && batchTagValue.trim()) {
-                        onBatchUpdate([...selectedPhotoIds], { tags: [batchTagValue.trim()], mergeTags: true })
-                        toast?.(`Tag "${batchTagValue.trim()}" added to ${selectedPhotoIds.size} photo${selectedPhotoIds.size !== 1 ? 's' : ''}`, 'success')
-                        setBatchTagValue('')
-                        setTagPromptOpen(false)
+                        onBatchUpdate([...selectedPhotoIds], {
+                          tags: [batchTagValue.trim()],
+                          mergeTags: true,
+                        });
+                        toast?.(
+                          `Tag "${batchTagValue.trim()}" added to ${selectedPhotoIds.size} photo${selectedPhotoIds.size !== 1 ? 's' : ''}`,
+                          'success'
+                        );
+                        setBatchTagValue('');
+                        setTagPromptOpen(false);
                       }
                       if (e.key === 'Escape') {
-                        setBatchTagValue('')
-                        setTagPromptOpen(false)
+                        setBatchTagValue('');
+                        setTagPromptOpen(false);
                       }
                     }}
                   />
                   <button
                     className="sel-action-btn"
-                    onClick={() => { setBatchTagValue(''); setTagPromptOpen(false) }}
+                    onClick={() => {
+                      setBatchTagValue('');
+                      setTagPromptOpen(false);
+                    }}
                     aria-label="Cancel tag"
-                  >✕</button>
+                  >
+                    ✕
+                  </button>
                 </span>
               ) : (
-                <button className="sel-action-btn" onClick={() => setTagPromptOpen(true)}>+ Tag</button>
+                <button className="sel-action-btn" onClick={() => setTagPromptOpen(true)}>
+                  + Tag
+                </button>
               )}
               <button
                 className="sel-action-btn sel-delete-btn"
                 onClick={() => setBatchConfirmOpen(true)}
                 aria-label={`Delete ${selectedPhotoIds.size} selected photos`}
-              >Delete</button>
+              >
+                Delete
+              </button>
             </>
           )}
         </div>
@@ -249,7 +293,9 @@ export function PhotoList({
 
       {searchQuery && displayed.length === 0 && (
         <div className="photo-list-empty" style={{ padding: '16px' }}>
-          <p className="photo-list-empty-title" style={{ fontSize: 13 }}>No results for &quot;{searchQuery}&quot;</p>
+          <p className="photo-list-empty-title" style={{ fontSize: 13 }}>
+            No results for &quot;{searchQuery}&quot;
+          </p>
         </div>
       )}
 
@@ -263,12 +309,12 @@ export function PhotoList({
             tabIndex={selectionMode ? -1 : 0}
             role="button"
             aria-label={`${photo.originalName}${photo.hasGps ? ', on map' : ', no GPS'}`}
-            onClick={() => selectionMode ? onToggleSelection(photo.id) : undefined}
-            onKeyDown={e => !selectionMode && handleKeyDown(e, photo, idx)}
+            onClick={() => (selectionMode ? onToggleSelection(photo.id) : undefined)}
+            onKeyDown={(e) => !selectionMode && handleKeyDown(e, photo, idx)}
           >
             <button
               className="photo-list-thumb-btn"
-              onClick={() => selectionMode ? onToggleSelection(photo.id) : onView(photo)}
+              onClick={() => (selectionMode ? onToggleSelection(photo.id) : onView(photo))}
               aria-label={`View ${photo.originalName}`}
               tabIndex={-1}
               style={{ position: 'relative' }}
@@ -285,7 +331,7 @@ export function PhotoList({
                   className="photo-select-checkbox"
                   checked={selectedPhotoIds?.has(photo.id) ?? false}
                   onChange={() => onToggleSelection(photo.id)}
-                  onClick={e => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                   aria-label={`Select ${photo.originalName}`}
                 />
               )}
@@ -293,17 +339,18 @@ export function PhotoList({
             <div className="photo-list-info">
               <div className="photo-list-name">{photo.originalName}</div>
               <div className="photo-list-meta">
-                {photo.locationName
-                  ? photo.locationName
-                  : (photo.hasGps ? 'On map' : 'No GPS')}
+                {photo.locationName ? photo.locationName : photo.hasGps ? 'On map' : 'No GPS'}
               </div>
               {photo.tags?.length > 0 && (
                 <div className="photo-list-tags">
-                  {photo.tags.slice(0, 3).map(tag => (
+                  {photo.tags.slice(0, 3).map((tag) => (
                     <button
                       key={tag}
                       className={`tag-chip-sm${activeTag === tag ? ' active' : ''}`}
-                      onClick={e => { e.stopPropagation(); onTagClick?.(tag) }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onTagClick?.(tag);
+                      }}
                       aria-pressed={activeTag === tag}
                       aria-label={`Filter by tag: ${tag}`}
                     >
@@ -323,8 +370,15 @@ export function PhotoList({
             </div>
             <button
               className={`photo-compare-btn${comparingPhotoId === photo.id ? ' active' : ''}`}
-              onClick={e => { e.stopPropagation(); onCompareClick(photo.id) }}
-              title={comparingPhotoId && comparingPhotoId !== photo.id ? 'Compare with this photo' : 'Start comparison'}
+              onClick={(e) => {
+                e.stopPropagation();
+                onCompareClick(photo.id);
+              }}
+              title={
+                comparingPhotoId && comparingPhotoId !== photo.id
+                  ? 'Compare with this photo'
+                  : 'Start comparison'
+              }
               aria-label={`Compare ${photo.originalName}`}
               tabIndex={-1}
             >
@@ -332,7 +386,10 @@ export function PhotoList({
             </button>
             <button
               className="photo-list-delete"
-              onClick={e => { e.stopPropagation(); handleDelete(photo) }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(photo);
+              }}
               disabled={deletingId === photo.id}
               aria-label={`Delete ${photo.originalName}`}
               tabIndex={-1}
@@ -346,7 +403,13 @@ export function PhotoList({
       {pendingDelete && (
         <ConfirmModal
           title="Delete photo?"
-          message={<><span className="confirm-modal-filename">{pendingDelete.originalName}</span><br />This cannot be undone.</>}
+          message={
+            <>
+              <span className="confirm-modal-filename">{pendingDelete.originalName}</span>
+              <br />
+              This cannot be undone.
+            </>
+          }
           onConfirm={confirmDelete}
           onCancel={() => setPendingDelete(null)}
         />
@@ -362,5 +425,5 @@ export function PhotoList({
         />
       )}
     </>
-  )
+  );
 }
