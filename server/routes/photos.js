@@ -11,6 +11,7 @@ import { extractPhotoMetadata } from '../services/exif.js';
 import { cachedLocation, enqueueGeocode } from '../services/geocodeQueue.js';
 import { generateThumbnail } from '../services/thumbnail.js';
 import { toGeoJSON, toKML } from '../services/exportPhotos.js';
+import { logger } from '../logger.js';
 import {
   insertPhoto,
   getAllPhotos,
@@ -184,13 +185,13 @@ router.delete('/:id', async (req, res) => {
   try {
     await unlink(join(uploadsDir, photo.filename));
   } catch (err) {
-    if (err.code !== 'ENOENT') console.error('File delete failed:', err);
+    if (err.code !== 'ENOENT') logger.error({ err }, 'File delete failed');
   }
   if (photo.thumbnailFilename) {
     try {
       await unlink(join(uploadsDir, photo.thumbnailFilename));
     } catch (err) {
-      if (err.code !== 'ENOENT') console.error('Thumbnail delete failed:', err);
+      if (err.code !== 'ENOENT') logger.error({ err }, 'Thumbnail delete failed');
     }
   }
 

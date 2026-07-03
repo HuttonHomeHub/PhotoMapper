@@ -119,11 +119,13 @@ wiring) to keep changes cohesive.
   background worker (`services/geocodeQueue.js`); cache hits still resolve at
   upload. `tests/geocode.test.js` covers cache + cache-hit queue (no network).
 
-### Next session start-here (Phase 3 tail → Phase 4)
-Read this log + BACKLOG. Last Phase-3 item:
-1. **CQ-05 / OPS-06** — structured logging (`pino` + `pino-http`, request ids);
-   log level via config. Closes DEP-02. Pairs with OPS-04 (health) in Phase 8.
-Then **Phase 4 (frontend)**: ARCH-02 (decompose the 866-line App.jsx), ARCH-06
+### Phase 3 complete (Session 002)
+- ✅ **CQ-05 + OPS-06** structured logging (`pino`/`pino-http`, `server/logger.js`,
+  per-request ids, silent under test); `console.*` replaced. **DEP-02 closed**
+  (all prod deps in, audit clean). **Phase 3 done 10/10.**
+
+### Next session start-here (Phase 4 — frontend architecture)
+Read this log + BACKLOG. **Phase 4 (frontend)**: ARCH-02 (decompose the 866-line App.jsx), ARCH-06
 (split usePhotos), CQ-01 (shared format/geo helpers — brings the deferred pure-
 helper tests), CQ-06 (toast context), SEC-12 (portal map popups), TEST-03
 (jsdom component harness — also lands FE-01's full render test), FE-05 (proxy the

@@ -6,10 +6,12 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
+import pinoHttp from 'pino-http';
 import { join } from 'path';
 import { readdirSync } from 'fs';
 import { unlink } from 'fs/promises';
 import { config } from './config.js';
+import { logger } from './logger.js';
 import { uploadsDir, distDir } from './paths.js';
 import { resetAll } from './db.js';
 import photosRouter from './routes/photos.js';
@@ -53,6 +55,9 @@ export function createApp() {
 
   // PERF-08: gzip/brotli responses.
   app.use(compression());
+
+  // CQ-05/OPS-06: structured request logging with a per-request id (req.log).
+  app.use(pinoHttp({ logger }));
 
   // SEC-04: no cross-origin access by default (app is same-origin behind the
   // proxy). Enable only for explicitly configured origins.
@@ -109,7 +114,7 @@ export function createApp() {
   // BE-06: error-handling middleware is registered LAST so it catches errors from
   // every route above it (previously it sat before the reset/SPA routes).
   app.use((err, req, res, _next) => {
-    console.error(err);
+    (req.log ?? logger).error({ err }, 'Unhandled request error');
     const status = err.status || err.statusCode || 500;
     // SEC-08: don't leak internal error detail to clients in production. Client
     // (4xx) errors keep their message; server (5xx) errors are masked in prod.

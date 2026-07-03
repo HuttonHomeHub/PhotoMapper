@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 24 · **In Progress:** 3 (DEP-02, TEST-02, CQ-07) · **Deferred:** 6 · **Not Started:** 40
-- **Current phase:** Phase 3 — Backend architecture & correctness (BE-02/03/04/06/07, SEC-05, ARCH-01/03 ✅; +PERF-03 early). Remaining: CQ-05/OPS-06 (logging) → then Phase 4 (frontend)
+- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 27 · **In Progress:** 2 (TEST-02 ongoing, CQ-07) · **Deferred:** 6 · **Not Started:** 38
+- **Current phase:** ✅ Phase 3 complete → entering Phase 4 (Frontend architecture & quality). Backend is now layered, validated, migration-safe, logged, and geocoding is off the request path.
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -22,8 +22,8 @@
 | 0 | Programme setup | ✅ | Complete |
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
-| 3 | Backend architecture & correctness | 8 / 10 | **Active** (BE-02/03/04/06/07, SEC-05, ARCH-01/03 ✅; next CQ-05/OPS-06 logging) |
-| 4 | Frontend architecture & quality | 0 / 10 | Not started |
+| 3 | Backend architecture & correctness | 10 / 10 | ✅ Complete (BE-02/03/04/06/07, SEC-05, ARCH-01/03, CQ-05/OPS-06) |
+| 4 | Frontend architecture & quality | 0 / 10 | **Active (next: ARCH-02 decompose App.jsx)** |
 | 5 | Performance | 1 / 6 | PERF-03 ✅ (landed early via runner) |
 | 6 | Testing depth | 0 / 2 | Not started |
 | 7 | Documentation | 0 / 5 | Not started |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 40 |
+| Not Started | 38 |
 | Blocked | 0 |
-| In Progress | 3 |
+| In Progress | 2 |
 | Needs Review | 0 |
-| Completed | 24 |
+| Completed | 27 |
 | Deferred | 6 |
 | **Total** | **73** |
 
@@ -304,11 +304,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Pairs with FE-04.
 
 ### CQ-05 — No logging strategy
-- **Category:** Code Quality · **Severity:** Medium · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** Raw `console.*` only; no levels, structure, or request logging.
-- **Recommended solution:** Structured logger (`pino`), request-id middleware, log levels via env.
-- **Files affected:** `server/index.js`, new `server/lib/logger.js`.
-- **Dependencies:** Supports SEC-08, OPS-06.
+- **Category:** Code Quality · **Severity:** Medium · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Added `server/logger.js` (a `pino` instance; level from `config.logLevel`, forced `silent` under test). Replaced the ad-hoc `console.*` calls (error handler, file-delete failures, startup) with structured logging. (The only remaining `console.error` is the pre-logger config-validation fatal in `config.js`, which must run before the logger exists.)
+- **Files affected:** `server/logger.js` (new), `server/app.js`, `server/index.js`, `server/routes/photos.js`, `server/config.js` (LOG_LEVEL).
 
 ### CQ-06 — Toast module-level singleton anti-pattern
 - **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
@@ -503,11 +501,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Pairs with OPS-02.
 
 ### OPS-06 — No structured/request logging
-- **Category:** DevOps · **Severity:** Medium · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** No request logs or correlation ids.
-- **Recommended solution:** `pino-http` request logging with ids (shared with CQ-05).
-- **Files affected:** `server/index.js`, `server/lib/logger.js`.
-- **Dependencies:** Same work as CQ-05.
+- **Category:** DevOps · **Severity:** Medium · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** `pino-http` mounted in `server/app.js` — logs every request with a generated per-request id and attaches `req.log`; the error handler logs via `req.log`. Silent under test.
+- **Files affected:** `server/app.js`, `server/logger.js`.
+- **Dependencies:** Done with CQ-05. Feeds OPS-04 (health/metrics) in Phase 8.
 
 ### OPS-07 — No environment config management/validation
 - **Category:** DevOps · **Severity:** Medium · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
@@ -526,8 +523,8 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Needs component test for heatmap behavior.
 
 ### DEP-02 — Missing production dependencies
-- **Category:** Dependencies · **Severity:** High (enabler) · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** In Progress (Session 002)
-- **Progress:** Added incrementally as each consuming fix lands (avoids unused deps): ✅ `express-async-errors` (BE-01), ✅ `supertest` (dev, TEST-02), ✅ `helmet` (SEC-09), ✅ `express-rate-limit` (SEC-07), ✅ `compression` (PERF-08), ✅ `zod` (OPS-07, reused by BE-02). Session/auth lib **not needed** (auth is at the proxy — ADR-0007). Remaining: `pino`/`pino-http` (CQ-05/OPS-06). Effectively complete for Phase 2; will close when logging lands.
+- **Category:** Dependencies · **Severity:** High (enabler) · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** All production deps added incrementally as their consuming fix landed: `express-async-errors` (BE-01), `supertest` (dev, TEST-02), `helmet` (SEC-09), `express-rate-limit` (SEC-07), `compression` (PERF-08), `zod` (OPS-07/BE-02), `pino`/`pino-http` (CQ-05/OPS-06). Session/auth lib intentionally **not** added (auth is at the proxy — ADR-0007). `npm audit` clean throughout.
 - **Description:** No `helmet`, `express-rate-limit`, `compression`, `express-async-errors` (or Express 5), session lib, `zod`, `pino`.
 - **Recommended solution:** Add the set as Phase 2/3 lands; per CLAUDE.md, dependency additions are recorded here as the "discussion".
 - **Files affected:** `package.json`, `package-lock.json`.
@@ -623,6 +620,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **CQ-05 + OPS-06 + DEP-02 → Phase 3 complete.**
+  Structured logging via `pino`/`pino-http` (`server/logger.js`, per-request ids,
+  silent under test); `console.*` replaced. DEP-02 closed (all prod deps in,
+  audit clean). Backend phase done 10/10. [CQ-05, OPS-06, DEP-02]
 - **2026-07-02 (Session 002)** — ✅ **BE-07 + SEC-05.** Reverse-geocoding moved off
   the upload request into a cached (`geocode_cache`, migration v3), rate-limited
   (≥1.1 s), timed-out (5 s) background worker (`services/geocodeQueue.js`); cache

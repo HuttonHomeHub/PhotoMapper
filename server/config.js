@@ -25,6 +25,8 @@ const schema = z.object({
     .positive()
     .default(15 * 60 * 1000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(1000),
+  // Structured-log level (CQ-05/OPS-06). Forced to 'silent' under test.
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -47,4 +49,5 @@ export const config = {
   allowReset: env.ALLOW_RESET === 'true',
   uploadMaxBytes: env.UPLOAD_MAX_BYTES,
   rateLimit: { windowMs: env.RATE_LIMIT_WINDOW_MS, max: env.RATE_LIMIT_MAX },
+  logLevel: env.NODE_ENV === 'test' ? 'silent' : env.LOG_LEVEL,
 };
