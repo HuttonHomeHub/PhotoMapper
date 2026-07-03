@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 48 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 7 · **Not Started:** 17
-- **Current phase:** Phases 0–4 **complete**. Recent: OPS-04/05, ARCH-04, OPS-02 (Docker), PERF-02, FE-05/06, FE-02/03, PERF-06 (incremental markers). Remaining: Phase 5 (PERF-01 only), Phase 7 docs (DOC-03/05/06), CQ-07/08. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
+- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 50 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 7 · **Not Started:** 15
+- **Current phase:** Phases 0–4 **complete**. Recent: PERF-06, DOC-03 (API.md), CQ-08 (dead CSS). Remaining: Phase 5 (PERF-01 only), Phase 7 docs (DOC-05/06), CQ-07. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -26,7 +26,7 @@
 | 4 | Frontend architecture & quality | 10 / 10 | ✅ Complete (ARCH-02/06, CQ-01/03/06, SEC-12, FE-02/03/05/06) |
 | 5 | Performance | 5 / 6 | PERF-02/03/05/06/07 ✅; PERF-01 (pagination/bbox) left |
 | 6 | Testing depth | 0 / 2 | Not started |
-| 7 | Documentation | 1 / 5 | DOC-01 ✅ (README); DOC-04 in progress (ADRs) |
+| 7 | Documentation | 2 / 5 | DOC-01 ✅ (README), DOC-03 ✅ (API.md); DOC-04 ongoing (ADRs); DOC-05/06 left |
 | 8 | DevOps & infra | 6 / 7 | OPS-01/02/04/05/06/07 ✅ (CI, Docker, health, shutdown, logging, config); OPS-03 ⏸️ deferred (backup destination) |
 
 **Quality gates:** build ✅ · lint ✅ (8 pre-existing `src/` warnings, 0 new — PERF-06 cleared one) · tests ✅ 91 passing (`npm test`) · CI runs lint+build+test+audit on `main` and `claude/**` (OPS-01 ✅).
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 17 |
+| Not Started | 15 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 48 |
+| Completed | 50 |
 | Deferred | 7 |
 | **Total** | **74** |
 
@@ -320,11 +320,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Independent; do as its own formatting-only commit.
 
 ### CQ-08 — Dead `.collection-*` CSS — *discovered Session 002 (ARCH-04 follow-up)*
-- **Category:** Code Quality · **Severity:** Low · **Priority:** P4 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** ~230 lines of `.collection-*` styles in `src/styles/index.css` (≈ lines 2080–2305, 3671–3706) for a collections-panel UI that no longer exists. No JSX references these classes. Surfaced when ARCH-04 dropped the backing tables.
-- **Recommended solution:** Delete the dead rules in a style-only commit. Low priority — no runtime cost beyond a slightly larger bundle.
+- **Category:** Code Quality · **Severity:** Low · **Priority:** P4 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Description:** ~230 lines of `.collection-*` styles in `src/styles/index.css` for a collections-panel UI that no longer exists. No JSX references these classes. Surfaced when ARCH-04 dropped the backing tables.
+- **Resolution:** Removed the entire Collection Panel block and the two `.collection-*` selectors in the mobile touch-target group. 0 `.collection-` references remain; CSS bundle 87.9 → 84.3 kB. Build/tests green.
 - **Files affected:** `src/styles/index.css`.
-- **Dependencies:** None. Pairs naturally with CQ-07 (both src/ style-only churn).
+- **Dependencies:** None. (CQ-07 src/ semicolon normalization still separate.)
 
 ---
 
@@ -575,11 +575,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Files affected:** `package.json`, `src/App.jsx`, `index.html`, docs.
 
 ### DOC-03 — No API reference
-- **Category:** Documentation · **Severity:** Medium · **Priority:** P2 · **Effort:** M · **Risk:** Low · **Status:** Not Started
+- **Category:** Documentation · **Severity:** Medium · **Priority:** P2 · **Effort:** M · **Risk:** Low · **Status:** ✅ Completed (Session 002)
 - **Description:** Endpoints undocumented.
-- **Recommended solution:** `docs/API.md` (or OpenAPI) covering routes, params, responses, errors.
-- **Files affected:** new `docs/API.md`.
-- **Dependencies:** Author after ARCH-01/BE-02 stabilize routes.
+- **Resolution:** Wrote `docs/API.md` — conventions (JSON/camelCase, error + validation-detail shapes, rate limiting), object shapes (Photo/Project/Client), and every route with params, status codes and errors: photos (upload/list/export/batch/patch/delete), clients, projects (+`/photos` assign), `GET /api/geocode/search`, `/health` + `/ready`, gated `DELETE /api/reset`, and static/`/uploads`. Linked from the README.
+- **Files affected:** new `docs/API.md`, `README.md`.
+- **Dependencies:** Authored after ARCH-01/BE-02 stabilized routes ✅.
 
 ### DOC-04 — No architecture diagram / ADRs
 - **Category:** Documentation · **Severity:** Low · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** In Progress
@@ -623,6 +623,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-03 (Session 002)** — ✅ **DOC-03 + CQ-08.** DOC-03: wrote `docs/API.md`
+  (conventions, object shapes, every route with params/status/errors) + README link.
+  CQ-08: deleted ~230 lines of dead `.collection-*` CSS (bundle 87.9→84.3 kB, 0 refs
+  left). [DOC-03, CQ-08]
 - **2026-07-03 (Session 002)** — ✅ **PERF-06.** Rewrote PhotoMap's marker effect as
   an incremental id-diff + visual-signature sync keyed on `[photos]` (was a full
   clear-and-rebuild on every change / FOV toggle). FOV toggle now via a ref (no

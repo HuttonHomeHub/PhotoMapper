@@ -105,6 +105,12 @@ a `schema_migrations` table, takes a `VACUUM INTO` backup before mutating an
 existing database, and fails loudly on error. Add a new schema change as the next
 `{ version, name, up(db) }` entry — never edit an applied migration.
 
+## API
+
+All endpoints live under `/api` (plus `/health` and `/ready`). See the full
+reference — routes, request/response shapes, status codes and errors — in
+[`docs/API.md`](docs/API.md).
+
 ## Testing
 
 ```bash
