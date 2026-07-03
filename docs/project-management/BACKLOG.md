@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 27 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 37
-- **Current phase:** Phase 4 — Frontend architecture & quality (TEST-03 jsdom harness up; next: ARCH-02 decompose App.jsx). Backend (Phases 0–3) complete.
+- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 27 · **In Progress:** 4 (ARCH-02, TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 36
+- **Current phase:** Phase 4 — Frontend architecture & quality (TEST-03 harness up; ARCH-02 started — LocationSearch extracted, App.jsx 866→794). Backend (Phases 0–3) complete.
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -229,10 +229,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Files affected:** `server/app.js`.
 
 ### ARCH-02 — `App.jsx` god component (866 lines, ~30 useState)
-- **Category:** Architecture · **Severity:** High · **Priority:** P3 · **Effort:** M · **Risk:** Medium · **Status:** Not Started
+- **Category:** Architecture · **Severity:** High · **Priority:** P3 · **Effort:** M · **Risk:** Medium · **Status:** In Progress (Session 002)
 - **Description:** All filtering, timeline, location search, reset, and layout in one component.
-- **Recommended solution:** Extract `TimelinePlayer`, `LocationSearch`, `FilterBar`, `SidebarSections`; consolidate filter state via `useReducer` or context; memoize derived data.
-- **Files affected:** `src/App.jsx`, new components/hooks.
+- **Progress:** Extracted **`LocationSearch`** (`src/components/LocationSearch.jsx`) — owns its own query/results/error state, communicates via an `onFlyTo` callback; removed 5 `useState`, a `useRef`, and 2 handlers from App.jsx (866 → 794 lines). Covered by `tests/components/LocationSearch.test.jsx` (single-result fly-to, multi-result list, no-result error). Remaining extractions: `TimelinePlayer`, `FilterBar`/filter-chips, and consolidating filter state via `useReducer`.
+- **Recommended solution:** Continue extracting `TimelinePlayer`, `FilterBar`, `SidebarSections`; consolidate filter state via `useReducer` or context; memoize derived data (PERF-05).
+- **Files affected:** `src/App.jsx`, `src/components/LocationSearch.jsx` (new), `tests/components/`.
 - **Dependencies:** Do before PERF-05 (memoization) to avoid double work.
 
 ### ARCH-03 — Migration system: try/catch, swallows all errors, no versioning
@@ -619,6 +620,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ▶ **ARCH-02 (started).** Extracted `LocationSearch`
+  from App.jsx (866→794 lines; −5 useState/−1 ref/−2 handlers) with 3 component
+  tests. First verified slice of the App.jsx decomposition. Suite **49 tests**. [ARCH-02]
 - **2026-07-02 (Session 002)** — ▶ **TEST-03 harness (Phase 4 opened).** jsdom +
   `@testing-library/react` + `jest-dom` + react plugin; `tests/components/
   ErrorBoundary.test.jsx` (render + fallback), which also completes FE-01's full

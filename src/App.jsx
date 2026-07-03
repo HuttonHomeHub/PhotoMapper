@@ -36,6 +36,7 @@ import { UploadDrawer } from './components/UploadDrawer.jsx'
 import { DropZone } from './components/DropZone.jsx'
 import { ElevationProfile } from './components/ElevationProfile.jsx'
 import ClientPanel from './components/ClientPanel.jsx'
+import { LocationSearch } from './components/LocationSearch.jsx'
 import PhotoComparison from './components/PhotoComparison.jsx'
 import { ToastContainer, useToast } from './components/Toast.jsx'
 
@@ -78,11 +79,6 @@ export function App() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(true)
   const [viewingPhoto, setViewingPhoto] = useState(null)
-  const [locationQuery, setLocationQuery] = useState('')
-  const [locationSearching, setLocationSearching] = useState(false)
-  const [locationResults, setLocationResults] = useState([])
-  const [locationError, setLocationError] = useState('')
-  const locationAbortRef = useRef(null)
   const [mapBounds, setMapBounds] = useState(null)
   const [activeTag, setActiveTag] = useState(null)
   const [regionPolygon, setRegionPolygon] = useState(null)
@@ -256,42 +252,6 @@ export function App() {
       setComparingPhotoId(null)
     }
   }
-
-  async function handleLocationSearch(e) {
-    e.preventDefault()
-    if (!locationQuery.trim()) return
-    locationAbortRef.current?.abort()
-    const controller = new AbortController()
-    locationAbortRef.current = controller
-    setLocationSearching(true)
-    setLocationError('')
-    setLocationResults([])
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(locationQuery)}`,
-        { headers: { 'Accept-Language': 'en' }, signal: controller.signal }
-      )
-      const data = await res.json()
-      if (data.length === 0) {
-        setLocationError(`No locations found for "${locationQuery}"`)
-      } else if (data.length === 1) {
-        mapRef.current?.flyTo(parseFloat(data[0].lat), parseFloat(data[0].lon), 12)
-      } else {
-        setLocationResults(data)
-      }
-    } catch (err) {
-      if (err.name !== 'AbortError') setLocationError('Location search failed. Try again.')
-    } finally {
-      setLocationSearching(false)
-    }
-  }
-
-  function handlePickLocation(result) {
-    mapRef.current?.flyTo(parseFloat(result.lat), parseFloat(result.lon), 12)
-    setLocationResults([])
-    setLocationQuery(result.display_name.split(',')[0])
-  }
-
 
   return (
     <div className="app">
@@ -600,39 +560,7 @@ export function App() {
             )}
           </div>
 
-          <form className="location-search" onSubmit={handleLocationSearch}>
-            <div className="location-search-wrap">
-              <input
-                type="text"
-                className="location-search-input"
-                placeholder="Search location…"
-                value={locationQuery}
-                onChange={e => { setLocationQuery(e.target.value); setLocationError(''); setLocationResults([]) }}
-                aria-label="Search for a location"
-                aria-autocomplete="list"
-              />
-              <button type="submit" className="location-search-btn" disabled={locationSearching} aria-label="Search location">
-                {locationSearching ? '…' : 'Go'}
-              </button>
-            </div>
-            {locationError && <p className="location-search-error">{locationError}</p>}
-            {locationResults.length > 0 && (
-              <ul className="location-results-list" role="listbox" aria-label="Location results">
-                {locationResults.map((r, i) => (
-                  <li
-                    key={i}
-                    className="location-result-item"
-                    role="option"
-                    tabIndex={0}
-                    onClick={() => handlePickLocation(r)}
-                    onKeyDown={e => { if (e.key === 'Enter') handlePickLocation(r) }}
-                  >
-                    {r.display_name}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </form>
+          <LocationSearch onFlyTo={(lat, lng, zoom) => mapRef.current?.flyTo(lat, lng, zoom)} />
 
 
         </SidebarSection>
