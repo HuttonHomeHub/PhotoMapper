@@ -124,8 +124,18 @@ wiring) to keep changes cohesive.
   per-request ids, silent under test); `console.*` replaced. **DEP-02 closed**
   (all prod deps in, audit clean). **Phase 3 done 10/10.**
 
-### Next session start-here (Phase 4 — frontend architecture)
-Read this log + BACKLOG. **Phase 4 (frontend)**: ARCH-02 (decompose the 866-line App.jsx), ARCH-06
+### Phase 4 progress (Session 002)
+- ▶ **TEST-03 harness** — jsdom + `@testing-library/react` + `jest-dom` + react
+  plugin; per-file `// @vitest-environment jsdom`. ErrorBoundary render test
+  (also lands FE-01 full coverage).
+- ▶ **ARCH-02 started** — extracted `LocationSearch` from App.jsx (866→794),
+  3 component tests. Next: `TimelinePlayer`, `FilterBar`, then `useReducer` for
+  filter state. Suite 49 tests.
+- **Style note:** new `src/` files stay **no-semi** to match the directory until
+  CQ-07 normalizes `src/` to `.prettierrc` (do NOT run prettier on `src/` piecemeal).
+
+### Next session start-here (continue Phase 4)
+Read this log + BACKLOG. **Phase 4 (frontend)** — continue ARCH-02: ARCH-02 (decompose the 866-line App.jsx), ARCH-06
 (split usePhotos), CQ-01 (shared format/geo helpers — brings the deferred pure-
 helper tests), CQ-06 (toast context), SEC-12 (portal map popups), TEST-03
 (jsdom component harness — also lands FE-01's full render test), FE-05 (proxy the
