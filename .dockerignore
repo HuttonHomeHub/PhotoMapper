@@ -1,0 +1,13 @@
+# Keep the build context small and never ship runtime data or secrets.
+node_modules
+dist
+coverage
+.git
+.github
+server/uploads
+server/photos.db
+server/photos.db.backup-*
+**/*.log
+.env
+.env.*
+docs

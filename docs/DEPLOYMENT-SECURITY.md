@@ -78,8 +78,52 @@ photomapper.example.com {
 
 - **Reset endpoint is gated** by `ALLOW_RESET` (default off) → `DELETE /api/reset`
   returns 403 unless explicitly enabled. (SEC-02)
-- _Planned (Phase 2):_ security headers via helmet (SEC-09), CORS allowlist
-  (SEC-04), rate limiting (SEC-07), generic error messages (SEC-08).
+- **Security headers** via helmet + CSP (SEC-09), **CORS allowlist** off by default
+  (SEC-04), **per-IP rate limiting** on `/api` (SEC-07), and **generic error
+  messages** in production (SEC-08) are all enforced in-app.
+
+## Health checks (OPS-04)
+
+- `GET /health` — liveness; returns `200 {"status":"ok"}` without touching the
+  database. Use it for container/orchestrator liveness probes.
+- `GET /ready` — readiness; runs a trivial DB query and returns `503` if the
+  database is unreachable, `200 {"status":"ready"}` otherwise.
+
+Both sit outside `/api`, so they are not rate-limited. Behind the proxy they are
+covered by the same auth as everything else; the container's own `HEALTHCHECK`
+hits the app directly on loopback inside the container, so proxy auth does not
+interfere with it.
+
+## Running with Docker (OPS-02)
+
+A multi-stage `Dockerfile` and `docker-compose.yml` are provided.
+
+```bash
+docker compose up -d --build      # build image, start in the background
+docker compose logs -f app        # tail logs
+docker compose down               # stop (waits up to stop_grace_period for drain)
+```
+
+Key points:
+
+- **Data persistence** — a named volume `photomapper-data` is mounted at `/data`;
+  the image sets `PHOTOS_DB_PATH=/data/photos.db` and `UPLOADS_DIR=/data/uploads`
+  so both the database and uploads live on that volume and survive rebuilds.
+  **Back this volume up** — see Backups (OPS-03) below.
+- **Loopback only** — compose publishes `127.0.0.1:3001:3001`, so the Node port is
+  never exposed to the internet directly. Point your reverse proxy (above) at
+  `127.0.0.1:3001`. If the proxy runs in its own container, put both on a shared
+  Docker network and drop the published port entirely.
+- **Non-root** — the container runs as the unprivileged `node` user; `/data` is
+  pre-owned by it so a fresh named volume is writable.
+- **Graceful shutdown** — `stop_grace_period: 15s` gives the app's SIGTERM handler
+  (OPS-05, 10 s force-exit guard) time to drain in-flight requests and close the
+  DB before the container is killed.
+- **Health** — the container `HEALTHCHECK` probes `GET /health` (OPS-04).
+
+Override configuration via the compose `environment:` block or a
+`docker compose --env-file` file (do **not** commit real secrets). TLS and auth
+still terminate at the reverse proxy in front of the container (ADR-0007).
 
 ## Environment variables
 
@@ -87,13 +131,26 @@ photomapper.example.com {
 |---|---|---|
 | `PORT` | `3001` | App listen port (keep behind the proxy). |
 | `PHOTOS_DB_PATH` | `server/photos.db` | SQLite file location (point at a persistent volume — OPS-03). |
+| `UPLOADS_DIR` | `server/uploads` | Uploaded-image + thumbnail directory (point at the same persistent volume). |
 | `ALLOW_RESET` | _unset_ | Set to `true` only if you want `DELETE /api/reset` enabled. |
 | `NODE_ENV` | _unset_ | `production` in prod; `test` is used by the test suite. |
 
-> A validated config module and `.env.example` are tracked as OPS-07.
+> Full config reference is in `.env.example` and validated in `server/config.js` (OPS-07).
 
-## Backups (OPS-03)
+## Backups (OPS-03) — ⚠️ not yet implemented
 
-SQLite DB and the `uploads/` directory hold all state. Put both on a persistent
-volume and back them up (e.g. nightly `sqlite3 photos.db ".backup"` + uploads
-sync). A restore procedure will be documented when OPS-03 lands.
+**This is the single largest open production risk.** The SQLite database and the
+`uploads/` directory (both on the `/data` volume under Docker) hold **all** state,
+and there is currently **no automated backup**. If the volume or host is lost,
+everything is gone.
+
+Until OPS-03 is delivered, run a manual off-box backup, e.g.:
+
+```bash
+# DB: use SQLite's online backup (safe while the app is running)
+docker compose exec app node -e "new (require('better-sqlite3'))(process.env.PHOTOS_DB_PATH).backup('/data/backup-'+Date.now()+'.db')"
+# then copy /data (DB backup + uploads) OFF the host — to another server or object storage
+```
+
+A scripted, scheduled, off-box backup + a tested restore procedure are tracked as
+**OPS-03** (deferred pending a chosen backup destination).

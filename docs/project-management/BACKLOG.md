@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 41 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 24
-- **Current phase:** Phase 4 tail + opportunistic wins. Done so far incl. DOC-01 (README), OPS-04/05 (health + graceful shutdown), ARCH-04 (dropped dead collections tables). Remaining: FE-05/06/02/03, Phase 5 (PERF-01/02/06), Phase 7 docs, Phase 8 infra (OPS-02/03 gated on ADR-0003). Backend (Phases 0–3) complete.
+- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 42 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 7 · **Not Started:** 23
+- **Current phase:** Phase 4 tail + opportunistic wins. Done so far incl. DOC-01 (README), OPS-04/05 (health + graceful shutdown), ARCH-04 (dropped dead collections tables), OPS-02 (Docker + compose). Remaining: FE-05/06/02/03, Phase 5 (PERF-01/02/06), Phase 7 docs. Backend (Phases 0–3) complete. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -27,7 +27,7 @@
 | 5 | Performance | 3 / 6 | PERF-03, PERF-05, PERF-07 ✅ |
 | 6 | Testing depth | 0 / 2 | Not started |
 | 7 | Documentation | 1 / 5 | DOC-01 ✅ (README); DOC-04 in progress (ADRs) |
-| 8 | DevOps & infra | 2 / 7 | OPS-04/05 ✅ (health + graceful shutdown); OPS-02/03 gated on ADR-0003 |
+| 8 | DevOps & infra | 6 / 7 | OPS-01/02/04/05/06/07 ✅ (CI, Docker, health, shutdown, logging, config); OPS-03 ⏸️ deferred (backup destination) |
 
 **Quality gates:** build ✅ · lint ✅ (9 pre-existing `src/` warnings, 0 new) · tests ✅ 78 passing (`npm test`) · CI runs lint+build+test+audit on `main` and `claude/**` (OPS-01 ✅).
 
@@ -49,12 +49,12 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 24 |
+| Not Started | 23 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 41 |
-| Deferred | 6 |
+| Completed | 42 |
+| Deferred | 7 |
 | **Total** | **74** |
 
 Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 · OPS 7 · DEP 5 · DOC 6 · FEAT 9.
@@ -472,18 +472,21 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Needed TEST-01 (done). Satisfies DEP-04. Unblocks trustworthy "Completed" going forward.
 
 ### OPS-02 — No Dockerfile / container / deploy pipeline
-- **Category:** DevOps · **Severity:** Medium · **Priority:** P2 · **Effort:** M · **Risk:** Low · **Status:** Not Started
+- **Category:** DevOps · **Severity:** Medium · **Priority:** P2 · **Effort:** M · **Risk:** Low · **Status:** ✅ Completed (Session 002)
 - **Description:** No container or deploy story.
-- **Recommended solution:** Multi-stage Dockerfile (build Vite → serve via node); `.dockerignore`; document run. Per ADR-0003 (single VPS).
-- **Files affected:** new `Dockerfile`, `.dockerignore`, docs.
-- **Dependencies:** Gated by ADR-0003. Precedes SEC-11 (TLS/proxy).
+- **Decision:** Docker + docker-compose (user chose, Session 002 — see ADR-0009).
+- **Resolution:** Multi-stage `Dockerfile` (build stage compiles the Vite frontend + native modules with a toolchain, prunes dev deps; slim runtime stage runs as non-root `node`, `HEALTHCHECK` on `/health`, `CMD node server/index.js`). `docker-compose.yml` publishes `127.0.0.1:3001` only (proxy fronts it, ADR-0007), mounts a named `photomapper-data` volume at `/data` (holds DB + uploads), sets `stop_grace_period: 15s` for the OPS-05 graceful shutdown. `.dockerignore` keeps runtime data/secrets out of the build context. Made `UPLOADS_DIR` env-configurable (`server/paths.js`) so DB + uploads share one volume. Documented in `docs/DEPLOYMENT-SECURITY.md`.
+- **Verification:** `docker compose config` validates the schema. **Image build could not be run in this sandbox** — the agent proxy returns 403 for Docker registry blob downloads (`cloudfront.docker.com`), so base images can't be pulled. Dockerfile uses only standard instructions; build ordering (build → prune → copy) and deps (leaflet is dev-only, bundled by Vite) reviewed by hand. Build/run to be confirmed on a networked host (rolls up under TEST-04 staging verification).
+- **Files affected:** new `Dockerfile`, `docker-compose.yml`, `.dockerignore`; `server/paths.js`; `docs/DEPLOYMENT-SECURITY.md`.
+- **Dependencies:** Gated by ADR-0003 ✅. Precedes SEC-11 (TLS/proxy).
 
 ### OPS-03 — No persistence/backup strategy for DB + uploads
-- **Category:** DevOps · **Severity:** High · **Priority:** P2 · **Effort:** M · **Risk:** Medium · **Status:** Not Started
-- **Description:** `photos.db` + `uploads/` on local disk; no backups.
-- **Recommended solution:** Per ADR-0003, mount a persistent volume; scheduled DB backup (SQLite `.backup`) + uploads sync; documented restore. (If ADR-0003 → PaaS: object storage + managed DB — FEAT-09.)
-- **Files affected:** deploy config, new backup script, docs.
-- **Dependencies:** Gated by ADR-0003.
+- **Category:** DevOps · **Severity:** High · **Priority:** P2 · **Effort:** M · **Risk:** Medium · **Status:** ⏸️ Deferred (Session 002 — awaiting backup destination)
+- **Description:** `photos.db` + `uploads/` on local disk; no backups. **Top open production risk.**
+- **Partial mitigation (OPS-02):** Both now live on the persistent `/data` Docker volume, and `DEPLOYMENT-SECURITY.md` documents a **manual** off-box backup command + the risk. This does NOT close the item — there is still no *automated, scheduled, off-box* backup or tested restore.
+- **Deferral reason:** The scripted target depends on a backup destination the user has not yet chosen (S3-compatible bucket / second SSH host / local disk). Asked Session 002; user answered "decide later." Resume trigger: user picks a destination → deliver `scripts/backup.sh` (SQLite `VACUUM INTO` + uploads sync via cron/restic) + documented restore.
+- **Files affected (planned):** new backup script, cron/systemd-timer unit, docs.
+- **Dependencies:** Gated by ADR-0003 ✅; blocked on user's backup-destination choice.
 
 ### OPS-04 — No monitoring/health/alerting/error tracking
 - **Category:** DevOps · **Severity:** Medium · **Priority:** P2 · **Effort:** M · **Risk:** Low · **Status:** ✅ Completed (Session 002)
@@ -618,6 +621,13 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-03 (Session 002)** — ✅ **OPS-02** (+ ⏸️ OPS-03 deferred). Multi-stage
+  `Dockerfile` + `docker-compose.yml` (non-root, `/data` named volume for DB+uploads,
+  loopback-only port, `HEALTHCHECK` → `/health`, `stop_grace_period` for graceful
+  shutdown) + `.dockerignore`. Made `UPLOADS_DIR` env-configurable. Documented in
+  `DEPLOYMENT-SECURITY.md` (ADR-0009). Compose schema validated; image build not
+  runtime-verified (sandbox proxy blocks registry pulls). OPS-03 backups deferred
+  pending a chosen destination — flagged as the top open production risk. [OPS-02, OPS-03]
 - **2026-07-03 (Session 002)** — ✅ **ARCH-04 (+ logs CQ-08).** Dropped the unused
   `collections`/`photo_collections` tables via migration **v4**; cleaned `resetAll()`;
   migration test asserts they're gone. Dead `.collection-*` CSS logged as CQ-08 for a

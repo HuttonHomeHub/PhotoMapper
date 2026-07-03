@@ -116,13 +116,27 @@
 - **Consequences:** Surfaced ~230 lines of dead `.collection-*` CSS (no JSX references it) → logged as **CQ-08** for a separate style-only cleanup.
 - **Future implications:** If albums/collections return, add a fresh migration; this ADR would be superseded.
 
+## ADR-0009 — Deployment via Docker + docker-compose
+- **Status:** Accepted (user chose, Session 002) · **Date:** 2026-07-03 · **Session:** 002
+- **Context:** OPS-02. Single-operator (ADR-0002), single-VPS (ADR-0003) target, with auth/TLS at a reverse proxy (ADR-0007).
+- **Problem:** How is the app packaged and run on the server — systemd service, containers, or a PaaS?
+- **Options considered:**
+  1. systemd unit + `npm start` behind the proxy (least tooling).
+  2. **Docker + docker-compose** — chosen.
+  3. PaaS (Fly/Render/Railway) — rejected; fights the single-VPS/local-SQLite model.
+- **Decision:** Ship a multi-stage `Dockerfile` + `docker-compose.yml`. Build stage compiles the Vite frontend and native modules (better-sqlite3, sharp) then prunes dev deps; a slim runtime stage runs as the non-root `node` user. Compose publishes the port on loopback only (proxy fronts it), mounts a named `photomapper-data` volume at `/data` for the DB + uploads, and sets `stop_grace_period` to allow the OPS-05 graceful shutdown to drain.
+- **Advantages:** Reproducible builds; host-portable; clean data/volume separation; graceful-shutdown + health-probe wiring is explicit in compose.
+- **Disadvantages:** Adds Docker as an operational dependency to maintain/patch vs. a plain systemd service.
+- **Consequences:** `UPLOADS_DIR` made env-configurable so DB + uploads share one volume. Image build not yet runtime-verified (sandbox proxy blocks registry pulls) — confirm on a networked host (TEST-04). **OPS-03 backups remain the top open risk** — the volume persists data but is not backed up.
+- **Future implications:** If the operator later prefers no-Docker, a systemd unit (option 1) can run the same `node server/index.js` — this ADR would be revisited, not the app.
+
 ---
 
 ## Pending decisions (need user input; tracked so they are not forgotten)
 - **DOC-02** canonical product name (fuzzy-guide / PhotoMap / PhotoMapper).
-- **OPS-02/03** deployment packaging + backup approach (options presented to user Session 002; awaiting choice).
+- **OPS-03** backup destination (S3-compatible / second SSH host / local disk) — needed before the automated backup script can be written. User answered "decide later" Session 002.
 
-_Resolved Session 002: ARCH-04 (drop collections → ADR-0008)._
+_Resolved Session 002: ARCH-04 (drop collections → ADR-0008), OPS-02 (Docker → ADR-0009)._
 
 _Resolved Session 002: ADR-0002 (single-operator), ADR-0003 (single VPS),
 ADR-0005 (4-doc consolidation) all confirmed by the user._
