@@ -1,4 +1,8 @@
 import express from 'express'
+// BE-01: patches Express 4 so errors thrown/rejected in async route handlers are
+// forwarded to the error middleware instead of hanging the request. Must be
+// imported before routes are defined.
+import 'express-async-errors'
 import multer from 'multer'
 import cors from 'cors'
 import { join, dirname } from 'path'
@@ -412,6 +416,16 @@ app.patch('/api/projects/:id/photos', (req, res) => {
 
 app.use('/uploads', express.static(uploadsDir))
 
+// BE-01 regression hook: a route that rejects asynchronously, used only by the
+// test suite to assert async errors reach the error handler (500, not a hang).
+// Registered before the error middleware so the error can propagate to it.
+if (process.env.NODE_ENV === 'test') {
+  app.get('/__test/async-error', async () => {
+    await Promise.resolve()
+    throw new Error('async boom')
+  })
+}
+
 app.use((err, req, res, _next) => {
   console.error(err)
   const status = err.status || err.statusCode || 500
@@ -433,6 +447,11 @@ app.get('*', (_req, res) => {
 })
 
 const PORT = process.env.PORT || 3001
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`)
-})
+// Don't bind a port under test — supertest drives the app object directly.
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`)
+  })
+}
+
+export { app }

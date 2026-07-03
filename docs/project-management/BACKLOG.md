@@ -13,14 +13,14 @@
 
 ## Programme status
 
-- **Findings:** 72 (71 imported + DEP-05 discovered) · **Completed:** 5 (TEST-01, OPS-01, DEP-04, DEP-05, TEST-05) · **In Progress:** 0 · **Deferred:** 4
-- **Current phase:** ✅ Phase 1 complete → entering Phase 2 (Critical security & reliability)
+- **Findings:** 72 (71 imported + DEP-05 discovered) · **Completed:** 6 · **In Progress:** 2 (DEP-02, TEST-02) · **Deferred:** 4
+- **Current phase:** Phase 2 — Critical security & reliability (BE-01 done; next: SEC-02 → SEC-04 → SEC-09 → SEC-07, then SEC-01 auth)
 
 | Phase | Theme | Done / Total | Status |
 |---|---|---|---|
 | 0 | Programme setup | ✅ | Complete |
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
-| 2 | Critical security & reliability | 0 / 13 | **Active (next: DEP-02 → BE-01)** |
+| 2 | Critical security & reliability | 1 / 13 | **Active (BE-01 ✅; next SEC-02/04/09/07)** |
 | 3 | Backend architecture & correctness | 0 / 10 | Not started |
 | 4 | Frontend architecture & quality | 0 / 10 | Not started |
 | 5 | Performance | 0 / 6 | Not started |
@@ -48,11 +48,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 63 |
+| Not Started | 60 |
 | Blocked | 0 |
-| In Progress | 0 |
+| In Progress | 2 |
 | Needs Review | 0 |
-| Completed | 5 |
+| Completed | 6 |
 | Deferred | 4 |
 | **Total** | **72** |
 
@@ -161,7 +161,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 ## BACKEND / RELIABILITY
 
 ### BE-01 — Express 4 does not catch async errors → hung requests
-- **Category:** Backend · **Severity:** Critical · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Category:** Backend · **Severity:** Critical · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Imported `express-async-errors` (patches Express 4 so async throws/rejections reach the error middleware). Made the app testable: `server/index.js` now `export { app }` and only binds a port when `NODE_ENV !== 'test'`. Added a `NODE_ENV==='test'`-guarded `/__test/async-error` route and a regression test asserting it returns **500, not a hang** (`tests/api.test.js`). Prod behaviour unchanged; the diagnostic route never exists outside tests.
+- **Note:** When DEP-03 (Express 5) is evaluated it may retire the `express-async-errors` shim (Express 5 handles this natively).
 - **Description:** Thrown/rejected errors in `async` handlers never reach the error middleware; the client hangs until socket timeout. Exposed in `POST /api/photos` (`server/index.js:179`) and all async routes.
 - **Root cause:** Express 4 semantics.
 - **Recommended solution:** `import 'express-async-errors'` at entry, or a `wrap()` helper, or migrate to Express 5 (DEP-03). Add a test that asserts a thrown async error returns 500, not a hang.
@@ -431,7 +433,8 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** **Foundational — precedes all risky changes.** Feeds OPS-01.
 
 ### TEST-02 — API integration tests
-- **Category:** Testing · **Severity:** High · **Priority:** P1 · **Effort:** M · **Risk:** Low · **Status:** Not Started
+- **Category:** Testing · **Severity:** High · **Priority:** P1 · **Effort:** M · **Risk:** Low · **Status:** In Progress (seeded Session 002)
+- **Progress:** Harness stood up with `supertest` against the exported `app` (`tests/api.test.js`, 9 tests): photos list, upload-without-file 400, unknown-id 404, check-hash 400, client/project list + create + duplicate 409 + validation 400, and the BE-01 async-error 500. Remaining for completion: upload happy-path (GPS/no-GPS with a real image buffer), dedupe/409 on re-upload, delete, batch, export (GeoJSON+KML). To be finished alongside Phase 3 (ARCH-01/BE-02) so route refactors are covered as they land.
 - **Description:** No route-level tests.
 - **Recommended solution:** `supertest` over the Express app with a temp DB + temp uploads dir: upload (GPS/no-GPS), dedupe/409, delete, batch, export (GeoJSON+KML), validation 400s, and the BE-01 async-error path.
 - **Files affected:** `tests/api/`, minor `server/index.js` export refactor (export `app`).
@@ -523,9 +526,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Needs component test for heatmap behavior.
 
 ### DEP-02 — Missing production dependencies
-- **Category:** Dependencies · **Severity:** High (enabler) · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Category:** Dependencies · **Severity:** High (enabler) · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** In Progress (Session 002)
+- **Progress:** Added incrementally as each consuming fix lands (avoids unused deps): ✅ `express-async-errors` (BE-01), ✅ `supertest` (dev, TEST-02). Remaining: `helmet` (SEC-09), `express-rate-limit` (SEC-07), `compression` (PERF-08), session/auth lib (SEC-01), `zod` (BE-02), `pino`/`pino-http` (CQ-05/OPS-06).
 - **Description:** No `helmet`, `express-rate-limit`, `compression`, `express-async-errors` (or Express 5), session lib, `zod`, `pino`.
-- **Recommended solution:** Add the set as Phase 2 lands; per CLAUDE.md, dependency additions are recorded here as the "discussion" and in an ADR.
+- **Recommended solution:** Add the set as Phase 2/3 lands; per CLAUDE.md, dependency additions are recorded here as the "discussion".
 - **Files affected:** `package.json`, `package-lock.json`.
 - **Dependencies:** Enables SEC-04/07/09, BE-01/02, PERF-08, CQ-05.
 
@@ -619,6 +623,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **BE-01 Completed** (Phase 2 opened). Added
+  `express-async-errors`; exported `app` + guarded `listen` for tests; seeded the
+  `supertest` API suite (`tests/api.test.js`, 9 tests incl. the async-error-500
+  regression). Suite now 20 tests. TEST-02 and DEP-02 → In Progress. [BE-01]
 - **2026-07-02 (Session 002)** — ✅ **TEST-05 Completed & Phase 1 closed.**
   Coverage thresholds gate `server/db.js` in CI (`test:coverage`). Phase 1
   (verification foundation) complete: 5/5. [TEST-05]

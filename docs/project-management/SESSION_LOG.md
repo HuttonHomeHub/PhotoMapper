@@ -60,16 +60,30 @@ real, cheap-to-fix risk that also hardens SEC-07. TEST-01 lets us confirm the
 dependency bumps don't regress the data layer. Kept separate from OPS-01 (CI
 wiring) to keep changes cohesive.
 
-### End-of-session state
-- Phase 1: 3/4 (TEST-01 ✅, OPS-01 ✅, DEP-04 ✅). Remaining: DEP-05 (next),
-  TEST-05 (coverage threshold). Then Phase 2 (DEP-02 → BE-01 → SEC-02/04/09/07 …).
-- 3 commits pushed to `claude/engineering-review-production-dwlfup`.
+### Continued in same session — DEP-05, TEST-05, BE-01
+- **DEP-05 ✅** `npm audit fix` → 0 vulns (multer 2.2.0 etc.); CI audit gate now blocking.
+- **TEST-05 ✅** coverage thresholds on `server/db.js`; CI runs `test:coverage`. **Phase 1 complete (5/5).**
+- **BE-01 ✅** `express-async-errors`; `export { app }` + test-guarded `listen`;
+  `supertest` API suite seeded (9 tests incl. async-error-500 regression). Suite now **20 tests**.
+- DEP-02 + TEST-02 → In Progress (partial).
 
-### Next session start-here
-Read this log + BACKLOG (Programme status). Execute **DEP-05**: `npm audit fix`,
-run build+lint+test, and if green flip `.github/workflows/ci.yml` audit step to
-blocking (remove `continue-on-error`). Then TEST-05, then open Phase 2 with
-DEP-02 (helmet/rate-limit/compression/async-errors/zod) and BE-01.
+### End-of-session state
+- Phase 0 ✅ · Phase 1 ✅ (5/5) · Phase 2 active (BE-01 ✅, 1/13).
+- Suite: 20 tests green. Gates: build ✅, lint ✅ (0 new), coverage ✅, audit ✅ (0 vulns).
+- Commits pushed to `claude/engineering-review-production-dwlfup`:
+  programme setup, doc consolidation, TEST-01, OPS-01, DEP-05, TEST-05, BE-01.
+
+### Next session start-here (Phase 2 continues)
+Read this log + BACKLOG (Programme status). Highest-value next items (all low-risk,
+now regression-testable):
+1. **SEC-02** remove/guard `DELETE /api/reset` (+ test it's gone/guarded).
+2. **SEC-04** CORS allowlist via config; **OPS-07** `server/config.js` + `.env.example` first (enabler).
+3. **SEC-09** `helmet` + CSP compatible with Leaflet tiles; **SEC-07** `express-rate-limit`; **PERF-08** `compression`.
+4. **SEC-08** stop leaking `err.message`.
+5. **SEC-01** auth gate — **needs a 2-min decision on mechanism** (shared secret
+   header vs signed session cookie + simple login). Raise with user before building.
+6. **SEC-03** protect `/uploads` (after SEC-01). **FE-01** error boundary + **FE-04** delete confirms (independent, can slot any time).
+Add each SEC test to `tests/api.test.js` as it lands.
 
 ---
 
