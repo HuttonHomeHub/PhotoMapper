@@ -129,6 +129,11 @@ CI.
 setup (TLS, HTTP auth, keeping the Node port private, backups). Do not expose the
 Node port directly to the internet.
 
+## Contributing
+
+Setup, conventions, testing and workflow are in
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 ## Project management
 
 This repository is undergoing a tracked engineering-remediation programme.

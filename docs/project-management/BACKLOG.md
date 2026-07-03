@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 52 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 8 · **Not Started:** 12
-- **Current phase:** Phases 0–4 **complete**. Recent: DOC-02/03/06, CQ-08, **PERF-01** (server query foundation + `GET /api/photos/:id`; payload-strip declined as marginal, full pagination deferred — ADR-0010). Remaining: DOC-05 (CONTRIBUTING), CQ-07, deeper tests (TEST-02/03/04). **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
+- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 53 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 8 · **Not Started:** 11
+- **Current phase:** Phases 0–4 + **7 (docs) complete**. Recent: PERF-01, DOC-05 (CONTRIBUTING). Remaining: CQ-07 (src/ prettier normalization + CI check), deeper tests (TEST-02/03/04). **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -26,7 +26,7 @@
 | 4 | Frontend architecture & quality | 10 / 10 | ✅ Complete (ARCH-02/06, CQ-01/03/06, SEC-12, FE-02/03/05/06) |
 | 5 | Performance | 5 / 6 | PERF-02/03/05/06/07 ✅; PERF-01 ⏸️ deferred (query foundation + detail endpoint done; strip declined, pagination deferred) |
 | 6 | Testing depth | 0 / 2 | Not started |
-| 7 | Documentation | 4 / 5 | DOC-01/03/06 ✅ + DOC-02 (rename); DOC-04 ongoing (ADRs); DOC-05 (CONTRIBUTING) left |
+| 7 | Documentation | 5 / 5 | ✅ DOC-01/03/05/06 + DOC-02 (rename); DOC-04 (ADRs) maintained live |
 | 8 | DevOps & infra | 6 / 7 | OPS-01/02/04/05/06/07 ✅ (CI, Docker, health, shutdown, logging, config); OPS-03 ⏸️ deferred (backup destination) |
 
 **Quality gates:** build ✅ · lint ✅ (8 pre-existing `src/` warnings, 0 new — PERF-06 cleared one) · tests ✅ 91 passing (`npm test`) · CI runs lint+build+test+audit on `main` and `claude/**` (OPS-01 ✅).
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 12 |
+| Not Started | 11 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 52 |
+| Completed | 53 |
 | Deferred | 8 |
 | **Total** | **74** |
 
@@ -595,10 +595,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Ongoing.
 
 ### DOC-05 — No onboarding doc
-- **Category:** Documentation · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Category:** Documentation · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
 - **Description:** Only AI-oriented CLAUDE.md.
-- **Recommended solution:** `CONTRIBUTING.md` / onboarding section in README.
-- **Files affected:** new `CONTRIBUTING.md`.
+- **Resolution:** Added `CONTRIBUTING.md` (human-facing): prerequisites, getting started, project layout, conventions (ES modules, camelCase↔snake_case, hooks-for-API, migrations, validation, palette, the src/ no-semi vs server/ semi style note → CQ-07), testing (jsdom docblock, `tests/` layout), branch/commit/PR expectations + quality gates, and config. Linked from README.
+- **Files affected:** new `CONTRIBUTING.md`, `README.md`.
 
 ### DOC-06 — Undocumented non-obvious math
 - **Category:** Documentation · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
@@ -629,6 +629,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-03 (Session 002)** — ✅ **DOC-05 (Phase 7 docs complete).** Added human-facing
+  `CONTRIBUTING.md` (setup, layout, conventions, testing, branch/commit/PR gates) + README
+  link. Docs phase now 5/5. [DOC-05]
 - **2026-07-03 (Session 002)** — ⏸️ **PERF-01 resolved to foundation + detail (ADR-0010).**
   Shipped the server query layer (`queryPhotos`/`countPhotos`, filtered + paginated;
   `GET /api/photos` dual shape, back-compat) and a `GET /api/photos/:id` detail
