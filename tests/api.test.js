@@ -156,6 +156,14 @@ describe('BE-02: request validation', () => {
   });
 });
 
+describe('FE-05: geocode search proxy', () => {
+  it('GET /api/geocode/search with no query returns 400 (no upstream call)', async () => {
+    const res = await request(app).get('/api/geocode/search');
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('error');
+  });
+});
+
 describe('OPS-04: health & readiness probes', () => {
   it('GET /health returns 200 without touching the database', async () => {
     const res = await request(app).get('/health');

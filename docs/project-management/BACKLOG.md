@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 44 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 7 · **Not Started:** 21
-- **Current phase:** Phase 4 tail + opportunistic wins. Done so far incl. DOC-01 (README), OPS-04/05 (health + graceful shutdown), ARCH-04 (dropped dead collections tables), OPS-02 (Docker + compose), PERF-02 (by-id read-after-write), FE-06 (nav loading/error states). Remaining: FE-05/02/03, Phase 5 (PERF-01/06), Phase 7 docs. Backend (Phases 0–3) complete. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
+- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 45 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 7 · **Not Started:** 20
+- **Current phase:** Phase 4 tail + opportunistic wins. Done so far incl. OPS-04/05, ARCH-04, OPS-02 (Docker), PERF-02, FE-06, FE-05 (geocode proxy + CSP tighten). Remaining: FE-02/03, Phase 5 (PERF-01/06), Phase 7 docs. Backend (Phases 0–3) complete. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -23,7 +23,7 @@
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
 | 3 | Backend architecture & correctness | 10 / 10 | ✅ Complete (BE-02/03/04/06/07, SEC-05, ARCH-01/03, CQ-05/OPS-06) |
-| 4 | Frontend architecture & quality | 7 / 10 | **Active** (ARCH-02/06, CQ-01/03/06, SEC-12, FE-06 ✅; next FE-05/02/03) |
+| 4 | Frontend architecture & quality | 8 / 10 | **Active** (ARCH-02/06, CQ-01/03/06, SEC-12, FE-05/06 ✅; next FE-02/03) |
 | 5 | Performance | 4 / 6 | PERF-02, PERF-03, PERF-05, PERF-07 ✅ |
 | 6 | Testing depth | 0 / 2 | Not started |
 | 7 | Documentation | 1 / 5 | DOC-01 ✅ (README); DOC-04 in progress (ADRs) |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 21 |
+| Not Started | 20 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 44 |
+| Completed | 45 |
 | Deferred | 7 |
 | **Total** | **74** |
 
@@ -408,11 +408,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Files affected:** `src/components/ClientPanel.jsx`.
 
 ### FE-05 — Location search calls Nominatim directly from browser
-- **Category:** Frontend · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** `App.jsx:270` hits Nominatim from the client (policy/rate-limit exposure).
-- **Recommended solution:** Proxy through the server geocode service (BE-07) with caching + limiter, or debounce + attribution.
-- **Files affected:** `src/App.jsx`, server geocode service.
-- **Dependencies:** Benefits from BE-07/SEC-05.
+- **Category:** Frontend · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Description:** `LocationSearch.jsx` hit `nominatim.openstreetmap.org` from the client (usage-policy + rate-limit exposure, and it forced a CSP `connect-src` allowance).
+- **Resolution:** Added a `searchPlaces()` forward-geocode service (server-side, with the Nominatim `User-Agent`, a 5s timeout, and an in-memory LRU query cache) + a `GET /api/geocode/search?q=` route (400 on empty query, 502 on upstream failure). `LocationSearch` now calls the proxy and consumes `{lat,lon,displayName}`. The per-IP `/api` rate limiter now covers it. **Bonus:** tightened CSP `connect-src` to `'self'` only (browser no longer calls Nominatim). Tests: service mapping/cache/error (3), route 400 (1), component proxy + failure paths (updated + 1 new).
+- **Files affected:** `server/services/geocode.js`, new `server/routes/geocode.js`, `server/app.js` (mount + CSP), `src/components/LocationSearch.jsx`, `tests/geocode.test.js`, `tests/api.test.js`, `tests/components/LocationSearch.test.jsx`.
+- **Dependencies:** Reused BE-07/SEC-05 service module.
 
 ### FE-06 — No loading/empty states for clients/projects
 - **Category:** Frontend/UX · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
@@ -622,6 +622,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-03 (Session 002)** — ✅ **FE-05.** Proxied the browser's Nominatim
+  location search through a new `GET /api/geocode/search` (server `searchPlaces()`
+  with User-Agent, timeout, in-memory LRU cache; 400/502 handling). Tightened CSP
+  `connect-src` to `'self'`. +5 tests. Suite **88 tests**. [FE-05]
 - **2026-07-03 (Session 002)** — ✅ **FE-06.** Added `loading`/`error` to `useClients`
   and `useProjects`; `ClientPanel` now shows a Loading hint, an error banner with
   Retry, and the empty hint only when genuinely loaded-and-empty. 3 component tests.

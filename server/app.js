@@ -17,6 +17,7 @@ import { resetAll, pingDb } from './db.js';
 import photosRouter from './routes/photos.js';
 import clientsRouter from './routes/clients.js';
 import projectsRouter from './routes/projects.js';
+import geocodeRouter from './routes/geocode.js';
 
 export function createApp() {
   const app = express();
@@ -40,7 +41,9 @@ export function createApp() {
             'https://*.basemaps.cartocdn.com',
             'https://*.tile.opentopomap.org',
           ],
-          connectSrc: ["'self'", 'https://nominatim.openstreetmap.org'],
+          // FE-05: the browser no longer calls Nominatim directly (forward search
+          // is proxied via /api/geocode/search), so connect-src stays 'self' only.
+          connectSrc: ["'self'"],
           workerSrc: ["'self'", 'blob:'],
           objectSrc: ["'none'"],
           frameSrc: ["'none'"],
@@ -97,6 +100,7 @@ export function createApp() {
   app.use('/api/photos', photosRouter);
   app.use('/api/clients', clientsRouter);
   app.use('/api/projects', projectsRouter);
+  app.use('/api/geocode', geocodeRouter);
 
   // SEC-02: destructive full wipe. Disabled unless explicitly enabled via env, as
   // defense-in-depth behind the reverse-proxy auth (ADR-0007).

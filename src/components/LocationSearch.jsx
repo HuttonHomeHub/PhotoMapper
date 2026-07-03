@@ -20,15 +20,17 @@ export function LocationSearch({ onFlyTo }) {
     setError('')
     setResults([])
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(query)}`,
-        { headers: { 'Accept-Language': 'en' }, signal: controller.signal }
-      )
+      // FE-05: proxied through the server (cache + rate-limit) instead of hitting
+      // Nominatim directly from the browser.
+      const res = await fetch(`/api/geocode/search?q=${encodeURIComponent(query)}`, {
+        signal: controller.signal,
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       if (data.length === 0) {
         setError(`No locations found for "${query}"`)
       } else if (data.length === 1) {
-        onFlyTo(parseFloat(data[0].lat), parseFloat(data[0].lon), 12)
+        onFlyTo(data[0].lat, data[0].lon, 12)
       } else {
         setResults(data)
       }
@@ -40,9 +42,9 @@ export function LocationSearch({ onFlyTo }) {
   }
 
   function pick(result) {
-    onFlyTo(parseFloat(result.lat), parseFloat(result.lon), 12)
+    onFlyTo(result.lat, result.lon, 12)
     setResults([])
-    setQuery(result.display_name.split(',')[0])
+    setQuery(result.displayName.split(',')[0])
   }
 
   return (
@@ -84,7 +86,7 @@ export function LocationSearch({ onFlyTo }) {
                 if (e.key === 'Enter') pick(r)
               }}
             >
-              {r.display_name}
+              {r.displayName}
             </li>
           ))}
         </ul>

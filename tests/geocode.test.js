@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { geoKey } from '../server/services/geocode.js';
+import { geoKey, searchPlaces, _clearSearchCache } from '../server/services/geocode.js';
 
 // BE-07/SEC-05: exercises the cache + background-queue logic without touching
 // the network (only the cache-hit path is driven).
@@ -24,6 +24,41 @@ describe('geoKey', () => {
   it('rounds to ~111m so nearby coordinates share a key', () => {
     expect(geoKey(51.5, -0.12)).toBe('51.500,-0.120');
     expect(geoKey(51.50001, -0.12001)).toBe(geoKey(51.50002, -0.12002));
+  });
+});
+
+// FE-05: forward search proxy service (network mocked).
+describe('searchPlaces', () => {
+  afterEach(() => {
+    _clearSearchCache();
+    vi.unstubAllGlobals();
+  });
+
+  it('maps Nominatim rows to {lat,lon,displayName} numbers', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => [{ lat: '51.5', lon: '-0.12', display_name: 'London, UK' }],
+      })
+    );
+    const results = await searchPlaces('London');
+    expect(results).toEqual([{ lat: 51.5, lon: -0.12, displayName: 'London, UK' }]);
+  });
+
+  it('caches by normalized query (second call does not re-fetch)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [{ lat: '1', lon: '2', display_name: 'A' }] });
+    vi.stubGlobal('fetch', fetchMock);
+    await searchPlaces('Paris');
+    await searchPlaces('  paris  '); // same after trim+lowercase
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws on an upstream error (so the route can return 502)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+    await expect(searchPlaces('boom')).rejects.toThrow();
   });
 });
 
