@@ -231,9 +231,12 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 ### ARCH-02 — `App.jsx` god component (866 lines, ~30 useState)
 - **Category:** Architecture · **Severity:** High · **Priority:** P3 · **Effort:** M · **Risk:** Medium · **Status:** In Progress (Session 002)
 - **Description:** All filtering, timeline, location search, reset, and layout in one component.
-- **Progress:** Extracted **`LocationSearch`** (`src/components/LocationSearch.jsx`) — owns its own query/results/error state, communicates via an `onFlyTo` callback; removed 5 `useState`, a `useRef`, and 2 handlers from App.jsx (866 → 794 lines). Covered by `tests/components/LocationSearch.test.jsx` (single-result fly-to, multi-result list, no-result error). Remaining extractions: `TimelinePlayer`, `FilterBar`/filter-chips, and consolidating filter state via `useReducer`.
-- **Recommended solution:** Continue extracting `TimelinePlayer`, `FilterBar`, `SidebarSections`; consolidate filter state via `useReducer` or context; memoize derived data (PERF-05).
-- **Files affected:** `src/App.jsx`, `src/components/LocationSearch.jsx` (new), `tests/components/`.
+- **Progress:** Extracting App.jsx piece by piece, each verified by component tests (App.jsx **866 → 706 lines** so far):
+  - ✅ **`LocationSearch`** — owns query/results/error state, `onFlyTo` callback (−5 useState/−1 ref/−2 handlers). Tests: single-result fly-to, multi-result list, no-result error.
+  - ✅ **Timeline** → **`useTimeline` hook** (state + sort + auto-advance effects) + **`TimelinePanel`** UI (−4 useState/−1 memo/−2 effects/−3 derived from App.jsx). Tests: panel render + hook sort/slice.
+  - Remaining: `FilterBar`/filter-chips extraction, and consolidating the filter state via `useReducer`.
+- **Recommended solution:** Continue extracting `FilterBar`, `SidebarSections`; consolidate filter state via `useReducer` or context; memoize derived data (PERF-05).
+- **Files affected:** `src/App.jsx`, `src/components/LocationSearch.jsx` + `TimelinePanel.jsx` (new), `src/hooks/useTimeline.js` (new), `tests/components/`.
 - **Dependencies:** Do before PERF-05 (memoization) to avoid double work.
 
 ### ARCH-03 — Migration system: try/catch, swallows all errors, no versioning
@@ -620,6 +623,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ▶ **ARCH-02 cont.** Extracted the Timeline into a
+  `useTimeline` hook + `TimelinePanel` component (App.jsx 794→706) with panel +
+  hook tests. Suite **52 tests**. [ARCH-02]
 - **2026-07-02 (Session 002)** — ▶ **ARCH-02 (started).** Extracted `LocationSearch`
   from App.jsx (866→794 lines; −5 useState/−1 ref/−2 handlers) with 3 component
   tests. First verified slice of the App.jsx decomposition. Suite **49 tests**. [ARCH-02]

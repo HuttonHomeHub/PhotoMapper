@@ -37,6 +37,8 @@ import { DropZone } from './components/DropZone.jsx'
 import { ElevationProfile } from './components/ElevationProfile.jsx'
 import ClientPanel from './components/ClientPanel.jsx'
 import { LocationSearch } from './components/LocationSearch.jsx'
+import { TimelinePanel } from './components/TimelinePanel.jsx'
+import { useTimeline } from './hooks/useTimeline.js'
 import PhotoComparison from './components/PhotoComparison.jsx'
 import { ToastContainer, useToast } from './components/Toast.jsx'
 
@@ -97,11 +99,8 @@ export function App() {
   const [resetConfirm, setResetConfirm] = React.useState(false)
   const shortcutsTrapRef = useFocusTrap(shortcutsOpen)
 
-  // Timeline state
-  const [timelineActive, setTimelineActive] = useState(false)
-  const [timelineIndex, setTimelineIndex] = useState(0)
-  const [timelinePlaying, setTimelinePlaying] = useState(false)
-  const [timelineSpeed, setTimelineSpeed] = useState(800)
+  // Timeline playback (state + effects live in the useTimeline hook)
+  const timeline = useTimeline(photos)
 
   useEffect(() => {
     if (!loading && photos.length > 0) setUploadOpen(false)
@@ -158,15 +157,6 @@ export function App() {
     return proj?.clientId === activeClientId
   })
 
-  // Timeline: all photos sorted by date for chronological playback
-  const timelineSorted = useMemo(() =>
-    [...photos].sort((a, b) => {
-      const dateA = a.dateTaken || a.uploadedAt || ''
-      const dateB = b.dateTaken || b.uploadedAt || ''
-      return dateA.localeCompare(dateB)
-    }),
-  [photos])
-
   // Fit map to relevant photos when hierarchy selection changes
   useEffect(() => {
     if (!activeClientId && !activeProjectId && !activeSurveyDate) return
@@ -184,25 +174,7 @@ export function App() {
     if (relevant.length) mapRef.current?.fitToBounds(relevant)
   }, [activeClientId, activeProjectId, activeSurveyDate, photos, projects])
 
-  // Reset timeline when activated
-  useEffect(() => {
-    if (timelineActive) {
-      setTimelineIndex(0)
-      setTimelinePlaying(false)
-    }
-  }, [timelineActive])
-
-  // Timeline auto-advance
-  useEffect(() => {
-    if (!timelinePlaying) return
-    if (timelineIndex >= timelineSorted.length - 1) {
-      setTimelinePlaying(false)
-      return
-    }
-    const timer = setTimeout(() => setTimelineIndex(i => i + 1), timelineSpeed)
-    return () => clearTimeout(timer)
-  }, [timelinePlaying, timelineIndex, timelineSorted.length, timelineSpeed])
-
+  const { active: timelineActive, setPlaying: setTimelinePlaying } = timeline
   useEffect(() => {
     function onKey(e) {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
@@ -215,17 +187,9 @@ export function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [shortcutsOpen, timelineActive])
+  }, [shortcutsOpen, timelineActive, setTimelinePlaying])
 
-  const timelineSlicePhotos = timelineSorted.slice(0, timelineIndex + 1)
-  const currentTimelinePhoto = timelineSorted[timelineIndex]
-  const currentTimelineDate = currentTimelinePhoto
-    ? (currentTimelinePhoto.dateTaken
-        ? new Date(currentTimelinePhoto.dateTaken).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-        : `Photo ${timelineIndex + 1}`)
-    : ''
-
-  const displayPhotos = timelineActive ? timelineSlicePhotos : filteredPhotos
+  const displayPhotos = timeline.active ? timeline.slicePhotos : filteredPhotos
   const displayGpsCount = displayPhotos.filter(p => p.hasGps).length
 
   function togglePhotoSelection(id) {
@@ -490,7 +454,7 @@ export function App() {
               onCompareClick={handleCompareClick}
               toast={toast}
               hasActiveFilters={!!(isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId)}
-              timelinePhotoId={timelineActive ? currentTimelinePhoto?.id : null}
+              timelinePhotoId={timeline.active ? timeline.currentPhoto?.id : null}
               onClearAllFilters={() => {
                 setUserTouchedFilter(false)
                 setActiveTag(null)
@@ -567,58 +531,7 @@ export function App() {
 
         {/* Timeline Player */}
         <SidebarSection title="Timeline" defaultOpen={false}>
-          <div className="timeline-section">
-            <button
-              className={`timeline-toggle-btn${timelineActive ? ' active' : ''}`}
-              onClick={() => setTimelineActive(a => !a)}
-              disabled={photos.length === 0}
-            >
-              {timelineActive ? '✕ Exit Timeline' : '▶ Play Timeline'}
-            </button>
-            {timelineActive && (
-              <div className="timeline-controls">
-                <div className="timeline-label">
-                  <span className="timeline-date">{currentTimelineDate}</span>
-                  <span className="timeline-counter">
-                    {timelineIndex + 1} <span className="timeline-counter-sep">/</span> {timelineSorted.length}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  className="timeline-scrubber"
-                  min={0}
-                  max={Math.max(0, timelineSorted.length - 1)}
-                  value={timelineIndex}
-                  aria-label={`Timeline: photo ${timelineIndex + 1} of ${timelineSorted.length}`}
-                  onChange={e => {
-                    setTimelineIndex(Number(e.target.value))
-                    setTimelinePlaying(false)
-                  }}
-                />
-                <div className="timeline-actions">
-                  <button
-                    className="timeline-play-btn"
-                    onClick={() => setTimelinePlaying(p => !p)}
-                    disabled={timelineSorted.length < 2}
-                    aria-label={timelinePlaying ? 'Pause timeline' : 'Play timeline (Space)'}
-                    title="Space to play/pause"
-                  >
-                    {timelinePlaying ? '⏸ Pause' : '▶ Play'}
-                  </button>
-                  <select
-                    className="timeline-speed-select"
-                    value={timelineSpeed}
-                    onChange={e => setTimelineSpeed(Number(e.target.value))}
-                    aria-label="Playback speed"
-                  >
-                    <option value={1500}>Slow</option>
-                    <option value={800}>Normal</option>
-                    <option value={300}>Fast</option>
-                  </select>
-                </div>
-              </div>
-            )}
-          </div>
+          <TimelinePanel timeline={timeline} photoCount={photos.length} />
         </SidebarSection>
 
         </div>
