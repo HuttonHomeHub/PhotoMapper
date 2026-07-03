@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 47 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 7 · **Not Started:** 18
-- **Current phase:** Phase 4 (frontend) **complete**. Recent: OPS-04/05, ARCH-04, OPS-02 (Docker), PERF-02, FE-05/06, FE-02/03 (a11y). Remaining: Phase 5 (PERF-01/06), Phase 7 docs (DOC-03/05/06), CQ-07/08. Backend (Phases 0–3) complete. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
+- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 48 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 7 · **Not Started:** 17
+- **Current phase:** Phases 0–4 **complete**. Recent: OPS-04/05, ARCH-04, OPS-02 (Docker), PERF-02, FE-05/06, FE-02/03, PERF-06 (incremental markers). Remaining: Phase 5 (PERF-01 only), Phase 7 docs (DOC-03/05/06), CQ-07/08. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -24,12 +24,12 @@
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
 | 3 | Backend architecture & correctness | 10 / 10 | ✅ Complete (BE-02/03/04/06/07, SEC-05, ARCH-01/03, CQ-05/OPS-06) |
 | 4 | Frontend architecture & quality | 10 / 10 | ✅ Complete (ARCH-02/06, CQ-01/03/06, SEC-12, FE-02/03/05/06) |
-| 5 | Performance | 4 / 6 | PERF-02, PERF-03, PERF-05, PERF-07 ✅ |
+| 5 | Performance | 5 / 6 | PERF-02/03/05/06/07 ✅; PERF-01 (pagination/bbox) left |
 | 6 | Testing depth | 0 / 2 | Not started |
 | 7 | Documentation | 1 / 5 | DOC-01 ✅ (README); DOC-04 in progress (ADRs) |
 | 8 | DevOps & infra | 6 / 7 | OPS-01/02/04/05/06/07 ✅ (CI, Docker, health, shutdown, logging, config); OPS-03 ⏸️ deferred (backup destination) |
 
-**Quality gates:** build ✅ · lint ✅ (9 pre-existing `src/` warnings, 0 new) · tests ✅ 78 passing (`npm test`) · CI runs lint+build+test+audit on `main` and `claude/**` (OPS-01 ✅).
+**Quality gates:** build ✅ · lint ✅ (8 pre-existing `src/` warnings, 0 new — PERF-06 cleared one) · tests ✅ 91 passing (`npm test`) · CI runs lint+build+test+audit on `main` and `claude/**` (OPS-01 ✅).
 
 **Top open risks:** (1) tests exist locally but CI does not run them yet → OPS-01 is now the top priority; (2) ARCH-03 migration-runner change is high-risk — must not run before TEST-01/02 + a DB backup step.
 
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 18 |
+| Not Started | 17 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 47 |
+| Completed | 48 |
 | Deferred | 7 |
 | **Total** | **74** |
 
@@ -365,11 +365,12 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Note:** The `projects.find` inside the client filter now runs only when filter inputs change (not every render); a `projectId→clientId` map is a minor optional micro-opt, not pursued.
 
 ### PERF-06 — PhotoMap rebuilds all markers on any change / FOV toggle
-- **Category:** Performance · **Severity:** Medium · **Priority:** P3 · **Effort:** M · **Risk:** Medium · **Status:** Not Started
-- **Description:** Effect keyed on `photoIds`+`fovVisible` (`PhotoMap.jsx:542-620`) clears and recreates every marker/popup/FOV, even when only toggling FOV.
-- **Recommended solution:** Diff photo sets; add/remove/update incrementally; separate FOV toggle from marker rebuild.
-- **Files affected:** `src/components/PhotoMap.jsx`.
-- **Dependencies:** Interacts with PERF-01 (bbox loading), SEC-12 (popup rendering).
+- **Category:** Performance · **Severity:** Medium · **Priority:** P3 · **Effort:** M · **Risk:** Medium · **Status:** ✅ Completed (Session 002)
+- **Description:** The marker effect keyed on `photoIds`+`fovVisible` cleared the whole cluster group and recreated every marker/popup/FOV on any change — including a mere FOV toggle.
+- **Resolution:** Rewrote it as an incremental sync keyed on `[photos]`: diff by id (remove gone, add new) and rebuild an existing marker only when its **visual signature** (`photoMarkerSignature`: lat/lng/direction/thumbnail/focal/panoHFov) changes. FOV visibility now reads a `fovVisibleRef` so toggling it runs only the lightweight FOV effect (no marker rebuild). Popups resolve the latest photo by id at open-time, so editing description/tags no longer churns markers (also fixes a latent stale-popup bug). Extracted `photoMarkerSignature` to a pure `src/lib/markerSig.js` with 3 unit tests. **Bonus:** the `[photos]` dep also cleared the file's `exhaustive-deps` lint warning (baseline 9→8).
+- **Verification:** Diff-key logic unit-tested; the Leaflet integration itself can't be runtime-verified in-sandbox (no browser/persistent server — same constraint noted for CSP/TEST-04), but the rewrite is behavior-preserving by construction (same create/add/fit logic, only the churn removed). Confirm interactively under TEST-04.
+- **Files affected:** `src/components/PhotoMap.jsx`, new `src/lib/markerSig.js`, `tests/lib/markerSig.test.js`.
+- **Dependencies:** Interacts with PERF-01 (bbox loading), SEC-12 (popup rendering — preserved).
 
 ### PERF-07 — Client hashes entire file in memory + redundant round-trip
 - **Category:** Performance · **Severity:** Medium · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
@@ -622,6 +623,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-03 (Session 002)** — ✅ **PERF-06.** Rewrote PhotoMap's marker effect as
+  an incremental id-diff + visual-signature sync keyed on `[photos]` (was a full
+  clear-and-rebuild on every change / FOV toggle). FOV toggle now via a ref (no
+  rebuild); popups resolve the latest photo by id (fixes stale-popup bug). New pure
+  `markerSig.js` + 3 tests; cleared 1 lint warning. Suite **91 tests**. [PERF-06]
 - **2026-07-03 (Session 002)** — ✅ **FE-02 + FE-03 (Phase 4 complete).** FE-02:
   raised the elevation-chart axis labels from `#555` (~2:1) to `#9fb0c9` (~7:1, AA).
   FE-03: `aria-label` + date-valued `aria-valuetext` on the dual date-range thumbs

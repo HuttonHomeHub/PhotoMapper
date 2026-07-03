@@ -12,6 +12,7 @@ import exportIconUrl from '../assets/export.svg'
 import drawIconUrl from '../assets/draw.svg'
 import { createRoot } from 'react-dom/client'
 import { PhotoPopup } from './PhotoPopup.jsx'
+import { photoMarkerSignature } from '../lib/markerSig.js'
 
 // Fix Leaflet's default icon path issues with bundlers
 delete L.Icon.Default.prototype._getIconUrl
@@ -130,6 +131,8 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
   const regionLayerRef = useRef(null)
   const markersRef = useRef({})
   const fovLayersRef = useRef({})
+  const markerSigRef = useRef({})
+  const fovVisibleRef = useRef(false)
   const onDeleteRef = useRef(onDelete)
   const onViewRef = useRef(onView)
   const onRegionChangeRef = useRef(onRegionChange)
@@ -159,6 +162,9 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
   useEffect(() => { onPhotoHoverRef.current = onPhotoHover }, [onPhotoHover])
   useEffect(() => { onBoundsChangeRef.current = onBoundsChange }, [onBoundsChange])
   useEffect(() => { photosRef.current = photos }, [photos])
+  // PERF-06: keep the latest FOV visibility in a ref so the marker-sync effect can
+  // read it without depending on `fovVisible` (which would rebuild all markers).
+  useEffect(() => { fovVisibleRef.current = fovVisible }, [fovVisible])
 
   // Initialise map once
   useEffect(() => {
@@ -471,48 +477,51 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
     }
   }, [drawMode])
 
-  const photoIds = photos.map(p => p.id).join(',')
-
-  // Rebuild markers when photos change
+  // PERF-06: incremental marker sync. Diff the photo set and add/remove/rebuild
+  // only what changed, instead of clearing and recreating every marker (+ popup +
+  // FOV cone) on any photos change. FOV visibility is toggled by its own effect,
+  // so it no longer forces a full rebuild. Popups look the photo up by id at open
+  // time, so editing description/tags never churns a marker.
   useEffect(() => {
     const clusterGroup = clusterGroupRef.current
     const map = mapInstanceRef.current
     if (!clusterGroup || !map) return
 
-    clusterGroup.clearLayers()
-    markersRef.current = {}
-
-    Object.values(fovLayersRef.current).forEach(poly => {
-      if (map.hasLayer(poly)) map.removeLayer(poly)
-    })
-    fovLayersRef.current = {}
-
     const geoPhotos = photos.filter(p => p.hasGps && p.lat != null && p.lng != null)
+    const nextIds = new Set(geoPhotos.map(p => p.id))
 
-    if (!geoPhotos.length) {
-      prevGeoCountRef.current = 0
-      map.setView([54.5, -3], 5)
-      return
+    function removeMarker(id) {
+      const marker = markersRef.current[id]
+      if (marker) {
+        clusterGroup.removeLayer(marker)
+        delete markersRef.current[id]
+      }
+      const fov = fovLayersRef.current[id]
+      if (fov) {
+        if (map.hasLayer(fov)) map.removeLayer(fov)
+        delete fovLayersRef.current[id]
+      }
+      delete markerSigRef.current[id]
     }
 
-    geoPhotos.forEach(photo => {
-      const marker = L.marker([photo.lat, photo.lng], {
-        icon: createPhotoIcon(photo)
-      })
+    function addMarker(photo) {
+      const marker = L.marker([photo.lat, photo.lng], { icon: createPhotoIcon(photo) })
       markersRef.current[photo.id] = marker
 
-      // SEC-12: render the popup as a React component into a container div. A
-      // fresh root is mounted when the popup opens and unmounted when it closes.
+      // SEC-12: render the popup as a React component into a container div. The
+      // 'add' handler resolves the latest photo by id so an edited description or
+      // tag set is reflected without rebuilding the marker.
       const popup = L.popup({ maxWidth: 280 })
       const container = document.createElement('div')
       popup.setContent(container)
       let popupRoot = null
 
       popup.on('add', () => {
+        const current = photosRef.current.find(p => p.id === photo.id) ?? photo
         popupRoot = createRoot(container)
         popupRoot.render(
           <PhotoPopup
-            photo={photo}
+            photo={current}
             onView={p => onViewRef.current?.(p)}
             onDelete={id => onDeleteRef.current(id)}
             onClose={() => marker.closePopup()}
@@ -534,9 +543,30 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
       const fovPoly = createFovConePolygon(photo)
       if (fovPoly) {
         fovLayersRef.current[photo.id] = fovPoly
-        if (fovVisible) fovPoly.addTo(map)
+        if (fovVisibleRef.current) fovPoly.addTo(map)
       }
-    })
+      markerSigRef.current[photo.id] = photoMarkerSignature(photo)
+    }
+
+    // Remove markers for photos that are gone
+    for (const id of Object.keys(markersRef.current)) {
+      if (!nextIds.has(id)) removeMarker(id)
+    }
+
+    // Add new markers; rebuild any whose visual signature changed
+    for (const photo of geoPhotos) {
+      if (markersRef.current[photo.id]) {
+        if (markerSigRef.current[photo.id] === photoMarkerSignature(photo)) continue
+        removeMarker(photo.id)
+      }
+      addMarker(photo)
+    }
+
+    if (!geoPhotos.length) {
+      prevGeoCountRef.current = 0
+      map.setView([54.5, -3], 5)
+      return
+    }
 
     // Fit map to show all pins only when transitioning from no photos to some
     if (prevGeoCountRef.current === 0) {
@@ -544,7 +574,7 @@ export const PhotoMap = forwardRef(function PhotoMap({ photos, onDelete, onView,
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 })
     }
     prevGeoCountRef.current = geoPhotos.length
-  }, [photoIds, fovVisible])
+  }, [photos])
 
   useEffect(() => {
     if (heatmapActive && !photos.some(p => p.hasGps && p.lat != null && p.lng != null)) {
