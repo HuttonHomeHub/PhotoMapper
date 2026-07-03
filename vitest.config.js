@@ -10,6 +10,17 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'lcov'],
       include: ['server/**/*.js', 'src/**/*.{js,jsx}'],
+      // TEST-05: gate only the surface currently under test so the threshold is
+      // meaningful and non-flaky. Ratchet up and add global thresholds as
+      // TEST-02 (server routes) and TEST-03 (components) land.
+      thresholds: {
+        'server/db.js': {
+          statements: 75,
+          branches: 50,
+          functions: 65,
+          lines: 75,
+        },
+      },
     },
   },
 })

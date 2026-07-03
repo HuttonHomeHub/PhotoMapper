@@ -13,14 +13,14 @@
 
 ## Programme status
 
-- **Findings:** 72 (71 imported + DEP-05 discovered) · **Completed:** 4 (TEST-01, OPS-01, DEP-04, DEP-05) · **In Progress:** 0 · **Deferred:** 4
-- **Current phase:** Phase 1 — Verification foundation (4/5 done; TEST-05 next closes the phase)
+- **Findings:** 72 (71 imported + DEP-05 discovered) · **Completed:** 5 (TEST-01, OPS-01, DEP-04, DEP-05, TEST-05) · **In Progress:** 0 · **Deferred:** 4
+- **Current phase:** ✅ Phase 1 complete → entering Phase 2 (Critical security & reliability)
 
 | Phase | Theme | Done / Total | Status |
 |---|---|---|---|
 | 0 | Programme setup | ✅ | Complete |
-| 1 | Verification foundation | 4 / 5 | **Active** |
-| 2 | Critical security & reliability | 0 / 13 | Not started |
+| 1 | Verification foundation | 5 / 5 | ✅ Complete |
+| 2 | Critical security & reliability | 0 / 13 | **Active (next: DEP-02 → BE-01)** |
 | 3 | Backend architecture & correctness | 0 / 10 | Not started |
 | 4 | Frontend architecture & quality | 0 / 10 | Not started |
 | 5 | Performance | 0 / 6 | Not started |
@@ -48,11 +48,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 64 |
+| Not Started | 63 |
 | Blocked | 0 |
 | In Progress | 0 |
 | Needs Review | 0 |
-| Completed | 4 |
+| Completed | 5 |
 | Deferred | 4 |
 | **Total** | **72** |
 
@@ -452,11 +452,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Needs TEST-01 + a stable run target.
 
 ### TEST-05 — Coverage gates in CI
-- **Category:** Testing · **Severity:** Medium · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Category:** Testing · **Severity:** Medium · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
 - **Description:** No coverage measurement/threshold.
-- **Recommended solution:** Vitest coverage; start at a realistic threshold (e.g. server 60%) and ratchet up.
-- **Files affected:** `vitest.config`, CI (OPS-01).
-- **Dependencies:** Needs TEST-01/02, OPS-01.
+- **Resolution:** Enabled v8 coverage with a per-file threshold on `server/db.js` (stmts 75 / branch 50 / funcs 65 / lines 75 — just under current 78/52/70/79 to lock in the gain without flakiness). CI `Test` step now runs `npm run test:coverage`, so the threshold gates CI (verified exit 0). Deliberately no global threshold yet — global is ~5% because routes/components are untested; that ratchets up as **TEST-02** (server routes) and **TEST-03** (components) land, at which point per-area thresholds are added.
+- **Files affected:** `vitest.config.js`, `.github/workflows/ci.yml`.
+- **Dependencies:** Needed TEST-01 + OPS-01 (done). Will be ratcheted by TEST-02/03.
 
 ---
 
@@ -619,6 +619,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **TEST-05 Completed & Phase 1 closed.**
+  Coverage thresholds gate `server/db.js` in CI (`test:coverage`). Phase 1
+  (verification foundation) complete: 5/5. [TEST-05]
 - **2026-07-02 (Session 002)** — ✅ **DEP-05 Completed.** `npm audit fix` →
   0 vulnerabilities (multer 2.2.0, express 4.22.2, qs 6.15.3, uuid 11.1.1).
   CI audit gate flipped to blocking. [DEP-05]
