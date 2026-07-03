@@ -125,6 +125,48 @@ Override configuration via the compose `environment:` block or a
 `docker compose --env-file` file (do **not** commit real secrets). TLS and auth
 still terminate at the reverse proxy in front of the container (ADR-0007).
 
+### Pre-built image from GHCR
+
+The `.github/workflows/publish-image.yml` workflow builds and pushes the image to
+GitHub Container Registry on every push to `main` (and on `v*` tags), so you can
+pull instead of building:
+
+```
+ghcr.io/huttonhomehub/photomapper:latest
+```
+
+Compose snippet (mirrors a typical self-hosted stack):
+
+```yaml
+photomapper:
+  container_name: photomapper
+  image: ghcr.io/huttonhomehub/photomapper:latest
+  ports:
+    - 127.0.0.1:3001:3001   # loopback only — the reverse proxy fronts it (no in-app auth)
+  environment:
+    - NODE_ENV=production
+    - TZ=Europe/London
+    # - ALLOWED_ORIGINS=https://photos.example.com
+    # - ALLOW_RESET=false
+  volumes:
+    - /apps/photomapper/data:/data   # holds photos.db + uploads
+  restart: unless-stopped
+```
+
+Notes:
+
+- **Bind-mount ownership** — the container runs as the `node` user (**uid 1000**).
+  If you bind-mount a host directory (as above) rather than a named volume, make it
+  writable by that uid first: `sudo mkdir -p /apps/photomapper/data && sudo chown -R 1000:1000 /apps/photomapper/data`.
+  (No `PUID`/`PGID` support — this isn't a linuxserver.io image; uid 1000 is fixed.)
+- **Package visibility** — GHCR packages are **private by default**. Either make the
+  package public (repo → Packages → the image → Package settings → change visibility)
+  for anonymous pulls, or `docker login ghcr.io` on the host with a token that has
+  `read:packages`.
+- **First publish** — if the workflow's push step 403s, allow Actions to write
+  packages: repo Settings → Actions → General → Workflow permissions → *Read and
+  write permissions* (the workflow already requests `packages: write`).
+
 ## Environment variables
 
 | Var | Default | Purpose |
