@@ -129,6 +129,7 @@
 - **Disadvantages:** Adds Docker as an operational dependency to maintain/patch vs. a plain systemd service.
 - **Consequences:** `UPLOADS_DIR` made env-configurable so DB + uploads share one volume. Image build not yet runtime-verified (sandbox proxy blocks registry pulls) — confirm on a networked host (TEST-04). **OPS-03 backups remain the top open risk** — the volume persists data but is not backed up.
 - **Future implications:** If the operator later prefers no-Docker, a systemd unit (option 1) can run the same `node server/index.js` — this ADR would be revisited, not the app.
+- **Update (Session 002):** the persistent mount was renamed **`/data` → `/config`** (and the named volume `photomapper-data` → `photomapper-config`) to match the operator's self-hosted stack convention (all their apps use `/apps/<app>/config:/config`). Path is env-driven (`PHOTOS_DB_PATH`/`UPLOADS_DIR`), so this is just a default change.
 
 ---
 
