@@ -22,22 +22,28 @@ RUN npm run build \
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 
+# gosu lets the root entrypoint drop to PUID:PGID while keeping the app as PID 1
+# (so SIGTERM still reaches it for graceful shutdown).
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends gosu \
+  && rm -rf /var/lib/apt/lists/*
+
 ENV NODE_ENV=production \
     PORT=3001 \
     PHOTOS_DB_PATH=/config/photos.db \
     UPLOADS_DIR=/config/uploads
 
-# Persistent state dir (SQLite file + uploads). Named `/config` to match the
-# common self-hosted convention. Owned by the unprivileged `node` user so a fresh
-# named volume inherits writable ownership.
-RUN mkdir -p /config && chown node:node /config
+# Persistent state dir (SQLite file + uploads), named `/config` to match the
+# common self-hosted convention. The entrypoint fixes its ownership at startup.
+RUN mkdir -p /config
 
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server ./server
 COPY --from=build /app/package.json ./package.json
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-USER node
 EXPOSE 3001
 VOLUME ["/config"]
 
@@ -45,5 +51,8 @@ VOLUME ["/config"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3001)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-# server/index.js handles SIGTERM for graceful shutdown (OPS-05).
+# Entrypoint runs as root, chowns /config to PUID:PGID (default 1000:1000), then
+# drops privileges via gosu and runs the CMD. server/index.js handles SIGTERM
+# for graceful shutdown (OPS-05).
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "server/index.js"]

@@ -130,6 +130,7 @@
 - **Consequences:** `UPLOADS_DIR` made env-configurable so DB + uploads share one volume. Image build not yet runtime-verified (sandbox proxy blocks registry pulls) — confirm on a networked host (TEST-04). **OPS-03 backups remain the top open risk** — the volume persists data but is not backed up.
 - **Future implications:** If the operator later prefers no-Docker, a systemd unit (option 1) can run the same `node server/index.js` — this ADR would be revisited, not the app.
 - **Update (Session 002):** the persistent mount was renamed **`/data` → `/config`** (and the named volume `photomapper-data` → `photomapper-config`) to match the operator's self-hosted stack convention (all their apps use `/apps/<app>/config:/config`). Path is env-driven (`PHOTOS_DB_PATH`/`UPLOADS_DIR`), so this is just a default change.
+- **Update (Session 002) — PUID/PGID entrypoint:** a plain non-root image crashed on a root-owned bind mount (`EACCES` creating `/config/uploads`), because the image chown only applies to named volumes. Adopted the linuxserver/hotio pattern: a root `docker-entrypoint.sh` `chown`s `/config` to `PUID:PGID` (default 1000) then drops privileges via **gosu** (preserving PID 1 / SIGTERM for graceful shutdown). Bind mounts now work without a manual chown and honour `PUID`/`PGID`. Startup chown is non-recursive (uploads can be a large library).
 
 ---
 
