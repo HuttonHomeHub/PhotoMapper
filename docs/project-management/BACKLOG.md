@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 27 · **In Progress:** 2 (TEST-02 ongoing, CQ-07) · **Deferred:** 6 · **Not Started:** 38
-- **Current phase:** ✅ Phase 3 complete → entering Phase 4 (Frontend architecture & quality). Backend is now layered, validated, migration-safe, logged, and geocoding is off the request path.
+- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 27 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 37
+- **Current phase:** Phase 4 — Frontend architecture & quality (TEST-03 jsdom harness up; next: ARCH-02 decompose App.jsx). Backend (Phases 0–3) complete.
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -23,7 +23,7 @@
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
 | 3 | Backend architecture & correctness | 10 / 10 | ✅ Complete (BE-02/03/04/06/07, SEC-05, ARCH-01/03, CQ-05/OPS-06) |
-| 4 | Frontend architecture & quality | 0 / 10 | **Active (next: ARCH-02 decompose App.jsx)** |
+| 4 | Frontend architecture & quality | 0 / 10 | **Active** (TEST-03 harness up; next ARCH-02) |
 | 5 | Performance | 1 / 6 | PERF-03 ✅ (landed early via runner) |
 | 6 | Testing depth | 0 / 2 | Not started |
 | 7 | Documentation | 0 / 5 | Not started |
@@ -441,11 +441,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Needs TEST-01. Verifies SEC/BE/ARCH work.
 
 ### TEST-03 — Component tests
-- **Category:** Testing · **Severity:** Medium · **Priority:** P2 · **Effort:** M · **Risk:** Low · **Status:** Not Started
-- **Description:** No React component tests.
-- **Recommended solution:** React Testing Library: DropZone flow, PhotoList filter/sort/select, ClientPanel tree, Lightbox autosave, ErrorBoundary (FE-01).
-- **Files affected:** `tests/components/`.
-- **Dependencies:** Needs TEST-01.
+- **Category:** Testing · **Severity:** Medium · **Priority:** P2 · **Effort:** M · **Risk:** Low · **Status:** In Progress (harness up, Session 002)
+- **Progress:** jsdom component harness established — `@vitejs/plugin-react` in `vitest.config.js`, per-file `// @vitest-environment jsdom`, `@testing-library/react` + `jest-dom`. First render test: `tests/components/ErrorBoundary.test.jsx` (renders children; shows fallback + message on child throw) — also completes FE-01's full-render coverage. Remaining, added as their components are touched in Phase 4: DropZone flow, PhotoList filter/sort/select, ClientPanel tree, Lightbox autosave.
+- **Files affected:** `vitest.config.js`, `tests/components/`.
+- **Dependencies:** Grows alongside ARCH-02/ARCH-06/CQ-01 refactors.
 
 ### TEST-04 — E2E tests
 - **Category:** Testing · **Severity:** Medium · **Priority:** P2 · **Effort:** M · **Risk:** Low · **Status:** Not Started
@@ -619,6 +618,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
+
+- **2026-07-02 (Session 002)** — ▶ **TEST-03 harness (Phase 4 opened).** jsdom +
+  `@testing-library/react` + `jest-dom` + react plugin; `tests/components/
+  ErrorBoundary.test.jsx` (render + fallback), which also completes FE-01's full
+  render coverage. Suite **46 tests**. [TEST-03]
 
 - **2026-07-02 (Session 002)** — ✅ **CQ-05 + OPS-06 + DEP-02 → Phase 3 complete.**
   Structured logging via `pino`/`pino-http` (`server/logger.js`, per-request ids,

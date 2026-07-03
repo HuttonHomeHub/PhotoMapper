@@ -1,9 +1,12 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  // React plugin so component tests can render JSX (server/logic tests ignore it).
+  plugins: [react()],
   test: {
-    // Server/db and pure-logic tests run in Node. Component tests (TEST-03)
-    // will add a jsdom project later.
+    // Default environment is Node (server/db/logic). Component tests opt into
+    // jsdom per-file via a `// @vitest-environment jsdom` docblock (TEST-03).
     environment: 'node',
     include: ['tests/**/*.test.{js,jsx}'],
     coverage: {
@@ -23,4 +26,4 @@ export default defineConfig({
       },
     },
   },
-})
+});
