@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 32 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 32
-- **Current phase:** Phase 4 — Frontend architecture & quality. ARCH-02, CQ-01, CQ-06, SEC-12 ✅; PERF-05 ✅. Remaining Phase 4: ARCH-06 (split usePhotos), FE-05/06/02. Backend (Phases 0–3) complete.
+- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 34 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 30
+- **Current phase:** Phase 4 — Frontend architecture & quality. ARCH-02, ARCH-06, CQ-01, CQ-03, CQ-06, SEC-12 ✅; PERF-05 ✅. Remaining Phase 4: FE-05/06/02/03. Backend (Phases 0–3) complete.
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -23,7 +23,7 @@
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
 | 3 | Backend architecture & correctness | 10 / 10 | ✅ Complete (BE-02/03/04/06/07, SEC-05, ARCH-01/03, CQ-05/OPS-06) |
-| 4 | Frontend architecture & quality | 4 / 10 | **Active** (ARCH-02, CQ-01, CQ-06, SEC-12 ✅; next ARCH-06, FE-05/06/02) |
+| 4 | Frontend architecture & quality | 6 / 10 | **Active** (ARCH-02/06, CQ-01/03/06, SEC-12 ✅; next FE-05/06/02/03) |
 | 5 | Performance | 2 / 6 | PERF-03 ✅, PERF-05 ✅ |
 | 6 | Testing depth | 0 / 2 | Not started |
 | 7 | Documentation | 0 / 5 | Not started |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 32 |
+| Not Started | 30 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 32 |
+| Completed | 34 |
 | Deferred | 6 |
 | **Total** | **73** |
 
@@ -263,11 +263,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Deferral justification:** High effort, not blocking; best done after ARCH-01/02 so types describe stable modules.
 
 ### ARCH-06 — `usePhotos` kitchen-sink hook (25 returns); prop drilling
-- **Category:** Architecture · **Severity:** Medium · **Priority:** P3 · **Effort:** M · **Risk:** Low · **Status:** Not Started
-- **Description:** One hook owns photos, projects, clients + all mutations; heavy prop drilling into ClientPanel etc.
-- **Recommended solution:** Split into `usePhotos`, `useProjects`, `useClients`; provide via context to cut drilling.
-- **Files affected:** `src/hooks/usePhotos.js`, `src/App.jsx`, consumers.
-- **Dependencies:** Pairs with ARCH-02.
+- **Category:** Architecture · **Severity:** Medium · **Priority:** P3 · **Effort:** M · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Split the 25-return hook into three focused hooks — `usePhotos` (photos + photo ops), `useClients`, `useProjects({ onPhotosChanged })`. App composes them; project mutations that change photos (delete/assign) notify photos via the `onPhotosChanged` callback, preserving the old cross-refresh behavior. 3 hook tests (mount load, create/append, delete + cross-notify). As a side effect this cleared the 6 dead-destructure lint warnings → **CQ-03**.
+- **Files affected:** `src/hooks/usePhotos.js`, `src/hooks/useClients.js` (new), `src/hooks/useProjects.js` (new), `src/App.jsx`, `tests/hooks/dataHooks.test.jsx`.
+- **Note:** Prop-drilling into ClientPanel remains (a context could cut it further); judged low-value now that the hook-god-object is gone.
 
 ### ARCH-07 — No tenancy model in schema
 - **Category:** Architecture · **Severity:** Medium (High if multi-tenant) · **Priority:** P4 · **Effort:** L · **Risk:** High · **Status:** Deferred
@@ -294,11 +293,8 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Files affected:** `server/index.js`, `src/components/PhotoMap.jsx`.
 
 ### CQ-03 — Dead code exports in `usePhotos`
-- **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** `updatePhotoSurveyDate`, `updatePhotoProject`, `assignToProject`, `createProject` exported/destructured but unused (`App.jsx:62-66`).
-- **Recommended solution:** Remove or wire up; verify with lint no-unused.
-- **Files affected:** `src/hooks/usePhotos.js`, `src/App.jsx`.
-- **Dependencies:** Fold into ARCH-06.
+- **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002, via ARCH-06)
+- **Resolution:** The ARCH-06 hook split removed the 6 unused destructures from App.jsx (`refresh`(now used)/`updatePhotoSurveyDate`/`updatePhotoProject`/`createClient`/`createProject`/`assignToProject`) — App now destructures only what it uses; the operations remain available on their respective hooks' APIs. Lint no-unused warnings dropped 15 → 9.
 
 ### CQ-04 — Inconsistent error UX (toast/alert/confirm/silent)
 - **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
@@ -620,6 +616,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **ARCH-06 + CQ-03.** Split the 25-return `usePhotos`
+  into `usePhotos`/`useClients`/`useProjects` (composed in App; project↔photo
+  cross-refresh via `onPhotosChanged`). Cleared the 6 dead-destructure warnings
+  (CQ-03; lint 15→9). 3 hook tests. Suite **77 tests**. [ARCH-06, CQ-03]
 - **2026-07-02 (Session 002)** — ✅ **SEC-12.** Map popup `innerHTML` string →
   `PhotoPopup` React component rendered via `createRoot` into the Leaflet popup;
   removed `escapeHtml`/`buildPopupHtml`. 5 tests incl. XSS-payload-as-text.

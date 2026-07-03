@@ -29,6 +29,8 @@ function SidebarSection({ title, defaultOpen = true, badge = null, children }) {
   )
 }
 import { usePhotos } from './hooks/usePhotos.js'
+import { useClients } from './hooks/useClients.js'
+import { useProjects } from './hooks/useProjects.js'
 import { PhotoMap } from './components/PhotoMap.jsx'
 import { PhotoList } from './components/PhotoList.jsx'
 import { PhotoLightbox } from './components/PhotoLightbox.jsx'
@@ -51,12 +53,17 @@ const msToDate = ms => new Date(ms).toISOString().slice(0, 10)
 export function App() {
   const { toast } = useToast()
   const {
-    photos, loading, error, refresh, refreshAll, deletePhoto, updatePhoto, exportPhotos,
-    updatePhotoSurveyDate, updatePhotoProject,
-    clients, createClient, updateClient, deleteClient,
-    batchUpdate, batchDelete,
-    projects, createProject, updateProject, deleteProject, assignToProject
+    photos, loading, error, refresh, deletePhoto, updatePhoto, exportPhotos,
+    batchUpdate, batchDelete
   } = usePhotos()
+  const { clients, refresh: refreshClients, updateClient, deleteClient } = useClients()
+  const { projects, refresh: refreshProjects, updateProject, deleteProject } = useProjects({
+    onPhotosChanged: refresh
+  })
+
+  function refreshAll() {
+    return Promise.all([refresh(), refreshProjects().catch(() => {}), refreshClients().catch(() => {})])
+  }
 
   const minDate = useMemo(() => {
     const dates = photos.map(p => p.dateTaken?.slice(0, 10)).filter(Boolean)
