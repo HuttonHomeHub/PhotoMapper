@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 28 · **In Progress:** 5 (ARCH-02, CQ-01, TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 34
-- **Current phase:** Phase 4 — Frontend architecture & quality. ARCH-02 well underway (LocationSearch + Timeline + filter logic extracted; App.jsx **866→674**); PERF-05 ✅. Backend (Phases 0–3) complete.
+- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 30 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 34
+- **Current phase:** Phase 4 — Frontend architecture & quality. ARCH-02 ✅ (App.jsx **866→647**, 4 components + 2 hooks + 2 libs extracted), CQ-01 ✅, PERF-05 ✅. Remaining Phase 4: ARCH-06, CQ-06, SEC-12, FE-05/06/02. Backend (Phases 0–3) complete.
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -23,7 +23,7 @@
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
 | 3 | Backend architecture & correctness | 10 / 10 | ✅ Complete (BE-02/03/04/06/07, SEC-05, ARCH-01/03, CQ-05/OPS-06) |
-| 4 | Frontend architecture & quality | 0 / 10 | **Active** (ARCH-02 ~⅔; TEST-03 harness up) |
+| 4 | Frontend architecture & quality | 2 / 10 | **Active** (ARCH-02, CQ-01 ✅; TEST-03 harness up; next ARCH-06/CQ-06/SEC-12) |
 | 5 | Performance | 2 / 6 | PERF-03 ✅, PERF-05 ✅ |
 | 6 | Testing depth | 0 / 2 | Not started |
 | 7 | Documentation | 0 / 5 | Not started |
@@ -51,9 +51,9 @@
 |---|---|
 | Not Started | 34 |
 | Blocked | 0 |
-| In Progress | 5 |
+| In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 28 |
+| Completed | 30 |
 | Deferred | 6 |
 | **Total** | **73** |
 
@@ -229,8 +229,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Files affected:** `server/app.js`.
 
 ### ARCH-02 — `App.jsx` god component (866 lines, ~30 useState)
-- **Category:** Architecture · **Severity:** High · **Priority:** P3 · **Effort:** M · **Risk:** Medium · **Status:** In Progress (Session 002)
+- **Category:** Architecture · **Severity:** High · **Priority:** P3 · **Effort:** M · **Risk:** Medium · **Status:** ✅ Completed (Session 002)
 - **Description:** All filtering, timeline, location search, reset, and layout in one component.
+- **Outcome:** App.jsx **866 → 647 lines**. Extracted the logic clusters into focused, individually-tested units: `LocationSearch`, `TimelinePanel` + `useTimeline` hook, `FilterChips`, and the pure `filterPhotos`/`geo` libs (memoized). The remaining ~647 lines are largely presentational JSX (sidebar sections, map panel, modals, brand SVG); the `~30 useState` tangle of *logic* is resolved. A `useReducer` for filter state was evaluated and deemed unnecessary — the remaining state is straightforward. Further JSX extraction (SidebarSections) is low-value and not pursued.
 - **Progress:** Extracting App.jsx piece by piece, each verified by component tests (App.jsx **866 → 706 lines** so far):
   - ✅ **`LocationSearch`** — owns query/results/error state, `onFlyTo` callback (−5 useState/−1 ref/−2 handlers). Tests: single-result fly-to, multi-result list, no-result error.
   - ✅ **Timeline** → **`useTimeline` hook** (state + sort + auto-advance effects) + **`TimelinePanel`** UI (−4 useState/−1 memo/−2 effects/−3 derived from App.jsx). Tests: panel render + hook sort/slice.
@@ -283,10 +284,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 ## CODE QUALITY
 
 ### CQ-01 — DRY violations (formatDate ×4, escapeHtml ×2, geoPhotos ×3)
-- **Category:** Code Quality · **Severity:** Medium · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** In Progress (Session 002)
-- **Progress:** `src/lib/geo.js` created (`pointInPolygon`) with tests — the pure-helper extraction the TEST-01 note deferred. Remaining: shared `src/lib/format.js` for `formatDate` (×4: Lightbox, Comparison, Map, App) and consolidate the `geoPhotos` filter/sort (×3). Server `escapeHtml`/KML `esc` already isolated in `services/exportPhotos.js` (ARCH-01).
-- **Files affected:** `src/lib/geo.js` (done); `src/lib/format.js` (todo); consumers.
-- **Dependencies:** Continue alongside ARCH-02.
+- **Category:** Code Quality · **Severity:** Medium · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** `src/lib/geo.js` (`pointInPolygon`) and `src/lib/format.js` (`formatDate`, deduped from PhotoLightbox/PhotoComparison/PhotoMap) with tests. Server `escapeHtml`/KML `esc` were consolidated into `services/exportPhotos.js` under ARCH-01.
+- **Files affected:** `src/lib/geo.js`, `src/lib/format.js`, `PhotoLightbox.jsx`, `PhotoComparison.jsx`, `PhotoMap.jsx`.
+- **Note:** The `geoPhotos` filter/sort duplication (App/PhotoMap/ElevationProfile) is a minor remaining micro-dedup, left as optional cleanup (each site has slightly different needs).
 
 ### CQ-02 — Magic numbers
 - **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
@@ -623,6 +624,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **ARCH-02 + CQ-01 complete.** Extracted `FilterChips`
+  (App.jsx 674→647) and the shared `formatDate` helper (deduped ×4). App.jsx
+  866→647 with 4 components + 2 hooks + 2 libs pulled out, all tested. Suite **67 tests**. [ARCH-02, CQ-01]
 - **2026-07-02 (Session 002)** — ✅ **PERF-05** + ARCH-02/CQ-01 cont. Extracted the
   filter chain to pure `src/lib/filterPhotos.js` + `src/lib/geo.js` and memoized it
   in App.jsx (706→674); 9 pure-function tests. Suite **61 tests**. [PERF-05, ARCH-02, CQ-01]

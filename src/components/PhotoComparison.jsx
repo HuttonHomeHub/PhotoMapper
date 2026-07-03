@@ -1,9 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-
-function formatDate(iso) {
-  if (!iso) return null
-  try { return new Date(iso).toLocaleString() } catch { return iso }
-}
+import { formatDate } from '../lib/format.js'
 
 function MetaRow({ label, value }) {
   if (value == null || value === '') return null

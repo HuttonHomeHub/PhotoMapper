@@ -10,6 +10,7 @@ import mapIconUrl from '../assets/map.svg'
 import layersIconUrl from '../assets/layers.svg'
 import exportIconUrl from '../assets/export.svg'
 import drawIconUrl from '../assets/draw.svg'
+import { formatDate } from '../lib/format.js'
 
 // Fix Leaflet's default icon path issues with bundlers
 delete L.Icon.Default.prototype._getIconUrl
@@ -86,14 +87,6 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;')
 }
 
-function formatDate(iso) {
-  if (!iso) return null
-  try {
-    return new Date(iso).toLocaleString()
-  } catch {
-    return iso
-  }
-}
 
 function buildPopupHtml(photo) {
   const rows = []

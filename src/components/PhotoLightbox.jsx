@@ -1,10 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useFocusTrap } from '../hooks/useFocusTrap.js'
-
-function formatDate(iso) {
-  if (!iso) return null
-  try { return new Date(iso).toLocaleString() } catch { return iso }
-}
+import { formatDate } from '../lib/format.js'
 
 function ExifItem({ label, value, full }) {
   if (value == null) return null
