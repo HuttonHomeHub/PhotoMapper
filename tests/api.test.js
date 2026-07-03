@@ -3,10 +3,11 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import request from 'supertest';
+import sharp from 'sharp';
 
 // Seeds TEST-02 (API integration) and locks in BE-01 (async error handling).
 // The app is imported with NODE_ENV=test so it does not bind a port, and with a
-// throwaway PHOTOS_DB_PATH so it never touches the real database.
+// throwaway PHOTOS_DB_PATH + UPLOADS_DIR so it never touches real data.
 
 let app;
 let tmpDir;
@@ -14,6 +15,7 @@ let tmpDir;
 beforeAll(async () => {
   tmpDir = mkdtempSync(join(tmpdir(), 'photomapper-api-'));
   process.env.PHOTOS_DB_PATH = join(tmpDir, 'test.db');
+  process.env.UPLOADS_DIR = join(tmpDir, 'uploads');
   process.env.NODE_ENV = 'test';
   ({ app } = await import('../server/index.js'));
 });
@@ -44,6 +46,33 @@ describe('photos API', () => {
     expect(res.body).toHaveProperty('error');
   });
 
+  it('TEST-02: uploads a real (no-GPS) image, then 409s on the duplicate', async () => {
+    // A synthetic JPEG with no EXIF exercises the full path: multer → hash →
+    // exif (no GPS) → thumbnail (sharp) → insert.
+    const jpeg = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: { r: 10, g: 20, b: 30 } },
+    })
+      .jpeg()
+      .toBuffer();
+
+    const up = await request(app).post('/api/photos').attach('photo', jpeg, 'sample.jpg');
+    expect(up.status).toBe(201);
+    expect(up.body.hasGps).toBe(false);
+    expect(up.body.id).toBeTruthy();
+    expect(up.body.originalName).toBe('sample.jpg');
+
+    // Same bytes → same content hash → duplicate rejected.
+    const dup = await request(app).post('/api/photos').attach('photo', jpeg, 'sample.jpg');
+    expect(dup.status).toBe(409);
+    expect(dup.body.error).toBe('duplicate');
+
+    // It shows up in the listing and can be deleted.
+    const list = await request(app).get('/api/photos');
+    expect(list.body.some((p) => p.id === up.body.id)).toBe(true);
+    const del = await request(app).delete(`/api/photos/${up.body.id}`);
+    expect(del.status).toBe(200);
+  });
+
   it('PATCH /api/photos/:id for an unknown id returns 404', async () => {
     const res = await request(app).patch('/api/photos/does-not-exist').send({ description: 'x' });
     expect(res.status).toBe(404);
@@ -58,6 +87,15 @@ describe('photos API', () => {
   it('GET /api/photos/export is not captured by the :id route', async () => {
     const res = await request(app).get('/api/photos/export');
     expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('application/geo+json');
+    expect(res.headers['content-disposition']).toContain('photos.geojson');
+  });
+
+  it('GET /api/photos/export?format=kml returns a KML attachment', async () => {
+    const res = await request(app).get('/api/photos/export?format=kml');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('application/vnd.google-earth.kml+xml');
+    expect(res.text).toContain('<kml');
   });
 
 });

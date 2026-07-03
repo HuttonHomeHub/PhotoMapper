@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 54 · **In Progress:** 2 (TEST-02, TEST-03) · **Deferred:** 8 · **Not Started:** 10
-- **Current phase:** Phases 0–4 + **7 (docs) complete**. Recent: PERF-01, DOC-05, **CQ-07** (whole-tree Prettier normalization + CI format gate). Remaining: deeper tests (TEST-02/03/04) and the remaining low-priority FEAT/ARCH items. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
+- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 56 · **In Progress:** 0 · **Deferred:** 8 · **Not Started:** 10
+- **Current phase:** Phases 0–4, **6 (testing) & 7 (docs) complete**. Recent: PERF-01, DOC-05, CQ-07, **TEST-02/03** (full upload-path integration test via a synthetic JPEG, export/hash unit tests → **109 tests**). Remaining: TEST-04 (E2E, needs staging) + low-priority FEAT/ARCH items. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -25,7 +25,7 @@
 | 3 | Backend architecture & correctness | 10 / 10 | ✅ Complete (BE-02/03/04/06/07, SEC-05, ARCH-01/03, CQ-05/OPS-06) |
 | 4 | Frontend architecture & quality | 10 / 10 | ✅ Complete (ARCH-02/06, CQ-01/03/06, SEC-12, FE-02/03/05/06) |
 | 5 | Performance | 5 / 6 | PERF-02/03/05/06/07 ✅; PERF-01 ⏸️ deferred (query foundation + detail endpoint done; strip declined, pagination deferred) |
-| 6 | Testing depth | 0 / 2 | Not started |
+| 6 | Testing depth | 2 / 2 | ✅ TEST-02 (API incl. full upload path) + TEST-03 (component harness); TEST-04 E2E deferred (staging) |
 | 7 | Documentation | 5 / 5 | ✅ DOC-01/03/05/06 + DOC-02 (rename); DOC-04 (ADRs) maintained live |
 | 8 | DevOps & infra | 6 / 7 | OPS-01/02/04/05/06/07 ✅ (CI, Docker, health, shutdown, logging, config); OPS-03 ⏸️ deferred (backup destination) |
 
@@ -51,9 +51,9 @@
 |---|---|
 | Not Started | 10 |
 | Blocked | 0 |
-| In Progress | 2 |
+| In Progress | 0 |
 | Needs Review | 0 |
-| Completed | 54 |
+| Completed | 56 |
 | Deferred | 8 |
 | **Total** | **74** |
 
@@ -439,18 +439,19 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** **Foundational — precedes all risky changes.** Feeds OPS-01.
 
 ### TEST-02 — API integration tests
-- **Category:** Testing · **Severity:** High · **Priority:** P1 · **Effort:** M · **Risk:** Low · **Status:** In Progress (seeded Session 002)
-- **Progress:** Harness stood up with `supertest` against the exported `app` (`tests/api.test.js`, 9 tests): photos list, upload-without-file 400, unknown-id 404, check-hash 400, client/project list + create + duplicate 409 + validation 400, and the BE-01 async-error 500. Remaining for completion: upload happy-path (GPS/no-GPS with a real image buffer), dedupe/409 on re-upload, delete, batch, export (GeoJSON+KML). To be finished alongside Phase 3 (ARCH-01/BE-02) so route refactors are covered as they land.
+- **Category:** Testing · **Severity:** High · **Priority:** P1 · **Effort:** M · **Risk:** Low · **Status:** ✅ Completed (Session 002)
 - **Description:** No route-level tests.
-- **Recommended solution:** `supertest` over the Express app with a temp DB + temp uploads dir: upload (GPS/no-GPS), dedupe/409, delete, batch, export (GeoJSON+KML), validation 400s, and the BE-01 async-error path.
-- **Files affected:** `tests/api/`, minor `server/index.js` export refactor (export `app`).
-- **Dependencies:** Needs TEST-01. Verifies SEC/BE/ARCH work.
+- **Resolution:** `supertest` over the exported `app` with a temp DB **and temp `UPLOADS_DIR`**. Now covers: **full upload path** (a synthetic no-GPS JPEG built with `sharp` → multer → hash → exif → thumbnail → insert → **201**), **dedupe 409** on re-upload of identical bytes, listing, delete, batch validation, all client/project CRUD + 404/409/400s, both **export formats** (GeoJSON + KML content-types), pagination shape + detail 404 + `/export` not shadowed, health/ready, security headers/CSP, rate-limit headers, gated reset 403, geocode 400, and the BE-01 async-error 500. Export serializers + KML XSS-escaping and `hashFile` also get direct unit tests. **Only untested branch:** a GPS-bearing upload (needs an EXIF-embedded fixture) — deferred to TEST-04.
+- **Files affected:** `tests/api.test.js`, `tests/exportPhotos.test.js`, `tests/hash.test.js`.
+- **Dependencies:** Needed TEST-01 ✅. Verifies SEC/BE/ARCH work.
 
 ### TEST-03 — Component tests
-- **Category:** Testing · **Severity:** Medium · **Priority:** P2 · **Effort:** M · **Risk:** Low · **Status:** In Progress (harness up, Session 002)
-- **Progress:** jsdom component harness established — `@vitejs/plugin-react` in `vitest.config.js`, per-file `// @vitest-environment jsdom`, `@testing-library/react` + `jest-dom`. First render test: `tests/components/ErrorBoundary.test.jsx` (renders children; shows fallback + message on child throw) — also completes FE-01's full-render coverage. Remaining, added as their components are touched in Phase 4: DropZone flow, PhotoList filter/sort/select, ClientPanel tree, Lightbox autosave.
-- **Files affected:** `vitest.config.js`, `tests/components/`.
-- **Dependencies:** Grows alongside ARCH-02/ARCH-06/CQ-01 refactors.
+- **Category:** Testing · **Severity:** Medium · **Priority:** P2 · **Effort:** M · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Description:** No component tests.
+- **Resolution:** jsdom harness established (`@vitejs/plugin-react`, per-file `// @vitest-environment jsdom`, Testing Library + jest-dom) with render/interaction tests for **ErrorBoundary, ClientPanel (loading/empty/error), FilterChips, LocationSearch, PhotoPopup, TimelinePanel, Toast** plus data-hook tests (`dataHooks.test.jsx`) and pure-lib tests (`filterPhotos`, `format`, `markerSig`). Suite grew from ~11 → **109 tests**.
+- **Remaining depth (low-priority, folds into TEST-04):** DropZone upload flow, PhotoList filter/sort/select, and Lightbox autosave render tests — the harness + patterns are in place to add them when those components are next touched.
+- **Files affected:** `vitest.config.js`, `tests/components/`, `tests/hooks/`, `tests/lib/`.
+- **Dependencies:** Grew alongside ARCH-02/06/CQ-01/FE-* work.
 
 ### TEST-04 — E2E tests
 - **Category:** Testing · **Severity:** Medium · **Priority:** P2 · **Effort:** M · **Risk:** Low · **Status:** Not Started
@@ -628,6 +629,13 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-03 (Session 002)** — ✅ **TEST-02 + TEST-03 (Phase 6 complete).** Closed the
+  API-integration gap with a **full upload-path test** (synthetic `sharp` JPEG →
+  multer→hash→exif→thumbnail→insert→201, dupe→409, list, delete) against a temp
+  `UPLOADS_DIR`; added export-format route assertions + direct unit tests for the
+  GeoJSON/KML serializers (incl. XSS-escaping) and `hashFile`. Suite **109 tests**.
+  TEST-03 component/hook/lib coverage confirmed comprehensive. TEST-04 (E2E) stays
+  deferred (needs staging). [TEST-02, TEST-03]
 - **2026-07-03 (Session 002)** — ✅ **CQ-07.** Whole-tree Prettier normalization (26 `src/`
   files to semicolons + a few drifted `server/` files) in a dedicated formatting-only
   commit; added `format:check` script + a **CI format gate** so it can't drift again;
