@@ -13,15 +13,15 @@
 
 ## Programme status
 
-- **Findings:** 72 · **Completed:** 7 · **In Progress:** 2 (DEP-02, TEST-02) · **Deferred:** 6 · **Not Started:** 57
-- **Current phase:** Phase 2 — Critical security & reliability (4/13 resolved; next: OPS-07 config → SEC-04 CORS → SEC-09 helmet → SEC-07 rate-limit → SEC-08 → PERF-08 → FE-01/FE-04)
+- **Findings:** 72 · **Completed:** 13 · **In Progress:** 2 (DEP-02, TEST-02) · **Deferred:** 6 · **Not Started:** 51
+- **Current phase:** Phase 2 — Critical security & reliability (11/13 resolved; remaining: FE-01 error boundary, FE-04 delete confirms)
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
 |---|---|---|---|
 | 0 | Programme setup | ✅ | Complete |
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
-| 2 | Critical security & reliability | 4 / 13 | **Active** (BE-01, SEC-02 ✅; SEC-01, SEC-03 → infra) |
+| 2 | Critical security & reliability | 11 / 13 | **Active** (only FE-01, FE-04 left) |
 | 3 | Backend architecture & correctness | 0 / 10 | Not started |
 | 4 | Frontend architecture & quality | 0 / 10 | Not started |
 | 5 | Performance | 0 / 6 | Not started |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 57 |
+| Not Started | 51 |
 | Blocked | 0 |
 | In Progress | 2 |
 | Needs Review | 0 |
-| Completed | 7 |
+| Completed | 13 |
 | Deferred | 6 |
 | **Total** | **72** |
 
@@ -84,7 +84,8 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Revisit trigger:** same as SEC-01 — if per-user authorization is ever needed, `/uploads` must move to an authz-checked streaming route.
 
 ### SEC-04 — Wide-open CORS
-- **Category:** Security · **Severity:** High · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Category:** Security · **Severity:** High · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Removed blanket `app.use(cors())`. CORS is now off by default (the app is same-origin behind the proxy) and only enabled for origins explicitly listed in `ALLOWED_ORIGINS` (via `server/config.js`).
 - **Description:** `app.use(cors())` (`server/index.js:19`) allows any origin.
 - **Root cause:** Default permissive CORS during dev.
 - **Recommended solution:** Restrict to a configured allowlist (env `ALLOWED_ORIGINS`); in single-origin prod, drop CORS entirely.
@@ -108,7 +109,8 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Related to FEAT-08 (content scanning). Benefits from ARCH-01 (service extraction).
 
 ### SEC-07 — No rate limiting anywhere
-- **Category:** Security · **Severity:** Medium · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Category:** Security · **Severity:** Medium · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** `express-rate-limit` applied to `/api` (configurable window/max via `config.rateLimit`, default 1000/15min, `RateLimit-*` standard headers; test asserts headers present). Upload cap lowered from 100 MB to a configurable `UPLOAD_MAX_BYTES` (default 60 MB) in step with the documented proxy `client_max_body_size`. Satisfies **FEAT-04**.
 - **Description:** No throttling; combined with 100 MB uploads + full-file SHA-256 + sharp on a synchronous DB, a few concurrent requests stall the server.
 - **Root cause:** No limiter middleware.
 - **Recommended solution:** `express-rate-limit` globally + stricter limit on upload; lower max upload size; cap concurrency.
@@ -116,7 +118,8 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Needs DEP-02. Satisfies FEAT-04.
 
 ### SEC-08 — Internal error messages leaked to clients
-- **Category:** Security · **Severity:** Medium · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Category:** Security · **Severity:** Medium · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Error middleware now masks 5xx `err.message` as a generic "Internal server error" when `NODE_ENV=production`; 4xx client errors keep their message (and detail is preserved in dev/test and always logged server-side).
 - **Description:** Error middleware returns `err.message` (`server/index.js:415-419`), leaking SQLite messages/paths.
 - **Root cause:** Verbose error passthrough.
 - **Recommended solution:** Generic client message in prod; full detail to structured logs (CQ-05).
@@ -124,7 +127,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Best done with BE-01 (error handling) and CQ-05 (logging).
 
 ### SEC-09 — No security headers (helmet/CSP/nosniff/HSTS)
-- **Category:** Security · **Severity:** Medium · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Category:** Security · **Severity:** Medium · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** `helmet` added with a CSP tailored to the app: `script-src 'self'`, `style-src 'self' 'unsafe-inline'` (Leaflet/markercluster inject inline styles), `img-src` allowlisting the four map-tile hosts + `self`/`data:`/`blob:`, `connect-src` allowing Nominatim search; `object-src`/`frame-src` `none`. Dropped `upgrade-insecure-requests` (left to HSTS + proxy redirect so direct HTTP health checks work). Verified: server boots in production mode, CSP header inspected end-to-end, header-presence test added. Full browser E2E deferred to **TEST-04** (the sandbox terminates persistent local servers, so a real-browser smoke test belongs in CI/staging).
+- **Note:** helmet's HSTS header is emitted; TLS itself terminates at the proxy (SEC-11).
 - **Description:** No `helmet`; missing CSP, `X-Content-Type-Options: nosniff`, HSTS. `nosniff` matters given SEC-06.
 - **Recommended solution:** Add `helmet` with a CSP compatible with Leaflet tile hosts and inline map styles.
 - **Files affected:** `server/index.js`, DEP-02.
@@ -365,11 +370,8 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Obsoletes SEC-10, BE-05.
 
 ### PERF-08 — No response compression
-- **Category:** Performance · **Severity:** Low · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** No `compression`; JSON + static served uncompressed.
-- **Recommended solution:** Add `compression` middleware (or gzip/brotli at reverse proxy).
-- **Files affected:** `server/index.js`, DEP-02.
-- **Dependencies:** Needs DEP-02 (or handled at proxy per OPS-02).
+- **Category:** Performance · **Severity:** Low · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Added `compression` middleware. (The reverse proxy may also compress; harmless overlap.)
 
 ---
 
@@ -504,11 +506,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Same work as CQ-05.
 
 ### OPS-07 — No environment config management/validation
-- **Category:** DevOps · **Severity:** Medium · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** Only `PORT` via env; no `.env` schema; no validation of required config (origins, secret, log level).
-- **Recommended solution:** Central `server/config.js` reading + validating env (zod); `.env.example`.
-- **Files affected:** new `server/config.js`, `.env.example`, `server/index.js`.
-- **Dependencies:** Enables SEC-01 (secret), SEC-04 (origins), CQ-05 (log level). Do early in Phase 2.
+- **Category:** DevOps · **Severity:** Medium · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Added `server/config.js` — a single zod-validated config surface (NODE_ENV, PORT, ALLOWED_ORIGINS, ALLOW_RESET, UPLOAD_MAX_BYTES, RATE_LIMIT_*) that fails fast on invalid input. Added `.env.example`. `server/index.js` now reads all runtime config from it (port, reset gate, CORS origins, upload cap, rate limits). Documented in `docs/DEPLOYMENT-SECURITY.md`.
+- **Note:** `PHOTOS_DB_PATH` remains read directly in `db.js` (it opens the DB independently for tests); `config.js` covers the HTTP layer. `pino` log-level config will be added with CQ-05.
 
 ---
 
@@ -523,7 +523,7 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 
 ### DEP-02 — Missing production dependencies
 - **Category:** Dependencies · **Severity:** High (enabler) · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** In Progress (Session 002)
-- **Progress:** Added incrementally as each consuming fix lands (avoids unused deps): ✅ `express-async-errors` (BE-01), ✅ `supertest` (dev, TEST-02). Remaining: `helmet` (SEC-09), `express-rate-limit` (SEC-07), `compression` (PERF-08), session/auth lib (SEC-01), `zod` (BE-02), `pino`/`pino-http` (CQ-05/OPS-06).
+- **Progress:** Added incrementally as each consuming fix lands (avoids unused deps): ✅ `express-async-errors` (BE-01), ✅ `supertest` (dev, TEST-02), ✅ `helmet` (SEC-09), ✅ `express-rate-limit` (SEC-07), ✅ `compression` (PERF-08), ✅ `zod` (OPS-07, reused by BE-02). Session/auth lib **not needed** (auth is at the proxy — ADR-0007). Remaining: `pino`/`pino-http` (CQ-05/OPS-06). Effectively complete for Phase 2; will close when logging lands.
 - **Description:** No `helmet`, `express-rate-limit`, `compression`, `express-async-errors` (or Express 5), session lib, `zod`, `pino`.
 - **Recommended solution:** Add the set as Phase 2/3 lands; per CLAUDE.md, dependency additions are recorded here as the "discussion".
 - **Files affected:** `package.json`, `package-lock.json`.
@@ -619,6 +619,12 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **Security-middleware batch** (OPS-07, SEC-04,
+  SEC-07, SEC-08, SEC-09, PERF-08). Added `server/config.js` (zod-validated env) +
+  `.env.example`; helmet+CSP (tile hosts allowlisted), CORS allowlist (off by
+  default), `/api` rate limit, 5xx error masking in prod, gzip compression,
+  configurable 60 MB upload cap. Suite 23 tests (headers asserted). CSP verified
+  via header inspection + prod boot; browser E2E → TEST-04. [OPS-07, SEC-04, SEC-07, SEC-08, SEC-09, PERF-08]
 - **2026-07-02 (Session 002)** — ✅ **SEC-02 Completed** + **ADR-0007** (edge auth):
   gated `DELETE /api/reset` behind `ALLOW_RESET` (403 by default) with a
   regression test; **SEC-01 & SEC-03 dispositioned to infrastructure** and

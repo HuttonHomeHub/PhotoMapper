@@ -5,6 +5,10 @@ import express from 'express'
 import 'express-async-errors'
 import multer from 'multer'
 import cors from 'cors'
+import helmet from 'helmet'
+import compression from 'compression'
+import rateLimit from 'express-rate-limit'
+import { config } from './config.js'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { mkdirSync, createReadStream, readdirSync } from 'fs'
@@ -20,8 +24,53 @@ const uploadsDir = join(__dirname, 'uploads')
 mkdirSync(uploadsDir, { recursive: true })
 
 const app = express()
-app.use(cors())
+
+// SEC-09: security headers + CSP. The CSP allowlists the map tile hosts and the
+// client-side Nominatim search; 'unsafe-inline' styles are permitted because
+// Leaflet/markercluster inject inline styles (script stays 'self' only).
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: [
+        "'self'", 'data:', 'blob:',
+        'https://server.arcgisonline.com',
+        'https://*.tile.openstreetmap.org',
+        'https://*.basemaps.cartocdn.com',
+        'https://*.tile.opentopomap.org',
+      ],
+      connectSrc: ["'self'", 'https://nominatim.openstreetmap.org'],
+      workerSrc: ["'self'", 'blob:'],
+      objectSrc: ["'none'"],
+      frameSrc: ["'none'"],
+      // Leave to HSTS + the proxy's HTTP->HTTPS redirect (ADR-0007). Setting it
+      // here would break direct HTTP access (health checks, local runs).
+      upgradeInsecureRequests: null,
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}))
+
+// PERF-08: gzip/brotli responses.
+app.use(compression())
+
+// SEC-04: no cross-origin access by default (app is same-origin behind the
+// proxy). Enable only for explicitly configured origins.
+if (config.allowedOrigins.length > 0) {
+  app.use(cors({ origin: config.allowedOrigins }))
+}
+
 app.use(express.json())
+
+// SEC-07: per-IP rate limit on the API surface.
+app.use('/api', rateLimit({
+  windowMs: config.rateLimit.windowMs,
+  max: config.rateLimit.max,
+  standardHeaders: true,
+  legacyHeaders: false,
+}))
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/heic', 'image/webp'])
 
@@ -61,7 +110,7 @@ const upload = multer({
       cb(new Error(`Unsupported file type: ${file.mimetype}`))
     }
   },
-  limits: { fileSize: 100 * 1024 * 1024 } // 100 MB
+  limits: { fileSize: config.uploadMaxBytes } // SEC-07: configurable, default 60 MB
 })
 
 app.post('/api/photos', upload.single('photo'), async (req, res) => {
@@ -429,7 +478,12 @@ if (process.env.NODE_ENV === 'test') {
 app.use((err, req, res, _next) => {
   console.error(err)
   const status = err.status || err.statusCode || 500
-  res.status(status).json({ error: err.message || 'Internal server error' })
+  // SEC-08: don't leak internal error detail to clients in production. Client
+  // (4xx) errors keep their message; server (5xx) errors are masked in prod.
+  const message = status < 500 || !config.isProd
+    ? (err.message || 'Internal server error')
+    : 'Internal server error'
+  res.status(status).json({ error: message })
 })
 
 // Serve built frontend in production
@@ -439,7 +493,7 @@ app.use(express.static(distDir))
 // defense-in-depth behind the reverse-proxy auth (ADR-0007) — a total-data-loss
 // endpoint should not be trivially reachable even by an authenticated browser.
 app.delete('/api/reset', async (_req, res) => {
-  if (process.env.ALLOW_RESET !== 'true') {
+  if (!config.allowReset) {
     return res.status(403).json({ error: 'Reset is disabled. Set ALLOW_RESET=true to enable it.' })
   }
   resetAll()
@@ -452,11 +506,10 @@ app.get('*', (_req, res) => {
   res.sendFile(join(distDir, 'index.html'))
 })
 
-const PORT = process.env.PORT || 3001
 // Don't bind a port under test — supertest drives the app object directly.
-if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`)
+if (!config.isTest) {
+  app.listen(config.port, () => {
+    console.log(`Server running on http://localhost:${config.port}`)
   })
 }
 

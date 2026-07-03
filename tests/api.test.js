@@ -76,6 +76,21 @@ describe('clients & projects API', () => {
   })
 })
 
+describe('SEC-09/SEC-07: security middleware', () => {
+  it('sets security headers (helmet + CSP)', async () => {
+    const res = await request(app).get('/api/photos')
+    expect(res.headers['x-content-type-options']).toBe('nosniff')
+    expect(res.headers['content-security-policy']).toBeDefined()
+    expect(res.headers['content-security-policy']).toContain("default-src 'self'")
+  })
+
+  it('emits rate-limit headers on the API', async () => {
+    const res = await request(app).get('/api/photos')
+    // express-rate-limit standardHeaders: RateLimit-* present
+    expect(res.headers['ratelimit-limit'] ?? res.headers['ratelimit']).toBeDefined()
+  })
+})
+
 describe('SEC-02: reset endpoint is gated', () => {
   it('DELETE /api/reset returns 403 when ALLOW_RESET is not set', async () => {
     const res = await request(app).delete('/api/reset')
