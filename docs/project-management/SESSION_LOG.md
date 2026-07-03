@@ -5,6 +5,25 @@
 
 ---
 
+## Session 002 (cont.) — 2026-07-03 — Backlog integrity reconciliation
+
+While closing FEAT items I audited the backlog against ground truth (`grep` of
+every `### <ID>` header + status) and found two defects:
+
+1. **Duplicate `BE-06`** — a stale "Not Started" copy in the BACKEND section plus a
+   correct "Completed" copy misplaced under ARCHITECTURE. Merged into a single
+   Completed entry in the BACKEND section; deleted the duplicate.
+2. **Wrong headline total** — the summary said 74 findings, but the category counts
+   have always summed to **80** and there are **80 distinct `### ID` headers**. The
+   "74" (and its "72 + CQ-07 + CQ-08" derivation) was a stale miscount.
+
+**Reconciled totals (verified by enumeration):** 80 findings — Completed 59,
+Not Started 12, In Progress 1 (DOC-04, living ADR log), Deferred 8. These now
+match both the distinct-ID count and the per-status enumeration. Lesson: maintain
+the summary from an enumeration, not by incrementing by hand.
+
+---
+
 ## Session 002 — 2026-07-02 — Consolidation + TEST-01
 
 **Role:** Principal Architect / Tech Lead / Quality Gatekeeper.

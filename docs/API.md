@@ -90,7 +90,7 @@ List photos, newest first. **Backward-compatible dual shape:**
 | `clientId` | Filter by client (via the photo's project); `none` = unassigned. |
 | `surveyDate` | `YYYY-MM-DD`; `undated` = no survey date. |
 | `tag` | Photos carrying this exact tag. |
-| `search` | Substring match on original name / location / description. |
+| `search` | Substring match on original name / location / description / tags. |
 | `hasGps` | `true` → only geotagged photos. |
 | `from`, `to` | `YYYY-MM-DD` bounds on the date taken. |
 | `bbox` | `west,south,east,north` — geotagged photos within the box. |

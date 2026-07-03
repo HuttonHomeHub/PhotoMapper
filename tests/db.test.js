@@ -193,6 +193,11 @@ describe('PERF-01: queryPhotos / countPhotos', () => {
     expect(dbmod.queryPhotos({ search: 'Query One' }).map((p) => p.id)).toEqual(['pq1']);
   });
 
+  it('FEAT-02: search also matches tags (json1)', () => {
+    // pq1/pq2 carry the tag "perfq"; the name doesn't contain it.
+    expect(dbmod.queryPhotos({ search: 'perfq' }).map((p) => p.id).sort()).toEqual(['pq1', 'pq2']);
+  });
+
   it('paginates with limit/offset while total reflects the full match', () => {
     const page = dbmod.queryPhotos({ tag: 'perfq', limit: 1, offset: 0 });
     expect(page).toHaveLength(1);

@@ -562,7 +562,12 @@ function buildPhotoWhere(opts) {
     params.tag = opts.tag;
   }
   if (opts.search) {
-    where.push('(p.original_name LIKE @q OR p.location_name LIKE @q OR p.description LIKE @q)');
+    // FEAT-02: full-text-ish search across name/location/description and tags
+    // (tags are JSON TEXT, matched via json1 so the search covers them too).
+    where.push(
+      '(p.original_name LIKE @q OR p.location_name LIKE @q OR p.description LIKE @q' +
+        ' OR (p.tags IS NOT NULL AND EXISTS (SELECT 1 FROM json_each(p.tags) WHERE value LIKE @q)))'
+    );
     params.q = `%${opts.search}%`;
   }
   if (opts.from) {

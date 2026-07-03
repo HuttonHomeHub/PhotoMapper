@@ -13,8 +13,9 @@
 
 ## Programme status
 
-- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 56 · **In Progress:** 0 · **Deferred:** 8 · **Not Started:** 10
-- **Current phase:** Phases 0–4, **6 (testing) & 7 (docs) complete**. Recent: PERF-01, DOC-05, CQ-07, **TEST-02/03** (full upload-path integration test via a synthetic JPEG, export/hash unit tests → **109 tests**). Remaining: TEST-04 (E2E, needs staging) + low-priority FEAT/ARCH items. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
+- **Findings:** 80 (78 baseline + CQ-07 + CQ-08 discovered) · **Completed:** 59 · **In Progress:** 1 (DOC-04 ADRs, living) · **Deferred:** 8 · **Not Started:** 12
+  - _(Reconciled Session 002: removed a duplicate BE-06 entry and corrected the headline total — the category counts had always summed to 80; the prior "74" was a stale miscount. See SESSION_LOG.)_
+- **Current phase:** Phases 0–4, **6 (testing) & 7 (docs) complete**. Recent: TEST-02/03, FEAT-02 (tag search), and closing FEAT-01/04 as delivered by PERF-01a/SEC-07. **110 tests.** Remaining: 12 Not Started (mostly low-priority SEC-06/11, CQ-02/04, DEP-01/03, TEST-04 E2E, and FEAT-03/05/07/08/09). **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -49,13 +50,13 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 10 |
+| Not Started | 12 |
 | Blocked | 0 |
-| In Progress | 0 |
+| In Progress | 1 |
 | Needs Review | 0 |
-| Completed | 56 |
+| Completed | 59 |
 | Deferred | 8 |
-| **Total** | **74** |
+| **Total** | **80** |
 
 Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 · OPS 7 · DEP 5 · DOC 6 · FEAT 9.
 
@@ -194,11 +195,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Resolution:** The `check-hash` route was removed by PERF-07, so the status-code misuse no longer exists.
 
 ### BE-06 — Route ordering: reset & catch-all after error handler/static
-- **Category:** Backend · **Severity:** Low · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** `DELETE /api/reset` and `GET *` are registered after `express.static(distDir)` and the error middleware (`server/index.js:413-433`) — confusing and bug-prone.
-- **Recommended solution:** Reorder: API routes → static → SPA fallback → error handler last.
-- **Files affected:** `server/index.js`.
-- **Dependencies:** Naturally resolved by ARCH-01.
+- **Category:** Backend · **Severity:** Low · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Description:** `DELETE /api/reset` and `GET *` were registered after `express.static(distDir)` and the error middleware — confusing and bug-prone.
+- **Resolution:** Fixed as part of ARCH-01. In `server/app.js` the order is now: API routers → `/api/reset` → `/uploads` static → dist static → SPA catch-all → **error handler last**, so errors from the reset/SPA routes now reach the handler (previously it sat before them).
+- **Files affected:** `server/app.js`.
+- **Dependencies:** Resolved by ARCH-01.
 
 ### BE-07 — No background job / queue (for geocoding, thumbnails)
 - **Category:** Backend · **Severity:** Medium · **Priority:** P1 · **Effort:** M · **Risk:** Medium · **Status:** ✅ Completed (Session 002)
@@ -216,11 +217,6 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Resolution:** Split the ~470-line `server/index.js` into layers: `server/paths.js` (shared dirs), `server/services/` (`hash`, `exif`, `geocode`, `thumbnail`, `exportPhotos`), `server/routes/` (`photos`, `clients`, `projects` Express routers), and `server/app.js` (`createApp()` — middleware, router mounting, static/SPA, error handler). `server/index.js` is now a ~10-line entry point (import app, listen). Behavior identical — all 41 tests pass unchanged. `db.js` already acts as the repository layer. Verified by the full API suite (TEST-02).
 - **Files affected:** `server/index.js`, `server/app.js` (new), `server/paths.js` (new), `server/services/*` (5 new), `server/routes/*` (3 new).
 - **Follow-on unblocked:** multipart-upload validation (BE-02 tail), BE-07/SEC-05 (geocoding is now an isolated `services/geocode.js`), CQ-05 logging.
-
-### BE-06 — Route ordering: reset & catch-all after error handler/static
-- **Category:** Backend · **Severity:** Low · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
-- **Resolution:** Fixed as part of ARCH-01. In `server/app.js` the order is now: API routers → `/api/reset` → `/uploads` static → dist static → SPA catch-all → **error handler last**, so errors from the reset/SPA routes now reach the handler (previously it sat before them).
-- **Files affected:** `server/app.js`.
 
 ### ARCH-02 — `App.jsx` god component (866 lines, ~30 useState)
 - **Category:** Architecture · **Severity:** High · **Priority:** P3 · **Effort:** M · **Risk:** Medium · **Status:** ✅ Completed (Session 002)
@@ -612,10 +608,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 
 > Tracked so nothing is forgotten; several are satisfied by remediation items above.
 
-### FEAT-01 — Pagination — satisfied by PERF-01. P2 · M · Not Started.
-### FEAT-02 — Server-side search — P3 · M · Not Started. Depends on PERF-01 + tags normalization (currently JSON TEXT, `db.js:69`).
+### FEAT-01 — Pagination — ✅ Completed (Session 002). Delivered by **PERF-01a**: `GET /api/photos?limit&offset` returns `{ items, total, limit, offset }` (page size capped 500), backed by `queryPhotos`/`countPhotos`. Frontend consumption (01c) deferred with PERF-01 until a scale signal.
+### FEAT-02 — Server-side search — ✅ Completed (Session 002, server side). `GET /api/photos?search=` matches original name / location / description **and tags** (json1), plus structured filters (`projectId`/`clientId`/`surveyDate`/`tag`/`hasGps`/date-range/`bbox`) from PERF-01a. Remaining (optional, low-priority): a frontend photo-search box wired to the param — small FE work, folds into any PERF-01c migration.
 ### FEAT-03 — Backups & data export/import — partly OPS-03 (backups) + GeoJSON/KML export exists; add full import/restore. P2 · M · Not Started.
-### FEAT-04 — Rate limiting — satisfied by SEC-07. P0 · S · Not Started.
+### FEAT-04 — Rate limiting — ✅ Completed (Session 002). Delivered by **SEC-07**: per-IP `express-rate-limit` on `/api` (configurable window/max, standard `RateLimit-*` headers). Covered by the SEC-09/07 middleware test.
 ### FEAT-05 — Audit logging — P3 · M · Not Started. Needs auth (SEC-01) + logging (CQ-05).
 ### FEAT-06 — GDPR/privacy controls for location data — P3 · M · Deferred (product/legal input needed). Deferral justification: requires product policy decisions beyond code.
 ### FEAT-07 — Account-level soft-delete / undo — P3 · M · Not Started. Needs schema `deleted_at` + migration (ARCH-03).
@@ -629,6 +625,12 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-03 (Session 002)** — ✅ **FEAT-01/02/04 + backlog reconciliation.** Closed
+  **FEAT-01** (pagination → delivered by PERF-01a) and **FEAT-04** (rate limiting →
+  SEC-07) as already-delivered; extended server search to **tags** (json1) so
+  **FEAT-02** (server-side search) is complete server-side (+1 test, **110 tests**).
+  **Integrity fix:** removed a duplicate BE-06 entry and corrected the headline total
+  74 → **80** (category counts had always summed to 80). [FEAT-01, FEAT-02, FEAT-04, BE-06]
 - **2026-07-03 (Session 002)** — ✅ **TEST-02 + TEST-03 (Phase 6 complete).** Closed the
   API-integration gap with a **full upload-path test** (synthetic `sharp` JPEG →
   multer→hash→exif→thumbnail→insert→201, dupe→409, list, delete) against a temp
