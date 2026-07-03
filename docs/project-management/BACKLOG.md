@@ -13,14 +13,15 @@
 
 ## Programme status
 
-- **Findings:** 72 (71 imported + DEP-05 discovered) · **Completed:** 6 · **In Progress:** 2 (DEP-02, TEST-02) · **Deferred:** 4
-- **Current phase:** Phase 2 — Critical security & reliability (BE-01 done; next: SEC-02 → SEC-04 → SEC-09 → SEC-07, then SEC-01 auth)
+- **Findings:** 72 · **Completed:** 7 · **In Progress:** 2 (DEP-02, TEST-02) · **Deferred:** 6 · **Not Started:** 57
+- **Current phase:** Phase 2 — Critical security & reliability (4/13 resolved; next: OPS-07 config → SEC-04 CORS → SEC-09 helmet → SEC-07 rate-limit → SEC-08 → PERF-08 → FE-01/FE-04)
+- **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
 |---|---|---|---|
 | 0 | Programme setup | ✅ | Complete |
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
-| 2 | Critical security & reliability | 1 / 13 | **Active (BE-01 ✅; next SEC-02/04/09/07)** |
+| 2 | Critical security & reliability | 4 / 13 | **Active** (BE-01, SEC-02 ✅; SEC-01, SEC-03 → infra) |
 | 3 | Backend architecture & correctness | 0 / 10 | Not started |
 | 4 | Frontend architecture & quality | 0 / 10 | Not started |
 | 5 | Performance | 0 / 6 | Not started |
@@ -48,12 +49,12 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 60 |
+| Not Started | 57 |
 | Blocked | 0 |
 | In Progress | 2 |
 | Needs Review | 0 |
-| Completed | 6 |
-| Deferred | 4 |
+| Completed | 7 |
+| Deferred | 6 |
 | **Total** | **72** |
 
 Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 · OPS 7 · DEP 5 · DOC 6 · FEAT 9.
@@ -63,29 +64,24 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 ## SECURITY
 
 ### SEC-01 — No authentication or authorization
-- **Category:** Security · **Severity:** Critical · **Priority:** P0 · **Effort:** M (was L; reduced by ADR-0002) · **Risk:** High · **Status:** Not Started
+- **Category:** Security · **Severity:** Critical · **Priority:** P0 · **Effort:** — · **Risk:** — · **Status:** Deferred → handled at infrastructure (ADR-0007)
 - **Description:** Every route in `server/index.js` is public. Anyone reaching the host can list, view, upload, edit, and delete all data.
-- **Root cause:** No auth layer was ever built; app assumed a trusted local context.
-- **Recommended solution:** Per ADR-0002 (single-operator), add a shared-secret/session gate middleware protecting all `/api/*` and `/uploads`. Design the middleware so a future per-user/tenant model (ADR-0002 revision) can slot in without rework.
-- **Files affected:** `server/index.js` (new middleware), new `server/auth.js`, `src/hooks/usePhotos.js` (send credentials), new login UI.
-- **Dependencies:** Blocks SEC-03. Enabled by DEP-02 (session/cookie lib), TEST-02 (verify). Related to ARCH-07.
-- **Notes:** If ADR-0002 is revised to multi-tenant, effort returns to L and this gains a schema-change sub-task.
+- **Disposition (Session 002):** Per user decision (ADR-0007), authentication is enforced at the **reverse proxy** (nginx/Caddy Basic-auth or an access proxy), not in the app — protecting all routes including `/uploads`. No app code required. The required setup is documented in `docs/DEPLOYMENT-SECURITY.md`. This item is **closed in-app** and delivered by the deployment configuration (tracked under OPS-02).
+- **Residual/defense-in-depth kept in-app:** CORS allowlist (SEC-04), rate limiting (SEC-07), security headers (SEC-09), reset gating (SEC-02 ✅).
+- **Revisit trigger:** if ADR-0002 is revised to multi-user/multi-tenant, in-app auth (session cookie + login) is reconsidered and ADR-0007 superseded; ARCH-07 activates.
 
 ### SEC-02 — Unauthenticated destructive wipe (`DELETE /api/reset`)
-- **Category:** Security · **Severity:** Critical · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** `server/index.js:424-429` deletes every row in every table and every uploaded file, with no auth. One `curl -X DELETE .../api/reset` destroys everything.
-- **Root cause:** Debug/dev convenience endpoint left in the production surface.
-- **Recommended solution:** Remove the endpoint, or gate behind auth (SEC-01) + explicit confirmation token, and exclude from production builds.
-- **Files affected:** `server/index.js`, `src/App.jsx` (reset UI at 843-859).
-- **Dependencies:** Cleanest done alongside SEC-01; can be removed independently now.
+- **Category:** Security · **Severity:** Critical · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Description:** `DELETE /api/reset` deleted every row in every table and every uploaded file, with no auth. One `curl -X DELETE .../api/reset` destroyed everything.
+- **Resolution:** Gated behind an explicit `ALLOW_RESET=true` env flag (default off) → returns **403** otherwise. Defense-in-depth behind the edge auth (ADR-0007): a total-data-loss endpoint should not be trivially reachable even by an authenticated browser (e.g. CSRF). Regression test added (`tests/api.test.js` — 403 by default). Documented in `docs/DEPLOYMENT-SECURITY.md`.
+- **Follow-up (minor):** the reset button in `src/App.jsx` doesn't surface the 403 when disabled — log under CQ-04 (error-UX consistency); not security-relevant.
+- **Files affected:** `server/index.js`, `tests/api.test.js`, `docs/DEPLOYMENT-SECURITY.md`.
 
 ### SEC-03 — Uploaded files served with no authorization
-- **Category:** Security · **Severity:** High · **Priority:** P1 · **Effort:** M · **Risk:** Medium · **Status:** Not Started
-- **Description:** `app.use('/uploads', express.static(...))` (`server/index.js:413`) exposes every photo to anyone with the URL. UUID names are obscurity, not access control. Photos carry GPS/EXIF.
-- **Root cause:** Static file serving with no gate.
-- **Recommended solution:** Serve images through an auth-checked route (stream from disk after authz). Keep thumbnails behind the same gate.
-- **Files affected:** `server/index.js`, all components referencing `/uploads/...` (PhotoMap, PhotoList, PhotoLightbox, PhotoComparison).
-- **Dependencies:** Blocked by SEC-01.
+- **Category:** Security · **Severity:** High · **Priority:** P1 · **Effort:** — · **Risk:** — · **Status:** Deferred → handled at infrastructure (ADR-0007)
+- **Description:** `app.use('/uploads', express.static(...))` exposes every photo to anyone with the URL. Photos carry GPS/EXIF.
+- **Disposition (Session 002):** The reverse-proxy auth (ADR-0007) sits in front of `/uploads/*` too, so image URLs are covered without app changes — this is exactly why edge auth was chosen over an API-token scheme (browsers send the proxy's auth on `<img>` requests automatically). Documented in `docs/DEPLOYMENT-SECURITY.md`. Closed in-app; delivered by deployment config (OPS-02).
+- **Revisit trigger:** same as SEC-01 — if per-user authorization is ever needed, `/uploads` must move to an authz-checked streaming route.
 
 ### SEC-04 — Wide-open CORS
 - **Category:** Security · **Severity:** High · **Priority:** P0 · **Effort:** S · **Risk:** Low · **Status:** Not Started
@@ -623,6 +619,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **SEC-02 Completed** + **ADR-0007** (edge auth):
+  gated `DELETE /api/reset` behind `ALLOW_RESET` (403 by default) with a
+  regression test; **SEC-01 & SEC-03 dispositioned to infrastructure** and
+  documented in `docs/DEPLOYMENT-SECURITY.md`. Suite 21 tests. [SEC-02, SEC-01, SEC-03]
 - **2026-07-02 (Session 002)** — ✅ **BE-01 Completed** (Phase 2 opened). Added
   `express-async-errors`; exported `app` + guarded `listen` for tests; seeded the
   `supertest` API suite (`tests/api.test.js`, 9 tests incl. the async-error-500

@@ -85,6 +85,24 @@
 - **Disadvantages:** Deviates from CLAUDE.md's git rule.
 - **Future implications:** If the user prefers "file changes only", switch to that and they own pushes. Revisit trigger — user objects.
 
+## ADR-0007 — Authentication handled at the edge (reverse proxy), not in the app
+- **Status:** Accepted (user chose, Session 002) · **Date:** 2026-07-02 · **Session:** 002
+- **Context:** SEC-01 (no auth). Under the single-operator model (ADR-0002) and single-VPS target (ADR-0003), the operator will front the app with a reverse proxy.
+- **Problem:** Where does authentication live — in the app (session cookie / API token) or at the infrastructure edge?
+- **Options considered:**
+  1. Session cookie + login page (app code).
+  2. Shared API token header (app code; awkward for `/uploads` image requests).
+  3. **Reverse-proxy / edge auth (nginx basic-auth or an access proxy)** — chosen.
+- **Decision:** Authentication and authorization are enforced at the reverse proxy in front of the Node app. The app assumes every request that reaches it is already authenticated. This protects **all** routes uniformly, including `/uploads/*` image URLs, with zero app code.
+- **Advantages:** No app auth code to build/maintain; protects static photos automatically; simple for a single operator; TLS terminates at the same proxy (SEC-11).
+- **Disadvantages:** No in-app login UX; coarse (single identity); security depends on correct proxy config — so it **must be documented** (`docs/DEPLOYMENT-SECURITY.md`) and is only "done" once that deployment exists.
+- **Consequences for the backlog:**
+  - **SEC-01** → Deferred-to-infra: closed in-app; delivered by the documented proxy config (tracked under OPS-02 deployment).
+  - **SEC-03** (protect `/uploads`) → Deferred-to-infra: the proxy covers it; no app change.
+  - **SEC-02** (reset wipe) → still hardened in-app as **defense-in-depth** (edge auth protects the perimeter, but a destructive endpoint should not be trivially reachable even by an authenticated operator's browser via CSRF). Gate behind an explicit env flag.
+  - **SEC-04** (CORS) and **SEC-07/09** (rate-limit/headers) remain app-level (defense-in-depth; the proxy may also add some).
+- **Future implications:** If the app later needs multiple users / per-user data (ADR-0002 revision → ARCH-07), in-app auth (option 1) would be revisited and this ADR superseded.
+
 ---
 
 ## Pending decisions (need user input; tracked so they are not forgotten)

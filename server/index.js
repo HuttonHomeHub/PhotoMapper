@@ -435,7 +435,13 @@ app.use((err, req, res, _next) => {
 // Serve built frontend in production
 const distDir = join(__dirname, '..', 'dist')
 app.use(express.static(distDir))
+// SEC-02: destructive full wipe. Disabled unless explicitly enabled via env, as
+// defense-in-depth behind the reverse-proxy auth (ADR-0007) — a total-data-loss
+// endpoint should not be trivially reachable even by an authenticated browser.
 app.delete('/api/reset', async (_req, res) => {
+  if (process.env.ALLOW_RESET !== 'true') {
+    return res.status(403).json({ error: 'Reset is disabled. Set ALLOW_RESET=true to enable it.' })
+  }
   resetAll()
   const files = readdirSync(uploadsDir)
   await Promise.all(files.map(f => unlink(join(uploadsDir, f)).catch(() => {})))

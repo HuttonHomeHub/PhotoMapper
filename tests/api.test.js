@@ -76,6 +76,14 @@ describe('clients & projects API', () => {
   })
 })
 
+describe('SEC-02: reset endpoint is gated', () => {
+  it('DELETE /api/reset returns 403 when ALLOW_RESET is not set', async () => {
+    const res = await request(app).delete('/api/reset')
+    expect(res.status).toBe(403)
+    expect(res.body).toHaveProperty('error')
+  })
+})
+
 describe('BE-01: async error handling', () => {
   it('an async route that throws returns 500, not a hung request', async () => {
     const res = await request(app).get('/__test/async-error')
