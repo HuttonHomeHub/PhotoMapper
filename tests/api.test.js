@@ -76,6 +76,59 @@ describe('clients & projects API', () => {
   })
 })
 
+describe('BE-03/BE-04: update semantics', () => {
+  let clientId
+  let projectId
+
+  it('sets up a client and a project', async () => {
+    const c = await request(app).post('/api/clients').send({ name: 'Update Co' })
+    clientId = c.body.id
+    const p = await request(app).post('/api/projects').send({ name: 'Proj A', clientId })
+    projectId = p.body.id
+    expect(p.status).toBe(201)
+    expect(p.body.clientId).toBe(clientId)
+  })
+
+  it('BE-03: an explicit clientId:null unassigns the client', async () => {
+    const res = await request(app).patch(`/api/projects/${projectId}`).send({ clientId: null })
+    expect(res.status).toBe(200)
+    expect(res.body.clientId).toBeNull()
+  })
+
+  it('BE-03: a partial update leaves other fields intact', async () => {
+    const res = await request(app).patch(`/api/projects/${projectId}`).send({ status: 'archived' })
+    expect(res.status).toBe(200)
+    expect(res.body.status).toBe('archived')
+    expect(res.body.name).toBe('Proj A')
+  })
+
+  it('BE-03: unknown project returns 404', async () => {
+    const res = await request(app).patch('/api/projects/nope').send({ status: 'active' })
+    expect(res.status).toBe(404)
+  })
+
+  it('BE-03: a blank name returns 400', async () => {
+    const res = await request(app).patch(`/api/projects/${projectId}`).send({ name: '   ' })
+    expect(res.status).toBe(400)
+  })
+
+  it('BE-04: unknown client returns 404', async () => {
+    const res = await request(app).patch('/api/clients/nope').send({ name: 'X' })
+    expect(res.status).toBe(404)
+  })
+
+  it('BE-04: a blank name returns 400', async () => {
+    const res = await request(app).patch(`/api/clients/${clientId}`).send({ name: '' })
+    expect(res.status).toBe(400)
+  })
+
+  it('BE-04: renaming to an existing client name returns 409', async () => {
+    await request(app).post('/api/clients').send({ name: 'Existing Co' })
+    const res = await request(app).patch(`/api/clients/${clientId}`).send({ name: 'Existing Co' })
+    expect(res.status).toBe(409)
+  })
+})
+
 describe('SEC-09/SEC-07: security middleware', () => {
   it('sets security headers (helmet + CSP)', async () => {
     const res = await request(app).get('/api/photos')

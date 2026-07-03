@@ -304,16 +304,6 @@ const insertProjectStmt = db.prepare(`
   VALUES (@id, @name, @clientId, @status, @color, @createdAt, @updatedAt)
 `)
 
-const updateProjectStmt = db.prepare(`
-  UPDATE projects
-  SET name       = COALESCE(@name, name),
-      client_id  = COALESCE(@clientId, client_id),
-      status     = COALESCE(@status, status),
-      color      = COALESCE(@color, color),
-      updated_at = @updatedAt
-  WHERE id = @id
-`)
-
 const deleteProjectStmt = db.prepare('DELETE FROM projects WHERE id = ?')
 
 const assignPhotosToProjectStmt = db.prepare('UPDATE photos SET project_id = @projectId WHERE id = @id')
@@ -474,8 +464,19 @@ export function createProject({ id, name, clientId, status, color, createdAt, up
   insertProjectStmt.run({ id, name, clientId: clientId ?? null, status, color, createdAt, updatedAt })
 }
 
-export function updateProject(id, { name, clientId, status, color, updatedAt }) {
-  updateProjectStmt.run({ id, name: name ?? null, clientId: clientId ?? null, status: status ?? null, color: color ?? null, updatedAt })
+// BE-03: build the SET clause only from the keys actually provided, so an
+// explicit `clientId: null` unassigns the client (was impossible under COALESCE,
+// which could not tell "not provided" from "set to null").
+export function updateProject(id, changes = {}) {
+  const sets = []
+  const params = { id, updatedAt: changes.updatedAt ?? new Date().toISOString() }
+  if ('name' in changes) { sets.push('name = @name'); params.name = changes.name }
+  if ('clientId' in changes) { sets.push('client_id = @clientId'); params.clientId = changes.clientId ?? null }
+  if ('status' in changes) { sets.push('status = @status'); params.status = changes.status }
+  if ('color' in changes) { sets.push('color = @color'); params.color = changes.color }
+  if (sets.length === 0) return 0
+  sets.push('updated_at = @updatedAt')
+  return db.prepare(`UPDATE projects SET ${sets.join(', ')} WHERE id = @id`).run(params).changes
 }
 
 export function deleteProject(id) {
@@ -506,7 +507,7 @@ export function getAllClients() {
 }
 
 export function updateClient(id, { name, updatedAt }) {
-  updateClientStmt.run({ id, name, updatedAt })
+  return updateClientStmt.run({ id, name, updatedAt }).changes
 }
 
 export function deleteClient(id) {

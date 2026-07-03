@@ -410,8 +410,21 @@ app.post('/api/clients', (req, res) => {
 })
 
 app.patch('/api/clients/:id', (req, res) => {
+  // BE-04: validate name, 404 on missing client, 409 on duplicate name.
   const { name } = req.body
-  updateClient(req.params.id, { name, updatedAt: new Date().toISOString() })
+  if (typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: 'name must be a non-empty string' })
+  }
+  let changed
+  try {
+    changed = updateClient(req.params.id, { name: name.trim(), updatedAt: new Date().toISOString() })
+  } catch (err) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return res.status(409).json({ error: 'A client with that name already exists' })
+    }
+    throw err
+  }
+  if (!changed) return res.status(404).json({ error: 'Client not found' })
   res.json(getAllClients().find(c => c.id === req.params.id))
 })
 
@@ -443,8 +456,23 @@ app.post('/api/projects', (req, res) => {
 })
 
 app.patch('/api/projects/:id', (req, res) => {
-  const { name, clientId, status, color } = req.body
-  updateProject(req.params.id, { name, clientId, status, color, updatedAt: new Date().toISOString() })
+  // BE-03: only forward keys the caller actually sent, so an explicit
+  // `clientId: null` can unassign the client.
+  const changes = {}
+  for (const k of ['name', 'clientId', 'status', 'color']) {
+    if (k in req.body) changes[k] = req.body[k]
+  }
+  if ('name' in changes) {
+    if (typeof changes.name !== 'string' || !changes.name.trim()) {
+      return res.status(400).json({ error: 'name must be a non-empty string' })
+    }
+    changes.name = changes.name.trim()
+  }
+  if (Object.keys(changes).length === 0) {
+    return res.status(400).json({ error: 'no updatable fields provided' })
+  }
+  const changed = updateProject(req.params.id, changes)
+  if (!changed) return res.status(404).json({ error: 'Project not found' })
   res.json(getAllProjects().find(p => p.id === req.params.id))
 })
 

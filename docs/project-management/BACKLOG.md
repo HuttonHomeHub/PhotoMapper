@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 72 · **Completed:** 15 · **In Progress:** 2 (DEP-02, TEST-02) · **Deferred:** 6 · **Not Started:** 49
-- **Current phase:** ✅ Phase 2 complete → entering Phase 3 (Backend architecture & correctness)
+- **Findings:** 72 · **Completed:** 17 · **In Progress:** 2 (DEP-02, TEST-02) · **Deferred:** 6 · **Not Started:** 47
+- **Current phase:** Phase 3 — Backend architecture & correctness (BE-03, BE-04 ✅; next: BE-02 validation → ARCH-03 migrations → ARCH-01 layering)
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -22,7 +22,7 @@
 | 0 | Programme setup | ✅ | Complete |
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
-| 3 | Backend architecture & correctness | 0 / 10 | **Active (next: BE-03/BE-04 quick fixes → ARCH-03 → ARCH-01)** |
+| 3 | Backend architecture & correctness | 2 / 10 | **Active** (BE-03, BE-04 ✅; next BE-02 → ARCH-03 → ARCH-01) |
 | 4 | Frontend architecture & quality | 0 / 10 | Not started |
 | 5 | Performance | 0 / 6 | Not started |
 | 6 | Testing depth | 0 / 2 | Not started |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 49 |
+| Not Started | 47 |
 | Blocked | 0 |
 | In Progress | 2 |
 | Needs Review | 0 |
-| Completed | 15 |
+| Completed | 17 |
 | Deferred | 6 |
 | **Total** | **72** |
 
@@ -179,7 +179,8 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Cleaner after ARCH-01 (routes extracted). Fixes surface for BE-03/BE-04.
 
 ### BE-03 — `updateProject` COALESCE can never unset fields
-- **Category:** Backend · **Severity:** Medium · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Category:** Backend · **Severity:** Medium · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Rewrote `updateProject` (db.js) to build the `SET` clause only from keys actually present in the change set, so an explicit `clientId: null` now unassigns the client. The route forwards only keys present in `req.body`, validates `name` (non-empty), rejects empty change sets (400), and returns 404 when the project doesn't exist. Removed the dead COALESCE prepared statement. 8 new API tests cover unset/partial/404/400.
 - **Description:** `client_id = COALESCE(@clientId, client_id)` (`db.js:305-313`) + JS `clientId ?? null` means a project can never be un-assigned from a client; same trap for name/status/color.
 - **Root cause:** COALESCE conflates "not provided" with "set to null".
 - **Recommended solution:** Distinguish "absent" from "explicit null" (only build SET clauses for provided keys), or accept a sentinel.
@@ -187,7 +188,8 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Pairs with BE-02.
 
 ### BE-04 — `PATCH /api/clients/:id` unvalidated, no 404, unhandled unique error
-- **Category:** Backend · **Severity:** Medium · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Category:** Backend · **Severity:** Medium · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Route now validates `name` (non-empty → 400), returns 404 when the client doesn't exist (`updateClient` now returns the change count), and catches the unique-constraint violation → 409. Tests cover 400/404/409.
 - **Description:** `server/index.js:359-363` doesn't validate name, returns 200 with `undefined` on missing id, and a duplicate name throws unhandled.
 - **Recommended solution:** Validate, 404 on missing, catch unique-constraint → 409.
 - **Files affected:** `server/index.js`, `server/db.js`.
@@ -615,6 +617,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **BE-03 + BE-04** (Phase 3 opened). Fixed the
+  `updateProject` COALESCE unset bug (explicit `clientId:null` now unassigns) with
+  presence-based dynamic SQL + route validation/404; fixed clients PATCH
+  validation/404/409. Suite **32 tests**. [BE-03, BE-04]
 - **2026-07-02 (Session 002)** — ✅ **FE-01 + FE-04 → Phase 2 complete.** Added a
   top-level React error boundary (recoverable fallback) and confirmation dialogs
   for client/project deletion. Suite 24 tests. Phase 2: 13/13. [FE-01, FE-04]
