@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 19 · **In Progress:** 3 (DEP-02, TEST-02, CQ-07) · **Deferred:** 6 · **Not Started:** 45
-- **Current phase:** Phase 3 — Backend architecture & correctness (BE-02/03/04, ARCH-03 ✅; next: ARCH-01 layering — its own session)
+- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 20 · **In Progress:** 3 (DEP-02, TEST-02, CQ-07) · **Deferred:** 6 · **Not Started:** 44
+- **Current phase:** Phase 3 — Backend architecture & correctness (BE-02/03/04, ARCH-03 ✅; +PERF-03 landed early via the runner). Next big item: ARCH-01 (own session)
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -24,7 +24,7 @@
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
 | 3 | Backend architecture & correctness | 4 / 10 | **Active** (BE-02/03/04, ARCH-03 ✅; next ARCH-01) |
 | 4 | Frontend architecture & quality | 0 / 10 | Not started |
-| 5 | Performance | 0 / 6 | Not started |
+| 5 | Performance | 1 / 6 | PERF-03 ✅ (landed early via runner) |
 | 6 | Testing depth | 0 / 2 | Not started |
 | 7 | Documentation | 0 / 5 | Not started |
 | 8 | DevOps & infra | 0 / 7 | Not started |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 45 |
+| Not Started | 44 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 19 |
+| Completed | 20 |
 | Deferred | 6 |
 | **Total** | **73** |
 
@@ -343,11 +343,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Pairs with PERF-03; needs a full DTO-by-id query.
 
 ### PERF-03 — Missing DB indexes
-- **Category:** Performance · **Severity:** Medium · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** No index on `photos.project_id`, `photos.uploaded_at`, `photos.survey_date`; `getAllProjects` full-scans photos per group.
-- **Recommended solution:** Add indexes via the migration runner (ARCH-03).
-- **Files affected:** `server/migrations/` (post ARCH-03), `server/db.js`.
-- **Dependencies:** Prefer after ARCH-03; can be a standalone idempotent migration before then.
+- **Category:** Performance · **Severity:** Medium · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Added a version-2 migration (`performance-indexes`) via the ARCH-03 runner creating `idx_photos_project_id`, `idx_photos_uploaded_at`, `idx_photos_survey_date` — the columns joined/ordered/filtered on (`getAllProjects` join+group, the `ORDER BY uploaded_at` list, survey-date filtering). Existing DBs pick these up on next boot (with a backup). Test asserts the indexes exist.
+- **Files affected:** `server/db.js` (migration v2), `tests/db.test.js`.
+- **Note:** First real exercise of the ARCH-03 runner for a new (version-2) migration — validates the framework end-to-end.
 
 ### PERF-04 — Synchronous better-sqlite3 blocks event loop
 - **Category:** Performance · **Severity:** Low · **Priority:** P4 · **Effort:** M · **Risk:** Medium · **Status:** Deferred
@@ -623,6 +622,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **PERF-03** DB indexes (photos project_id /
+  uploaded_at / survey_date) as a version-2 migration through the new runner —
+  first real use of the ARCH-03 framework. Suite **41 tests**. [PERF-03]
 - **2026-07-02 (Session 002)** — ✅ **ARCH-03** migration framework. `server/migrate.js`
   (version table + `VACUUM INTO` backup + loud failures); legacy schema preserved
   as recorded baseline v1; `try/catch` ALTERs → idempotent `addColumnIfMissing`.

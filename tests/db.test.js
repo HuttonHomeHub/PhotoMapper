@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import Database from 'better-sqlite3'
 
 // TEST-01 seed suite: exercises the SQLite data layer against a throwaway DB.
 // This is the most defect-prone code in the repo (hand-written camelCase <->
@@ -139,6 +140,17 @@ describe('clients and projects', () => {
   it('deletes a project and returns the change count', () => {
     expect(dbmod.deleteProject('project-1')).toBe(1)
     expect(dbmod.getAllProjects().find(p => p.id === 'project-1')).toBeUndefined()
+  })
+})
+
+describe('PERF-03: performance indexes', () => {
+  it('creates indexes on the hot photo columns', () => {
+    const raw = new Database(process.env.PHOTOS_DB_PATH, { readonly: true })
+    const names = raw.prepare("SELECT name FROM sqlite_master WHERE type='index'").all().map(r => r.name)
+    raw.close()
+    expect(names).toContain('idx_photos_project_id')
+    expect(names).toContain('idx_photos_uploaded_at')
+    expect(names).toContain('idx_photos_survey_date')
   })
 })
 

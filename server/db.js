@@ -222,6 +222,18 @@ const migrations = [
       }
     },
   },
+  {
+    // PERF-03: index the columns actually filtered/joined/ordered on. photos is
+    // ordered by uploaded_at, grouped/joined by project_id, and filtered by
+    // survey_date; without these SQLite full-scans photos on those queries.
+    version: 2,
+    name: 'performance-indexes',
+    up(db) {
+      db.exec('CREATE INDEX IF NOT EXISTS idx_photos_project_id ON photos(project_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_photos_uploaded_at ON photos(uploaded_at)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_photos_survey_date ON photos(survey_date)');
+    },
+  },
 ];
 
 // Applies any pending migrations (records versions, backs up existing data first,
