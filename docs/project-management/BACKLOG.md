@@ -9,12 +9,12 @@
 > (was CHANGELOG.md). Roadmap + dependency graph live in `ROADMAP.md`; decisions
 > in `ARCHITECTURE_DECISIONS.md`; per-session narrative in `SESSION_LOG.md`.
 >
-> Last updated: 2026-07-02 (Session 002)
+> Last updated: 2026-07-03 (Session 002)
 
 ## Programme status
 
-- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 38 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 26
-- **Current phase:** Phase 4 tail + opportunistic wins. Done so far incl. DOC-01 (README). Remaining: FE-05/06/02/03, Phase 5 (PERF-01/02/06), Phase 7 docs, Phase 8 infra. Backend (Phases 0–3) complete.
+- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 40 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 24
+- **Current phase:** Phase 4 tail + opportunistic wins. Done so far incl. DOC-01 (README), OPS-04/05 (health + graceful shutdown). Remaining: FE-05/06/02/03, Phase 5 (PERF-01/02/06), Phase 7 docs, Phase 8 infra (OPS-02/03 gated on ADR-0003). Backend (Phases 0–3) complete.
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -27,9 +27,9 @@
 | 5 | Performance | 3 / 6 | PERF-03, PERF-05, PERF-07 ✅ |
 | 6 | Testing depth | 0 / 2 | Not started |
 | 7 | Documentation | 1 / 5 | DOC-01 ✅ (README); DOC-04 in progress (ADRs) |
-| 8 | DevOps & infra | 0 / 7 | Not started |
+| 8 | DevOps & infra | 2 / 7 | OPS-04/05 ✅ (health + graceful shutdown); OPS-02/03 gated on ADR-0003 |
 
-**Quality gates:** build ✅ · lint ✅ (15 pre-existing warnings, 0 new) · tests ✅ 11 passing (`npm test`) · CI = lint+build only (OPS-01 pending — tests not yet run in CI).
+**Quality gates:** build ✅ · lint ✅ (9 pre-existing `src/` warnings, 0 new) · tests ✅ 78 passing (`npm test`) · CI runs lint+build+test+audit on `main` and `claude/**` (OPS-01 ✅).
 
 **Top open risks:** (1) tests exist locally but CI does not run them yet → OPS-01 is now the top priority; (2) ARCH-03 migration-runner change is high-risk — must not run before TEST-01/02 + a DB backup step.
 
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 26 |
+| Not Started | 24 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 38 |
+| Completed | 40 |
 | Deferred | 6 |
 | **Total** | **73** |
 
@@ -477,17 +477,17 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Gated by ADR-0003.
 
 ### OPS-04 — No monitoring/health/alerting/error tracking
-- **Category:** DevOps · **Severity:** Medium · **Priority:** P2 · **Effort:** M · **Risk:** Low · **Status:** Not Started
+- **Category:** DevOps · **Severity:** Medium · **Priority:** P2 · **Effort:** M · **Risk:** Low · **Status:** ✅ Completed (Session 002)
 - **Description:** No `/health`, no error tracking, no metrics.
-- **Recommended solution:** `/health` + `/ready` endpoints; optional Sentry; basic metrics/log shipping.
-- **Files affected:** `server/index.js`, deploy config.
+- **Resolution:** Added `GET /health` (pure liveness — process is up, no state touched) and `GET /ready` (calls `pingDb()` → `SELECT 1`; returns 503 on DB failure) in `server/app.js`, mounted outside `/api` so probes skip the rate limiter and before the routers so they never touch app state. Covered by two `tests/api.test.js` cases. Sentry/metrics/log-shipping deliberately deferred as out-of-scope for the single-VPS model (log shipping is the proxy/host's job; OPS-06 already gives structured logs) — the health endpoints are the actionable core of this item.
+- **Files affected:** `server/app.js`, `server/db.js` (`pingDb`), `tests/api.test.js`.
 - **Dependencies:** Pairs with CQ-05/OPS-06.
 
 ### OPS-05 — No graceful shutdown (SIGTERM)
-- **Category:** DevOps · **Severity:** Low · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Category:** DevOps · **Severity:** Low · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
 - **Description:** No signal handling; in-flight requests dropped on deploy; DB not closed.
-- **Recommended solution:** Handle SIGTERM/SIGINT: stop accepting, drain, `db.close()`.
-- **Files affected:** `server/index.js`.
+- **Resolution:** `server/index.js` now handles SIGTERM/SIGINT: `server.close()` stops accepting new connections and drains in-flight requests, then `closeDb()` flushes/releases the SQLite handle; a 10s `unref`'d timeout force-exits if a connection hangs, and a `shuttingDown` guard makes repeated signals idempotent. Added `closeDb()` to `server/db.js`.
+- **Files affected:** `server/index.js`, `server/db.js` (`closeDb`).
 - **Dependencies:** Pairs with OPS-02.
 
 ### OPS-06 — No structured/request logging
@@ -609,6 +609,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-03 (Session 002)** — ✅ **OPS-04 + OPS-05.** Added `GET /health` (liveness)
+  and `GET /ready` (DB `SELECT 1` → 503 on failure) outside `/api`; graceful
+  SIGTERM/SIGINT shutdown in `index.js` (drain via `server.close`, then `closeDb`,
+  10s force-exit guard). New `pingDb`/`closeDb` in `db.js`. 2 probe tests. Suite
+  **78 tests**. [OPS-04, OPS-05]
 - **2026-07-02 (Session 002)** — ✅ **DOC-01.** Added `README.md` (overview, stack,
   quick-start, config, current architecture tree, testing, deployment link). [DOC-01]
 - **2026-07-02 (Session 002)** — ✅ **PERF-07 (+ obsoletes SEC-10, BE-05).** Removed

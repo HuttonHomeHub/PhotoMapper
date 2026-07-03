@@ -13,7 +13,7 @@ import { unlink } from 'fs/promises';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { uploadsDir, distDir } from './paths.js';
-import { resetAll } from './db.js';
+import { resetAll, pingDb } from './db.js';
 import photosRouter from './routes/photos.js';
 import clientsRouter from './routes/clients.js';
 import projectsRouter from './routes/projects.js';
@@ -66,6 +66,22 @@ export function createApp() {
   }
 
   app.use(express.json());
+
+  // OPS-04: liveness/readiness probes for the reverse proxy and container
+  // orchestrator. Deliberately outside /api so they skip the rate limiter, and
+  // registered before the routers so a probe never touches application state.
+  // /health is a pure liveness check (process is up); /ready also confirms the
+  // database is reachable and returns 503 if it is not.
+  app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+  app.get('/ready', (_req, res) => {
+    try {
+      pingDb();
+      res.json({ status: 'ready' });
+    } catch (err) {
+      (res.req.log ?? logger).error({ err }, 'Readiness check failed');
+      res.status(503).json({ status: 'unavailable' });
+    }
+  });
 
   // SEC-07: per-IP rate limit on the API surface.
   app.use(

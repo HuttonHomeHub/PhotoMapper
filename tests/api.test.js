@@ -156,6 +156,20 @@ describe('BE-02: request validation', () => {
   });
 });
 
+describe('OPS-04: health & readiness probes', () => {
+  it('GET /health returns 200 without touching the database', async () => {
+    const res = await request(app).get('/health');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: 'ok' });
+  });
+
+  it('GET /ready returns 200 when the database is reachable', async () => {
+    const res = await request(app).get('/ready');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: 'ready' });
+  });
+});
+
 describe('SEC-09/SEC-07: security middleware', () => {
   it('sets security headers (helmet + CSP)', async () => {
     const res = await request(app).get('/api/photos');

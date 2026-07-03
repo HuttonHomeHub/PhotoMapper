@@ -576,3 +576,13 @@ export function resetAll() {
   );
   db.pragma('foreign_keys = ON');
 }
+
+// OPS-04: cheap readiness probe — throws if the database is unreachable.
+export function pingDb() {
+  db.prepare('SELECT 1').get();
+}
+
+// OPS-05: flush and release the SQLite handle during graceful shutdown.
+export function closeDb() {
+  db.close();
+}
