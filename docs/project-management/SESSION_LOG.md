@@ -105,19 +105,26 @@ wiring) to keep changes cohesive.
   Normalized `server/` to `.prettierrc` (semis) → logged **CQ-07** for `src/`.
   Suite **40 tests**.
 
-### Next session start-here (Phase 3 — one big item left: ARCH-01)
-Read this log + BACKLOG. Remaining Phase 3 work:
-1. **ARCH-01** split `server/index.js` (~470 lines) into routes/services/
-   repositories — **LARGE**; its own focused session, moving tests in lockstep.
-   Folds in BE-06 (route ordering). Unblocks the deferred multipart-upload
-   validation (BE-02 tail) and **BE-07/SEC-05** (background geocoding), then
-   **CQ-05/OPS-06** pino logging (closes DEP-02).
-2. With ARCH-03 done, **PERF-03** (indexes) and **ARCH-04** (drop dead
-   `collections` tables) now land trivially as version-2+ migrations in
-   `server/migrate.js` — good low-risk Phase-5/cleanup wins whenever.
-3. **CQ-07** tail: `npm run format` over `src/` + a `prettier --check` CI step
-   (own formatting-only commit).
-TEST-02 keeps growing alongside (now 40 tests: db 11 + api 25 + boundary 1 + migrate 3).
+### Phase 3 continued (Session 002)
+- ✅ **PERF-03** DB indexes via migration v2 (first real use of the ARCH-03 runner).
+- ✅ **ARCH-01 + BE-06.** Split `server/index.js` (~470 lines) → `paths.js`,
+  `services/` (hash, exif, geocode, thumbnail, exportPhotos), `routes/` (photos,
+  clients, projects), `app.js` (`createApp`); `index.js` now ~10 lines. Error
+  handler last (BE-06). Behavior identical, 41 tests unchanged. `server/` split
+  into 12 focused modules.
+
+### Next session start-here (Phase 3 tail, then Phase 4)
+Read this log + BACKLOG. Remaining Phase 3:
+1. **BE-07 / SEC-05** — move geocoding off the request path: a background job +
+   persistent cache (keyed by rounded lat/lng) + <=1 req/s limiter + timeout.
+   `services/geocode.js` is already isolated, so this is now well-scoped.
+2. **CQ-05 / OPS-06** — structured logging (`pino` + `pino-http`, request ids);
+   wire log level via config. Closes DEP-02. Pairs with OPS-04 (health) later.
+Then Phase 4 (frontend architecture: ARCH-02 decompose App.jsx, ARCH-06 split
+hooks, CQ-01 shared helpers, SEC-12 portal popups, TEST-03 component harness).
+Quick wins available anytime: **ARCH-04** (drop dead tables — needs the pending
+product nod), **CQ-07** tail (`prettier` over `src/` + CI check), **FE-02** (contrast).
+TEST-02 now 41 tests: db 12 + api 25 + boundary 1 + migrate 3.
 
 ---
 

@@ -1,0 +1,126 @@
+import express from 'express';
+// BE-01: patches Express 4 so errors thrown/rejected in async route handlers are
+// forwarded to the error middleware instead of hanging the request.
+import 'express-async-errors';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+import { join } from 'path';
+import { readdirSync } from 'fs';
+import { unlink } from 'fs/promises';
+import { config } from './config.js';
+import { uploadsDir, distDir } from './paths.js';
+import { resetAll } from './db.js';
+import photosRouter from './routes/photos.js';
+import clientsRouter from './routes/clients.js';
+import projectsRouter from './routes/projects.js';
+
+export function createApp() {
+  const app = express();
+
+  // SEC-09: security headers + CSP. The CSP allowlists the map tile hosts and the
+  // client-side Nominatim search; 'unsafe-inline' styles are permitted because
+  // Leaflet/markercluster inject inline styles (script stays 'self' only).
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: [
+            "'self'",
+            'data:',
+            'blob:',
+            'https://server.arcgisonline.com',
+            'https://*.tile.openstreetmap.org',
+            'https://*.basemaps.cartocdn.com',
+            'https://*.tile.opentopomap.org',
+          ],
+          connectSrc: ["'self'", 'https://nominatim.openstreetmap.org'],
+          workerSrc: ["'self'", 'blob:'],
+          objectSrc: ["'none'"],
+          frameSrc: ["'none'"],
+          // Leave to HSTS + the proxy's HTTP->HTTPS redirect (ADR-0007). Setting it
+          // here would break direct HTTP access (health checks, local runs).
+          upgradeInsecureRequests: null,
+        },
+      },
+      crossOriginEmbedderPolicy: false,
+    })
+  );
+
+  // PERF-08: gzip/brotli responses.
+  app.use(compression());
+
+  // SEC-04: no cross-origin access by default (app is same-origin behind the
+  // proxy). Enable only for explicitly configured origins.
+  if (config.allowedOrigins.length > 0) {
+    app.use(cors({ origin: config.allowedOrigins }));
+  }
+
+  app.use(express.json());
+
+  // SEC-07: per-IP rate limit on the API surface.
+  app.use(
+    '/api',
+    rateLimit({
+      windowMs: config.rateLimit.windowMs,
+      max: config.rateLimit.max,
+      standardHeaders: true,
+      legacyHeaders: false,
+    })
+  );
+
+  app.use('/api/photos', photosRouter);
+  app.use('/api/clients', clientsRouter);
+  app.use('/api/projects', projectsRouter);
+
+  // SEC-02: destructive full wipe. Disabled unless explicitly enabled via env, as
+  // defense-in-depth behind the reverse-proxy auth (ADR-0007).
+  app.delete('/api/reset', async (_req, res) => {
+    if (!config.allowReset) {
+      return res
+        .status(403)
+        .json({ error: 'Reset is disabled. Set ALLOW_RESET=true to enable it.' });
+    }
+    resetAll();
+    const files = readdirSync(uploadsDir);
+    await Promise.all(files.map((f) => unlink(join(uploadsDir, f)).catch(() => {})));
+    res.json({ ok: true });
+  });
+
+  app.use('/uploads', express.static(uploadsDir));
+
+  // BE-01 regression hook: an async route that rejects, used only by the test
+  // suite to assert async errors reach the error handler (500, not a hang).
+  if (config.isTest) {
+    app.get('/__test/async-error', async () => {
+      await Promise.resolve();
+      throw new Error('async boom');
+    });
+  }
+
+  // Serve the built frontend and fall back to the SPA entry point.
+  app.use(express.static(distDir));
+  app.get('*', (_req, res) => res.sendFile(join(distDir, 'index.html')));
+
+  // BE-06: error-handling middleware is registered LAST so it catches errors from
+  // every route above it (previously it sat before the reset/SPA routes).
+  app.use((err, req, res, _next) => {
+    console.error(err);
+    const status = err.status || err.statusCode || 500;
+    // SEC-08: don't leak internal error detail to clients in production. Client
+    // (4xx) errors keep their message; server (5xx) errors are masked in prod.
+    const message =
+      status < 500 || !config.isProd
+        ? err.message || 'Internal server error'
+        : 'Internal server error';
+    res.status(status).json({ error: message });
+  });
+
+  return app;
+}
+
+export const app = createApp();

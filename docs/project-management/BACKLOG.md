@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 20 · **In Progress:** 3 (DEP-02, TEST-02, CQ-07) · **Deferred:** 6 · **Not Started:** 44
-- **Current phase:** Phase 3 — Backend architecture & correctness (BE-02/03/04, ARCH-03 ✅; +PERF-03 landed early via the runner). Next big item: ARCH-01 (own session)
+- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 22 · **In Progress:** 3 (DEP-02, TEST-02, CQ-07) · **Deferred:** 6 · **Not Started:** 42
+- **Current phase:** Phase 3 — Backend architecture & correctness (BE-02/03/04/06, ARCH-01/03 ✅; +PERF-03 early). Remaining: BE-07/SEC-05 (geocoding job), CQ-05/OPS-06 (logging)
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -22,7 +22,7 @@
 | 0 | Programme setup | ✅ | Complete |
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
-| 3 | Backend architecture & correctness | 4 / 10 | **Active** (BE-02/03/04, ARCH-03 ✅; next ARCH-01) |
+| 3 | Backend architecture & correctness | 6 / 10 | **Active** (BE-02/03/04/06, ARCH-01/03 ✅; next BE-07/SEC-05, CQ-05) |
 | 4 | Frontend architecture & quality | 0 / 10 | Not started |
 | 5 | Performance | 1 / 6 | PERF-03 ✅ (landed early via runner) |
 | 6 | Testing depth | 0 / 2 | Not started |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 44 |
+| Not Started | 42 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 20 |
+| Completed | 22 |
 | Deferred | 6 |
 | **Total** | **73** |
 
@@ -220,12 +220,15 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 ## ARCHITECTURE
 
 ### ARCH-01 — `server/index.js` god-file; no layering
-- **Category:** Architecture · **Severity:** High · **Priority:** P2 · **Effort:** M · **Risk:** Medium · **Status:** Not Started
-- **Description:** 439-line file mixing routing, business logic, EXIF, geocoding, image processing, export serialization.
-- **Recommended solution:** Split into `routes/`, `services/` (upload, exif, geocode, export, image), `repositories/` (wrap db). Keep handlers thin.
-- **Files affected:** `server/index.js` → multiple new modules.
-- **Dependencies:** Enables BE-02/BE-06/BE-07/SEC-05 cleanly. Do after Phase 1/2 stabilise; verified by TEST-02.
-- **Notes:** Prefer this before performance work to avoid rework.
+- **Category:** Architecture · **Severity:** High · **Priority:** P2 · **Effort:** M · **Risk:** Medium · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Split the ~470-line `server/index.js` into layers: `server/paths.js` (shared dirs), `server/services/` (`hash`, `exif`, `geocode`, `thumbnail`, `exportPhotos`), `server/routes/` (`photos`, `clients`, `projects` Express routers), and `server/app.js` (`createApp()` — middleware, router mounting, static/SPA, error handler). `server/index.js` is now a ~10-line entry point (import app, listen). Behavior identical — all 41 tests pass unchanged. `db.js` already acts as the repository layer. Verified by the full API suite (TEST-02).
+- **Files affected:** `server/index.js`, `server/app.js` (new), `server/paths.js` (new), `server/services/*` (5 new), `server/routes/*` (3 new).
+- **Follow-on unblocked:** multipart-upload validation (BE-02 tail), BE-07/SEC-05 (geocoding is now an isolated `services/geocode.js`), CQ-05 logging.
+
+### BE-06 — Route ordering: reset & catch-all after error handler/static
+- **Category:** Backend · **Severity:** Low · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Fixed as part of ARCH-01. In `server/app.js` the order is now: API routers → `/api/reset` → `/uploads` static → dist static → SPA catch-all → **error handler last**, so errors from the reset/SPA routes now reach the handler (previously it sat before them).
+- **Files affected:** `server/app.js`.
 
 ### ARCH-02 — `App.jsx` god component (866 lines, ~30 useState)
 - **Category:** Architecture · **Severity:** High · **Priority:** P3 · **Effort:** M · **Risk:** Medium · **Status:** Not Started
@@ -622,6 +625,11 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **ARCH-01 + BE-06.** Split the ~470-line
+  `server/index.js` into `paths` + `services/` (hash, exif, geocode, thumbnail,
+  exportPhotos) + `routes/` (photos, clients, projects) + `app.js` (createApp);
+  `index.js` is now a ~10-line entry point. Error handler registered last
+  (BE-06). Behavior identical — 41 tests unchanged. [ARCH-01, BE-06]
 - **2026-07-02 (Session 002)** — ✅ **PERF-03** DB indexes (photos project_id /
   uploaded_at / survey_date) as a version-2 migration through the new runner —
   first real use of the ARCH-03 framework. Suite **41 tests**. [PERF-03]
