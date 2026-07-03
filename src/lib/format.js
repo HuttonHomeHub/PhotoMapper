@@ -2,10 +2,10 @@
 // the raw string on an invalid date. Previously duplicated in PhotoLightbox,
 // PhotoComparison and PhotoMap.
 export function formatDate(iso) {
-  if (!iso) return null
+  if (!iso) return null;
   try {
-    return new Date(iso).toLocaleString()
+    return new Date(iso).toLocaleString();
   } catch {
-    return iso
+    return iso;
   }
 }

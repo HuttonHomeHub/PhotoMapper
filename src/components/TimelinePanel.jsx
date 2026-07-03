@@ -1,7 +1,17 @@
 // ARCH-02: timeline UI, driven entirely by the useTimeline hook (see App.jsx).
 export function TimelinePanel({ timeline, photoCount }) {
-  const { active, setActive, index, setIndex, playing, setPlaying, speed, setSpeed, sorted, currentDate } =
-    timeline
+  const {
+    active,
+    setActive,
+    index,
+    setIndex,
+    playing,
+    setPlaying,
+    speed,
+    setSpeed,
+    sorted,
+    currentDate,
+  } = timeline;
 
   return (
     <div className="timeline-section">
@@ -29,8 +39,8 @@ export function TimelinePanel({ timeline, photoCount }) {
             aria-label={`Timeline: photo ${index + 1} of ${sorted.length}`}
             aria-valuetext={currentDate}
             onChange={(e) => {
-              setIndex(Number(e.target.value))
-              setPlaying(false)
+              setIndex(Number(e.target.value));
+              setPlaying(false);
             }}
           />
           <div className="timeline-actions">
@@ -57,5 +67,5 @@ export function TimelinePanel({ timeline, photoCount }) {
         </div>
       )}
     </div>
-  )
+  );
 }

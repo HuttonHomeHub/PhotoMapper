@@ -1,70 +1,71 @@
-import { useState, useRef } from 'react'
+import { useState, useRef } from 'react';
 
 function AssignModal({ fileCount, clients, projects, onConfirm, onSkip }) {
-  const defaultMode = clients.length > 0 ? 'existing' : 'new'
-  const [mode, setMode] = useState(defaultMode)
-  const [clientId, setClientId] = useState('')
-  const [projectId, setProjectId] = useState('')
-  const [newClientName, setNewClientName] = useState('')
-  const [newProjectName, setNewProjectName] = useState('')
-  const [creating, setCreating] = useState(false)
+  const defaultMode = clients.length > 0 ? 'existing' : 'new';
+  const [mode, setMode] = useState(defaultMode);
+  const [clientId, setClientId] = useState('');
+  const [projectId, setProjectId] = useState('');
+  const [newClientName, setNewClientName] = useState('');
+  const [newProjectName, setNewProjectName] = useState('');
+  const [creating, setCreating] = useState(false);
 
-  const clientProjects = clientId
-    ? projects.filter(p => p.clientId === clientId)
-    : projects
+  const clientProjects = clientId ? projects.filter((p) => p.clientId === clientId) : projects;
 
   function handleClientChange(e) {
-    setClientId(e.target.value)
-    setProjectId('')
+    setClientId(e.target.value);
+    setProjectId('');
   }
 
   const canUpload =
-    mode === 'existing' ||
-    mode === 'skip' ||
-    (mode === 'new' && newClientName.trim().length > 0)
+    mode === 'existing' || mode === 'skip' || (mode === 'new' && newClientName.trim().length > 0);
 
   async function handleUpload() {
-    if (!canUpload) return
+    if (!canUpload) return;
     if (mode === 'skip') {
-      onSkip()
-      return
+      onSkip();
+      return;
     }
     if (mode === 'existing') {
-      onConfirm(projectId || null)
-      return
+      onConfirm(projectId || null);
+      return;
     }
     // mode === 'new'
-    setCreating(true)
+    setCreating(true);
     try {
       const clientRes = await fetch('/api/clients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newClientName.trim() }),
-      })
-      if (!clientRes.ok) throw new Error('Failed to create client')
-      const client = await clientRes.json()
+      });
+      if (!clientRes.ok) throw new Error('Failed to create client');
+      const client = await clientRes.json();
 
-      let finalProjectId = null
+      let finalProjectId = null;
       if (newProjectName.trim()) {
         const projRes = await fetch('/api/projects', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: newProjectName.trim(), clientId: client.id, status: 'active', color: '#3a86ff' }),
-        })
-        if (!projRes.ok) throw new Error('Failed to create project')
-        const proj = await projRes.json()
-        finalProjectId = proj.id
+          body: JSON.stringify({
+            name: newProjectName.trim(),
+            clientId: client.id,
+            status: 'active',
+            color: '#3a86ff',
+          }),
+        });
+        if (!projRes.ok) throw new Error('Failed to create project');
+        const proj = await projRes.json();
+        finalProjectId = proj.id;
       }
 
-      onConfirm(finalProjectId)
+      onConfirm(finalProjectId);
     } catch {
-      setCreating(false)
+      setCreating(false);
     }
   }
 
   return (
     <div className="assign-modal-overlay" onClick={onSkip}>
-      <div className="assign-modal" onClick={e => e.stopPropagation()}>
+      <div className="assign-modal" onClick={(e) => e.stopPropagation()}>
         <p className="assign-modal-title">
           Where should {fileCount === 1 ? 'this photo' : `these ${fileCount} photos`} go?
         </p>
@@ -102,8 +103,10 @@ function AssignModal({ fileCount, clients, projects, onConfirm, onSkip }) {
                 onChange={handleClientChange}
               >
                 <option value="">— any client —</option>
-                {clients.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -112,12 +115,14 @@ function AssignModal({ fileCount, clients, projects, onConfirm, onSkip }) {
               <select
                 className="assign-modal-select"
                 value={projectId}
-                onChange={e => setProjectId(e.target.value)}
+                onChange={(e) => setProjectId(e.target.value)}
                 disabled={clientProjects.length === 0}
               >
                 <option value="">— none —</option>
-                {clientProjects.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                {clientProjects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -133,20 +138,26 @@ function AssignModal({ fileCount, clients, projects, onConfirm, onSkip }) {
                 type="text"
                 placeholder="e.g. Acme Corp"
                 value={newClientName}
-                onChange={e => setNewClientName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && canUpload) handleUpload() }}
+                onChange={(e) => setNewClientName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && canUpload) handleUpload();
+                }}
                 autoFocus
               />
             </div>
             <div className="assign-modal-field">
-              <label className="assign-modal-label">Project name <span className="assign-modal-optional">(optional)</span></label>
+              <label className="assign-modal-label">
+                Project name <span className="assign-modal-optional">(optional)</span>
+              </label>
               <input
                 className="assign-modal-input"
                 type="text"
                 placeholder="e.g. Site Survey"
                 value={newProjectName}
-                onChange={e => setNewProjectName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && canUpload) handleUpload() }}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && canUpload) handleUpload();
+                }}
               />
               <p className="assign-modal-hint">Leave blank to assign a project later.</p>
             </div>
@@ -154,7 +165,9 @@ function AssignModal({ fileCount, clients, projects, onConfirm, onSkip }) {
         )}
 
         {mode === 'skip' && (
-          <p className="assign-modal-hint">Photos will upload without a client or project. You can assign them later.</p>
+          <p className="assign-modal-hint">
+            Photos will upload without a client or project. You can assign them later.
+          </p>
         )}
 
         <div className="assign-modal-actions">
@@ -168,107 +181,124 @@ function AssignModal({ fileCount, clients, projects, onConfirm, onSkip }) {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export function DropZone({ onUploadComplete, setResults, openDrawer, clients = [], projects = [], activeProjectId }) {
-  const [isDragOver, setIsDragOver] = useState(false)
-  const [pendingFiles, setPendingFiles] = useState(null)
-  const inputRef = useRef(null)
+export function DropZone({
+  onUploadComplete,
+  setResults,
+  openDrawer,
+  clients = [],
+  projects = [],
+  activeProjectId,
+}) {
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState(null);
+  const inputRef = useRef(null);
 
   async function uploadFile(file, projectId) {
     // PERF-07: no client-side hashing/pre-check — the server dedupes by content
     // hash (unique index) and returns 409 for duplicates. This avoids reading
     // the whole file into memory in the browser and an extra round-trip.
-    const formData = new FormData()
-    formData.append('photo', file)
-    if (projectId) formData.append('projectId', projectId)
+    const formData = new FormData();
+    formData.append('photo', file);
+    if (projectId) formData.append('projectId', projectId);
 
-    const res = await fetch('/api/photos', { method: 'POST', body: formData })
+    const res = await fetch('/api/photos', { method: 'POST', body: formData });
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
+      const body = await res.json().catch(() => ({}));
       if (res.status === 409) {
-        const err = new Error('Already uploaded')
-        err.isDuplicate = true
-        throw err
+        const err = new Error('Already uploaded');
+        err.isDuplicate = true;
+        throw err;
       }
-      throw new Error(body.error || `HTTP ${res.status}`)
+      throw new Error(body.error || `HTTP ${res.status}`);
     }
-    return res.json()
+    return res.json();
   }
 
   async function processFiles(fileList, projectId) {
-    const files = Array.from(fileList)
-    if (!files.length) return
+    const files = Array.from(fileList);
+    if (!files.length) return;
 
-    const entries = files.map(f => ({ id: crypto.randomUUID(), name: f.name, status: 'uploading' }))
-    setResults(entries)
-    openDrawer()
+    const entries = files.map((f) => ({
+      id: crypto.randomUUID(),
+      name: f.name,
+      status: 'uploading',
+    }));
+    setResults(entries);
+    openDrawer();
 
     const updates = await Promise.all(
       files.map(async (file, i) => {
-        const id = entries[i].id
+        const id = entries[i].id;
         try {
-          const photo = await uploadFile(file, projectId)
-          return { id, status: photo.hasGps ? 'success' : 'no-gps', detail: photo.hasGps ? null : 'No GPS data — pin not shown on map' }
+          const photo = await uploadFile(file, projectId);
+          return {
+            id,
+            status: photo.hasGps ? 'success' : 'no-gps',
+            detail: photo.hasGps ? null : 'No GPS data — pin not shown on map',
+          };
         } catch (err) {
-          if (err.isDuplicate) return { id, status: 'duplicate', detail: 'Already uploaded' }
-          return { id, status: 'error', detail: err.message }
+          if (err.isDuplicate) return { id, status: 'duplicate', detail: 'Already uploaded' };
+          return { id, status: 'error', detail: err.message };
         }
       })
-    )
+    );
 
-    setResults(prev => prev.map(e => {
-      const update = updates.find(u => u.id === e.id)
-      return update ? { ...e, status: update.status, detail: update.detail } : e
-    }))
+    setResults((prev) =>
+      prev.map((e) => {
+        const update = updates.find((u) => u.id === e.id);
+        return update ? { ...e, status: update.status, detail: update.detail } : e;
+      })
+    );
 
-    if (updates.some(u => u.status === 'success' || u.status === 'no-gps')) onUploadComplete()
+    if (updates.some((u) => u.status === 'success' || u.status === 'no-gps')) onUploadComplete();
   }
 
   function handleFiles(fileList) {
-    if (!fileList?.length) return
+    if (!fileList?.length) return;
     if (activeProjectId) {
-      processFiles(fileList, activeProjectId)
+      processFiles(fileList, activeProjectId);
     } else {
-      setPendingFiles(fileList)
+      setPendingFiles(fileList);
     }
   }
 
   function onDragOver(e) {
-    e.preventDefault()
-    setIsDragOver(true)
+    e.preventDefault();
+    setIsDragOver(true);
   }
 
   function onDragLeave() {
-    setIsDragOver(false)
+    setIsDragOver(false);
   }
 
   function onDrop(e) {
-    e.preventDefault()
-    setIsDragOver(false)
-    handleFiles(e.dataTransfer.files)
+    e.preventDefault();
+    setIsDragOver(false);
+    handleFiles(e.dataTransfer.files);
   }
 
   function onClick() {
-    inputRef.current?.click()
+    inputRef.current?.click();
   }
 
   function onInputChange(e) {
-    handleFiles(e.target.files)
-    e.target.value = ''
+    handleFiles(e.target.files);
+    e.target.value = '';
   }
 
   function handleModalConfirm(projectId) {
-    const files = pendingFiles
-    setPendingFiles(null)
-    processFiles(files, projectId)
+    const files = pendingFiles;
+    setPendingFiles(null);
+    processFiles(files, projectId);
   }
 
   function handleModalSkip() {
-    const files = pendingFiles
-    setPendingFiles(null)
-    processFiles(files, null)
+    const files = pendingFiles;
+    setPendingFiles(null);
+    processFiles(files, null);
   }
 
   return (
@@ -292,12 +322,14 @@ export function DropZone({ onUploadComplete, setResults, openDrawer, clients = [
           onClick={onClick}
           role="button"
           tabIndex={0}
-          onKeyDown={e => e.key === 'Enter' && onClick()}
+          onKeyDown={(e) => e.key === 'Enter' && onClick()}
         >
           <div className="dropzone-icon">📷</div>
           <p>
-            <strong>Drop photos here</strong><br />
-            or click to browse<br />
+            <strong>Drop photos here</strong>
+            <br />
+            or click to browse
+            <br />
             JPEG · PNG · HEIC · WebP
           </p>
           <input
@@ -310,5 +342,5 @@ export function DropZone({ onUploadComplete, setResults, openDrawer, clients = [
         </div>
       </div>
     </>
-  )
+  );
 }

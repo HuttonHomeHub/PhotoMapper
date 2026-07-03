@@ -128,8 +128,17 @@ router.post('/', upload.single('photo'), async (req, res) => {
 // migration); with any filter/paging param it returns { items, total, limit,
 // offset }. Draw-region polygon filtering stays client-side (not SQL-expressible).
 const FILTER_KEYS = [
-  'limit', 'offset', 'projectId', 'clientId', 'surveyDate',
-  'tag', 'search', 'hasGps', 'from', 'to', 'bbox',
+  'limit',
+  'offset',
+  'projectId',
+  'clientId',
+  'surveyDate',
+  'tag',
+  'search',
+  'hasGps',
+  'from',
+  'to',
+  'bbox',
 ];
 
 router.get('/', (req, res) => {
@@ -141,7 +150,8 @@ router.get('/', (req, res) => {
   const opts = {};
   if (q.projectId !== undefined) opts.projectId = q.projectId === 'none' ? null : q.projectId;
   if (q.clientId !== undefined) opts.clientId = q.clientId === 'none' ? null : q.clientId;
-  if (q.surveyDate !== undefined) opts.surveyDate = q.surveyDate === 'undated' ? null : q.surveyDate;
+  if (q.surveyDate !== undefined)
+    opts.surveyDate = q.surveyDate === 'undated' ? null : q.surveyDate;
   if (q.tag !== undefined) opts.tag = q.tag;
   if (q.search !== undefined) opts.search = q.search;
   if (q.hasGps === 'true') opts.hasGps = true;

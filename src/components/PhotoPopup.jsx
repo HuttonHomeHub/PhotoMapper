@@ -1,39 +1,39 @@
-import { useState } from 'react'
-import { formatDate } from '../lib/format.js'
+import { useState } from 'react';
+import { formatDate } from '../lib/format.js';
 
 // SEC-12: the map marker popup as a React component (previously an innerHTML
 // string built by hand). React escapes all values, so there's no way to
 // reintroduce a stored-XSS hole by adding an un-escaped field later.
 export function PhotoPopup({ photo, onView, onDelete, onClose }) {
-  const [deleting, setDeleting] = useState(false)
-  const [error, setError] = useState(null)
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState(null);
 
-  const rows = []
-  if (photo.dateTaken) rows.push(['Taken', formatDate(photo.dateTaken)])
+  const rows = [];
+  if (photo.dateTaken) rows.push(['Taken', formatDate(photo.dateTaken)]);
   if (photo.cameraMake || photo.cameraModel) {
-    rows.push(['Camera', [photo.cameraMake, photo.cameraModel].filter(Boolean).join(' ')])
+    rows.push(['Camera', [photo.cameraMake, photo.cameraModel].filter(Boolean).join(' ')]);
   }
-  if (photo.focalLength != null) rows.push(['Focal len.', `${photo.focalLength}mm`])
-  if (photo.fNumber != null) rows.push(['Aperture', `f/${photo.fNumber}`])
-  if (photo.iso != null) rows.push(['ISO', photo.iso])
-  if (photo.exposureTime) rows.push(['Exposure', photo.exposureTime])
-  if (photo.altitude != null) rows.push(['Altitude', `${Math.round(photo.altitude)}m`])
-  if (photo.imgDirection != null) rows.push(['Direction', `${Math.round(photo.imgDirection)}°`])
+  if (photo.focalLength != null) rows.push(['Focal len.', `${photo.focalLength}mm`]);
+  if (photo.fNumber != null) rows.push(['Aperture', `f/${photo.fNumber}`]);
+  if (photo.iso != null) rows.push(['ISO', photo.iso]);
+  if (photo.exposureTime) rows.push(['Exposure', photo.exposureTime]);
+  if (photo.altitude != null) rows.push(['Altitude', `${Math.round(photo.altitude)}m`]);
+  if (photo.imgDirection != null) rows.push(['Direction', `${Math.round(photo.imgDirection)}°`]);
 
   async function handleDelete() {
-    if (!window.confirm('Delete this photo? This cannot be undone.')) return
-    setDeleting(true)
-    setError(null)
+    if (!window.confirm('Delete this photo? This cannot be undone.')) return;
+    setDeleting(true);
+    setError(null);
     try {
-      await onDelete(photo.id)
-      onClose?.()
+      await onDelete(photo.id);
+      onClose?.();
     } catch (err) {
-      setDeleting(false)
-      setError(err.message)
+      setDeleting(false);
+      setError(err.message);
     }
   }
 
-  const hasCoords = photo.hasGps && photo.lat != null && photo.lng != null
+  const hasCoords = photo.hasGps && photo.lat != null && photo.lng != null;
 
   return (
     <div className="popup-content">
@@ -64,5 +64,5 @@ export function PhotoPopup({ photo, onView, onDelete, onClose }) {
         </a>
       )}
     </div>
-  )
+  );
 }

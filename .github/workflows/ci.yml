@@ -25,6 +25,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # CQ-07: fail if code isn't Prettier-formatted (src/ + server/ normalized).
+      - name: Format check
+        run: npm run format:check
+
       - name: Test (with coverage thresholds)
         run: npm run test:coverage
 

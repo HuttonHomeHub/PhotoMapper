@@ -1,4 +1,4 @@
-import { pointInPolygon } from './geo.js'
+import { pointInPolygon } from './geo.js';
 
 // Applies the sidebar filters (date range, map bounds, tag, drawn region, and the
 // project/survey-date/client hierarchy) to the photo list. Pure — easy to test
@@ -13,35 +13,35 @@ export function filterPhotos(photos, filters, projects) {
     activeSurveyDate,
     activeProjectId,
     activeClientId,
-  } = filters
+  } = filters;
 
   return photos.filter((p) => {
     if (dateFrom || dateTo) {
       if (p.dateTaken) {
-        const date = p.dateTaken.slice(0, 10)
-        if (dateFrom && date < dateFrom) return false
-        if (dateTo && date > dateTo) return false
+        const date = p.dateTaken.slice(0, 10);
+        if (dateFrom && date < dateFrom) return false;
+        if (dateTo && date > dateTo) return false;
       }
     }
     if (mapBounds && p.hasGps && p.lat != null && p.lng != null) {
-      if (p.lat < mapBounds.south || p.lat > mapBounds.north) return false
-      if (p.lng < mapBounds.west || p.lng > mapBounds.east) return false
+      if (p.lat < mapBounds.south || p.lat > mapBounds.north) return false;
+      if (p.lng < mapBounds.west || p.lng > mapBounds.east) return false;
     }
-    if (activeTag && !p.tags?.includes(activeTag)) return false
+    if (activeTag && !p.tags?.includes(activeTag)) return false;
     if (regionPolygon && p.hasGps && p.lat != null && p.lng != null) {
-      if (!pointInPolygon([p.lat, p.lng], regionPolygon)) return false
+      if (!pointInPolygon([p.lat, p.lng], regionPolygon)) return false;
     }
 
     // Project / survey-date / client hierarchy
-    if (activeProjectId && p.projectId !== activeProjectId) return false
-    if (activeSurveyDate === 'undated' && p.surveyDate != null) return false
+    if (activeProjectId && p.projectId !== activeProjectId) return false;
+    if (activeSurveyDate === 'undated' && p.surveyDate != null) return false;
     if (activeSurveyDate && activeSurveyDate !== 'undated' && p.surveyDate !== activeSurveyDate) {
-      return false
+      return false;
     }
     if (activeClientId) {
-      const proj = projects.find((pr) => pr.id === p.projectId)
-      if (proj?.clientId !== activeClientId) return false
+      const proj = projects.find((pr) => pr.id === p.projectId);
+      if (proj?.clientId !== activeClientId) return false;
     }
-    return true
-  })
+    return true;
+  });
 }

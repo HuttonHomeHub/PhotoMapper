@@ -45,10 +45,10 @@ See the architecture tree in [`README.md`](README.md). In short:
 - **Validation** — declare a zod schema in `server/validation.js` and attach it
   with `validate(...)`; don't hand-roll body checks in handlers.
 - **Dark theme palette** — `#1a1a2e` bg, `#16213e` sidebar, `#e97b25` accent.
-- **Code style** — Prettier + ESLint. Run `npm run lint` and `npm run format`.
-  Note: `server/` and `tests/` follow Prettier's `semi: true`; `src/` is currently
-  no-semicolons pending a one-shot normalization (tracked as backlog item CQ-07) —
-  match the file you're editing.
+- **Code style** — Prettier + ESLint. The whole tree follows `.prettierrc`
+  (`semi: true`, single quotes, 100 cols). Run `npm run format` before committing;
+  CI runs `npm run format:check` and fails on drift. `src/lib/heatmap-patched.js`
+  is a vendored file and is Prettier-ignored.
 
 ## Testing
 

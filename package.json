@@ -9,6 +9,7 @@
     "start": "node server/index.js",
     "lint": "eslint src server",
     "format": "prettier --write src server",
+    "format:check": "prettier --check src server",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

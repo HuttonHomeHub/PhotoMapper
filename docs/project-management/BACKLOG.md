@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 53 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 8 · **Not Started:** 11
-- **Current phase:** Phases 0–4 + **7 (docs) complete**. Recent: PERF-01, DOC-05 (CONTRIBUTING). Remaining: CQ-07 (src/ prettier normalization + CI check), deeper tests (TEST-02/03/04). **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
+- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 54 · **In Progress:** 2 (TEST-02, TEST-03) · **Deferred:** 8 · **Not Started:** 10
+- **Current phase:** Phases 0–4 + **7 (docs) complete**. Recent: PERF-01, DOC-05, **CQ-07** (whole-tree Prettier normalization + CI format gate). Remaining: deeper tests (TEST-02/03/04) and the remaining low-priority FEAT/ARCH items. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 11 |
+| Not Started | 10 |
 | Blocked | 0 |
-| In Progress | 3 |
+| In Progress | 2 |
 | Needs Review | 0 |
-| Completed | 53 |
+| Completed | 54 |
 | Deferred | 8 |
 | **Total** | **74** |
 
@@ -312,19 +312,18 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Files affected:** `src/components/Toast.jsx`, `src/main.jsx`, `src/App.jsx`, `tests/components/Toast.test.jsx`.
 
 ### CQ-07 — Code doesn't conform to its own `.prettierrc` — *discovered Session 002*
-- **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** In Progress (server/ done)
-- **Description:** `.prettierrc` declares `semi: true`, but the codebase was hand-written without semicolons — the `format` script was evidently never enforced. eslint has no `semi` rule so nothing flags it.
-- **Progress:** `server/` normalized to `.prettierrc` (Session 002, during ARCH-03) so the directory is internally consistent. `src/` (frontend) still uses the no-semi style.
-- **Recommended solution:** Run `npm run format` across `src/` in a dedicated whitespace-only commit; then add a `prettier --check` step to CI so the two can't drift again. Kept out of feature commits to avoid mixing churn with logic.
-- **Files affected:** `src/**`, `.github/workflows/ci.yml`.
-- **Dependencies:** Independent; do as its own formatting-only commit.
+- **Category:** Code Quality · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Description:** `.prettierrc` declares `semi: true`, but `src/` was hand-written without semicolons — the `format` script was never enforced and eslint has no `semi` rule.
+- **Resolution:** Ran `npm run format` across the tree (26 `src/` files normalized to semicolons + Prettier style, plus a few `server/` files that had drifted). Deliberately done now — after Phase 4 feature work — as a dedicated formatting-only change so it didn't collide with logic diffs. Added a `format:check` script + a **CI Format-check step** so it can't drift again. Vendored `src/lib/heatmap-patched.js` added to `.prettierignore`. Build/lint/tests green; `format:check` passes. Updated the src/ no-semi notes in CONTRIBUTING/SESSION_LOG.
+- **Files affected:** `src/**`, `server/*` (drift), `.prettierignore`, `package.json`, `.github/workflows/ci.yml`, `CONTRIBUTING.md`, `docs/project-management/SESSION_LOG.md`.
+- **Dependencies:** Independent; done as its own formatting-only commit.
 
 ### CQ-08 — Dead `.collection-*` CSS — *discovered Session 002 (ARCH-04 follow-up)*
 - **Category:** Code Quality · **Severity:** Low · **Priority:** P4 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
 - **Description:** ~230 lines of `.collection-*` styles in `src/styles/index.css` for a collections-panel UI that no longer exists. No JSX references these classes. Surfaced when ARCH-04 dropped the backing tables.
 - **Resolution:** Removed the entire Collection Panel block and the two `.collection-*` selectors in the mobile touch-target group. 0 `.collection-` references remain; CSS bundle 87.9 → 84.3 kB. Build/tests green.
 - **Files affected:** `src/styles/index.css`.
-- **Dependencies:** None. (CQ-07 src/ semicolon normalization still separate.)
+- **Dependencies:** None.
 
 ---
 
@@ -629,6 +628,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-03 (Session 002)** — ✅ **CQ-07.** Whole-tree Prettier normalization (26 `src/`
+  files to semicolons + a few drifted `server/` files) in a dedicated formatting-only
+  commit; added `format:check` script + a **CI format gate** so it can't drift again;
+  `.prettierignore`d the vendored `heatmap-patched.js`. Build/lint/tests green. [CQ-07]
 - **2026-07-03 (Session 002)** — ✅ **DOC-05 (Phase 7 docs complete).** Added human-facing
   `CONTRIBUTING.md` (setup, layout, conventions, testing, branch/commit/PR gates) + README
   link. Docs phase now 5/5. [DOC-05]

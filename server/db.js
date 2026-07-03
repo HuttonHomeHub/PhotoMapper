@@ -556,7 +556,9 @@ function buildPhotoWhere(opts) {
   if (opts.hasGps === true) where.push('p.has_gps = 1');
   if (opts.tag != null) {
     // json1 (bundled with better-sqlite3). Guard NULL tags so json_each doesn't error.
-    where.push("p.tags IS NOT NULL AND EXISTS (SELECT 1 FROM json_each(p.tags) WHERE value = @tag)");
+    where.push(
+      'p.tags IS NOT NULL AND EXISTS (SELECT 1 FROM json_each(p.tags) WHERE value = @tag)'
+    );
     params.tag = opts.tag;
   }
   if (opts.search) {

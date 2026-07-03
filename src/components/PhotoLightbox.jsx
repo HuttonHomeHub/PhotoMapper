@@ -1,131 +1,145 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
-import { useFocusTrap } from '../hooks/useFocusTrap.js'
-import { formatDate } from '../lib/format.js'
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { useFocusTrap } from '../hooks/useFocusTrap.js';
+import { formatDate } from '../lib/format.js';
 
 function ExifItem({ label, value, full }) {
-  if (value == null) return null
+  if (value == null) return null;
   return (
     <div className={`lightbox-exif-item${full ? ' lightbox-exif-item--full' : ''}`}>
       <span className="lightbox-exif-label">{label}</span>
       <span className="lightbox-exif-value">{value}</span>
     </div>
-  )
+  );
 }
 
 export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
-  const idx = photos.findIndex(p => p.id === photo.id)
-  const [copied, setCopied] = useState(false)
-  const [description, setDescription] = useState(photo.description ?? '')
-  const [tags, setTags] = useState(photo.tags ?? [])
-  const [tagInput, setTagInput] = useState('')
-  const [surveyDate, setSurveyDate] = useState(photo.surveyDate ?? '')
-  const trapRef = useFocusTrap(true)
-  const saveTimerRef = useRef(null)
-  const [savedState, setSavedState] = useState(null)
-  const savedTimerRef = useRef(null)
+  const idx = photos.findIndex((p) => p.id === photo.id);
+  const [copied, setCopied] = useState(false);
+  const [description, setDescription] = useState(photo.description ?? '');
+  const [tags, setTags] = useState(photo.tags ?? []);
+  const [tagInput, setTagInput] = useState('');
+  const [surveyDate, setSurveyDate] = useState(photo.surveyDate ?? '');
+  const trapRef = useFocusTrap(true);
+  const saveTimerRef = useRef(null);
+  const [savedState, setSavedState] = useState(null);
+  const savedTimerRef = useRef(null);
 
   function prev() {
-    const i = (idx - 1 + photos.length) % photos.length
-    onClose(photos[i])
+    const i = (idx - 1 + photos.length) % photos.length;
+    onClose(photos[i]);
   }
 
   function next() {
-    const i = (idx + 1) % photos.length
-    onClose(photos[i])
+    const i = (idx + 1) % photos.length;
+    onClose(photos[i]);
   }
 
   function copyCoords() {
-    navigator.clipboard.writeText(`${photo.lat?.toFixed(5)}, ${photo.lng?.toFixed(5)}`)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    navigator.clipboard.writeText(`${photo.lat?.toFixed(5)}, ${photo.lng?.toFixed(5)}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
   }
 
   useEffect(() => {
-    setDescription(photo.description ?? '')
-    setTags(photo.tags ?? [])
-    setTagInput('')
-    setSurveyDate(photo.surveyDate ?? '')
-    setCopied(false)
-  }, [photo?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    setDescription(photo.description ?? '');
+    setTags(photo.tags ?? []);
+    setTagInput('');
+    setSurveyDate(photo.surveyDate ?? '');
+    setCopied(false);
+  }, [photo?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const scheduleSave = useCallback((newDesc, newTags, newSurveyDate) => {
-    clearTimeout(saveTimerRef.current)
-    setSavedState('saving')
-    saveTimerRef.current = setTimeout(() => {
-      onUpdate?.(photo.id, { description: newDesc, tags: newTags, surveyDate: newSurveyDate || null })
-      setSavedState('saved')
-      clearTimeout(savedTimerRef.current)
-      savedTimerRef.current = setTimeout(() => setSavedState(null), 2000)
-    }, 600)
-  }, [photo.id, onUpdate])
+  const scheduleSave = useCallback(
+    (newDesc, newTags, newSurveyDate) => {
+      clearTimeout(saveTimerRef.current);
+      setSavedState('saving');
+      saveTimerRef.current = setTimeout(() => {
+        onUpdate?.(photo.id, {
+          description: newDesc,
+          tags: newTags,
+          surveyDate: newSurveyDate || null,
+        });
+        setSavedState('saved');
+        clearTimeout(savedTimerRef.current);
+        savedTimerRef.current = setTimeout(() => setSavedState(null), 2000);
+      }, 600);
+    },
+    [photo.id, onUpdate]
+  );
 
   useEffect(() => {
     return () => {
-      clearTimeout(saveTimerRef.current)
-      clearTimeout(savedTimerRef.current)
-    }
-  }, [])
+      clearTimeout(saveTimerRef.current);
+      clearTimeout(savedTimerRef.current);
+    };
+  }, []);
 
   function handleDescriptionChange(e) {
-    const val = e.target.value
-    setDescription(val)
-    scheduleSave(val, tags, surveyDate)
+    const val = e.target.value;
+    setDescription(val);
+    scheduleSave(val, tags, surveyDate);
   }
 
   function handleTagKeyDown(e) {
     if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault()
-      addTag()
+      e.preventDefault();
+      addTag();
     }
   }
 
   function addTag() {
-    const trimmed = tagInput.trim().replace(/,+$/, '')
+    const trimmed = tagInput.trim().replace(/,+$/, '');
     if (!trimmed || tags.includes(trimmed)) {
-      setTagInput('')
-      return
+      setTagInput('');
+      return;
     }
-    const newTags = [...tags, trimmed]
-    setTags(newTags)
-    setTagInput('')
-    scheduleSave(description, newTags, surveyDate)
+    const newTags = [...tags, trimmed];
+    setTags(newTags);
+    setTagInput('');
+    scheduleSave(description, newTags, surveyDate);
   }
 
   function removeTag(tag) {
-    const newTags = tags.filter(t => t !== tag)
-    setTags(newTags)
-    scheduleSave(description, newTags, surveyDate)
+    const newTags = tags.filter((t) => t !== tag);
+    setTags(newTags);
+    scheduleSave(description, newTags, surveyDate);
   }
 
   useEffect(() => {
     function onKey(e) {
-      if (e.key === 'Escape') onClose(null)
-      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return
-      if (e.key === 'ArrowLeft') prev()
-      if (e.key === 'ArrowRight') next()
+      if (e.key === 'Escape') onClose(null);
+      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+      if (e.key === 'ArrowLeft') prev();
+      if (e.key === 'ArrowRight') next();
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [photo, photos]) // eslint-disable-line react-hooks/exhaustive-deps
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [photo, photos]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!photo) return null
+  if (!photo) return null;
 
-  const cameraLabel = [photo.cameraMake, photo.cameraModel].filter(Boolean).join(' ') || null
+  const cameraLabel = [photo.cameraMake, photo.cameraModel].filter(Boolean).join(' ') || null;
 
   return (
     <div className="lightbox-overlay" onClick={() => onClose(null)}>
       {photos.length > 1 && (
-        <button className="lightbox-nav lightbox-nav-prev" onClick={e => { e.stopPropagation(); prev() }} aria-label="Previous photo">&#8249;</button>
+        <button
+          className="lightbox-nav lightbox-nav-prev"
+          onClick={(e) => {
+            e.stopPropagation();
+            prev();
+          }}
+          aria-label="Previous photo"
+        >
+          &#8249;
+        </button>
       )}
 
-      <div className="lightbox-box" ref={trapRef} onClick={e => e.stopPropagation()}>
-        <button className="lightbox-close" onClick={() => onClose(null)} aria-label="Close">&#10005;</button>
+      <div className="lightbox-box" ref={trapRef} onClick={(e) => e.stopPropagation()}>
+        <button className="lightbox-close" onClick={() => onClose(null)} aria-label="Close">
+          &#10005;
+        </button>
 
-        <img
-          className="lightbox-img"
-          src={`/uploads/${photo.filename}`}
-          alt={photo.originalName}
-        />
+        <img className="lightbox-img" src={`/uploads/${photo.filename}`} alt={photo.originalName} />
 
         <div className="lightbox-body">
           {/* Filename + location strip */}
@@ -138,18 +152,32 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
           <div className="lightbox-exif-grid">
             <ExifItem label="Taken" value={formatDate(photo.dateTaken)} />
             <ExifItem label="Camera" value={cameraLabel} />
-            <ExifItem label="Focal length" value={photo.focalLength != null ? `${photo.focalLength}mm` : null} />
-            <ExifItem label="Aperture" value={photo.fNumber != null ? `f/${photo.fNumber}` : null} />
+            <ExifItem
+              label="Focal length"
+              value={photo.focalLength != null ? `${photo.focalLength}mm` : null}
+            />
+            <ExifItem
+              label="Aperture"
+              value={photo.fNumber != null ? `f/${photo.fNumber}` : null}
+            />
             <ExifItem label="ISO" value={photo.iso} />
             <ExifItem label="Exposure" value={photo.exposureTime} />
-            <ExifItem label="Altitude" value={photo.altitude != null ? `${Math.round(photo.altitude)}m` : null} />
-            <ExifItem label="Direction" value={photo.imgDirection != null ? `${Math.round(photo.imgDirection)}°` : null} />
+            <ExifItem
+              label="Altitude"
+              value={photo.altitude != null ? `${Math.round(photo.altitude)}m` : null}
+            />
+            <ExifItem
+              label="Direction"
+              value={photo.imgDirection != null ? `${Math.round(photo.imgDirection)}°` : null}
+            />
             {photo.hasGps && photo.lat != null && (
-              <ExifItem full label="GPS" value={`${photo.lat.toFixed(5)}, ${photo.lng.toFixed(5)}`} />
+              <ExifItem
+                full
+                label="GPS"
+                value={`${photo.lat.toFixed(5)}, ${photo.lng.toFixed(5)}`}
+              />
             )}
-            {!photo.hasGps && (
-              <ExifItem full label="GPS" value="No GPS data" />
-            )}
+            {!photo.hasGps && <ExifItem full label="GPS" value="No GPS data" />}
             {photo.hasGps && photo.lat != null && photo.lng != null && (
               <div className="lightbox-gps-actions">
                 <button className="lightbox-gps-btn" onClick={copyCoords}>
@@ -171,10 +199,10 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
                 type="date"
                 className="lightbox-survey-date-input"
                 value={surveyDate}
-                onChange={e => {
-                  const val = e.target.value
-                  setSurveyDate(val)
-                  scheduleSave(description, tags, val)
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSurveyDate(val);
+                  scheduleSave(description, tags, val);
                 }}
               />
             </div>
@@ -185,7 +213,7 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
             <div className="lightbox-field-label">
               Field Notes
               {savedState === 'saving' && <span className="save-indicator saving">saving…</span>}
-              {savedState === 'saved'  && <span className="save-indicator saved">✓ Saved</span>}
+              {savedState === 'saved' && <span className="save-indicator saved">✓ Saved</span>}
             </div>
             <textarea
               className="lightbox-notes-input"
@@ -195,17 +223,23 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
               rows={3}
             />
             <div className="lightbox-tags-row">
-              {tags.map(tag => (
+              {tags.map((tag) => (
                 <span key={tag} className="tag-chip">
                   {tag}
-                  <button className="tag-chip-remove" onClick={() => removeTag(tag)} aria-label={`Remove tag ${tag}`}>×</button>
+                  <button
+                    className="tag-chip-remove"
+                    onClick={() => removeTag(tag)}
+                    aria-label={`Remove tag ${tag}`}
+                  >
+                    ×
+                  </button>
                 </span>
               ))}
               <input
                 className="tag-input"
                 placeholder="Add tag…"
                 value={tagInput}
-                onChange={e => setTagInput(e.target.value)}
+                onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={handleTagKeyDown}
                 onBlur={addTag}
               />
@@ -225,8 +259,17 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }) {
       </div>
 
       {photos.length > 1 && (
-        <button className="lightbox-nav lightbox-nav-next" onClick={e => { e.stopPropagation(); next() }} aria-label="Next photo">&#8250;</button>
+        <button
+          className="lightbox-nav lightbox-nav-next"
+          onClick={(e) => {
+            e.stopPropagation();
+            next();
+          }}
+          aria-label="Next photo"
+        >
+          &#8250;
+        </button>
       )}
     </div>
-  )
+  );
 }

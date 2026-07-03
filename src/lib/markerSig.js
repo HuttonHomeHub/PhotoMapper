@@ -12,5 +12,5 @@ export function photoMarkerSignature(photo) {
     photo.thumbnailFilename ?? photo.filename,
     photo.focalLengthIn35mm ?? photo.focalLength,
     photo.panoHFov,
-  ].join('|')
+  ].join('|');
 }

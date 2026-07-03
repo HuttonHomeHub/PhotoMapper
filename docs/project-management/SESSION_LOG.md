@@ -131,8 +131,9 @@ wiring) to keep changes cohesive.
 - ▶ **ARCH-02 started** — extracted `LocationSearch` from App.jsx (866→794),
   3 component tests. Next: `TimelinePlayer`, `FilterBar`, then `useReducer` for
   filter state. Suite 49 tests.
-- **Style note:** new `src/` files stay **no-semi** to match the directory until
-  CQ-07 normalizes `src/` to `.prettierrc` (do NOT run prettier on `src/` piecemeal).
+- **Style note (superseded):** `src/` was kept no-semi until **CQ-07** normalized the
+  whole tree to `.prettierrc` (semicolons) in a single formatting-only commit and
+  added a `format:check` CI gate. New code now just follows Prettier everywhere.
 
 ### Next session start-here (continue Phase 4)
 Read this log + BACKLOG. **Phase 4 (frontend)** — continue ARCH-02: ARCH-02 (decompose the 866-line App.jsx), ARCH-06

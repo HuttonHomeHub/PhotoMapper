@@ -18,8 +18,13 @@ export function FilterChips({
   onClearAll,
 }) {
   const hasAny =
-    isFiltered || activeTag || regionPolygon || activeClientId || activeSurveyDate || activeProjectId
-  if (!hasAny) return null
+    isFiltered ||
+    activeTag ||
+    regionPolygon ||
+    activeClientId ||
+    activeSurveyDate ||
+    activeProjectId;
+  if (!hasAny) return null;
 
   return (
     <div className="header-filter-chips-row" style={{ padding: '4px 12px 8px' }}>
@@ -60,5 +65,5 @@ export function FilterChips({
         Clear all
       </button>
     </div>
-  )
+  );
 }
