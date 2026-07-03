@@ -103,11 +103,26 @@
   - **SEC-04** (CORS) and **SEC-07/09** (rate-limit/headers) remain app-level (defense-in-depth; the proxy may also add some).
 - **Future implications:** If the app later needs multiple users / per-user data (ADR-0002 revision → ARCH-07), in-app auth (option 1) would be revisited and this ADR superseded.
 
+## ADR-0008 — Drop the unused `collections` / `photo_collections` tables
+- **Status:** Accepted (user chose "drop", Session 002) · **Date:** 2026-07-03 · **Session:** 002
+- **Context:** ARCH-04. The baseline schema created `collections` and `photo_collections` (and migrated them for a `project_id` FK), but no route, query, service or UI ever read or wrote them. The projects feature superseded the collections concept.
+- **Problem:** Keep the tables for a possible future feature, or remove them?
+- **Options considered:**
+  1. Keep as-is (carry dead schema forward indefinitely).
+  2. **Drop via a forward migration** — chosen.
+- **Decision:** Drop both tables in migration **v4 `drop-unused-collections`** (`photo_collections` child first, then `collections`). The applied **v1 baseline is left immutable** per our migration rule — a fresh DB creates then drops them, which is harmless. `resetAll()` no longer references them.
+- **Advantages:** Schema matches reality; no confusing dead tables; smaller surface for future contributors to misread.
+- **Disadvantages:** A future "collections/albums" feature would re-add a table — cheap (a new migration). The dropped data is not recoverable except from the automatic pre-migration `VACUUM INTO` backup.
+- **Consequences:** Surfaced ~230 lines of dead `.collection-*` CSS (no JSX references it) → logged as **CQ-08** for a separate style-only cleanup.
+- **Future implications:** If albums/collections return, add a fresh migration; this ADR would be superseded.
+
 ---
 
 ## Pending decisions (need user input; tracked so they are not forgotten)
-- **ARCH-04** keep vs drop dead `collections` tables.
 - **DOC-02** canonical product name (fuzzy-guide / PhotoMap / PhotoMapper).
+- **OPS-02/03** deployment packaging + backup approach (options presented to user Session 002; awaiting choice).
+
+_Resolved Session 002: ARCH-04 (drop collections → ADR-0008)._
 
 _Resolved Session 002: ADR-0002 (single-operator), ADR-0003 (single VPS),
 ADR-0005 (4-doc consolidation) all confirmed by the user._

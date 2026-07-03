@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 40 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 24
-- **Current phase:** Phase 4 tail + opportunistic wins. Done so far incl. DOC-01 (README), OPS-04/05 (health + graceful shutdown). Remaining: FE-05/06/02/03, Phase 5 (PERF-01/02/06), Phase 7 docs, Phase 8 infra (OPS-02/03 gated on ADR-0003). Backend (Phases 0–3) complete.
+- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 41 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 24
+- **Current phase:** Phase 4 tail + opportunistic wins. Done so far incl. DOC-01 (README), OPS-04/05 (health + graceful shutdown), ARCH-04 (dropped dead collections tables). Remaining: FE-05/06/02/03, Phase 5 (PERF-01/02/06), Phase 7 docs, Phase 8 infra (OPS-02/03 gated on ADR-0003). Backend (Phases 0–3) complete.
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -53,11 +53,11 @@
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 40 |
+| Completed | 41 |
 | Deferred | 6 |
-| **Total** | **73** |
+| **Total** | **74** |
 
-Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 · OPS 7 · DEP 5 · DOC 6 · FEAT 9.
+Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 · OPS 7 · DEP 5 · DOC 6 · FEAT 9.
 
 ---
 
@@ -244,11 +244,13 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Follow-on:** PERF-03 (indexes) now lands as a version-2 migration; ARCH-04 (drop dead tables) similarly.
 
 ### ARCH-04 — Dead schema (`collections`, `photo_collections`)
-- **Category:** Architecture · **Severity:** Medium · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Category:** Architecture · **Severity:** Medium · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
 - **Description:** Tables created/migrated (`db.js:76-112`) but unused by any route/UI.
-- **Recommended solution:** Decide keep-for-future vs remove. If remove, add a migration to drop them (after ARCH-03). Record decision as ADR.
-- **Files affected:** `server/db.js`.
-- **Dependencies:** Needs ARCH-03 (migration runner). Product decision.
+- **Decision:** Remove (confirmed by product owner, Session 002) — superseded by projects; no route, query or UI ever read/wrote them.
+- **Resolution:** Added migration **v4 `drop-unused-collections`** dropping `photo_collections` (child) then `collections`; their indexes drop with the tables. The applied v1 baseline is left immutable per our own migration rule (fresh DBs create-then-drop, which is safe). Cleaned the two dead `DELETE`s from `resetAll()`. Migration test asserts both tables are absent after the chain runs.
+- **Files affected:** `server/db.js`, `tests/migrate.test.js`.
+- **Follow-up:** ~230 lines of dead `.collection-*` CSS in `src/styles/index.css` (no JSX references it) — logged as **CQ-08** for a separate style-only cleanup.
+- **Dependencies:** Needed ARCH-03 (migration runner) ✅. Product decision ✅.
 
 ### ARCH-05 — No shared type layer / no TypeScript
 - **Category:** Architecture · **Severity:** Medium · **Priority:** P4 · **Effort:** L · **Risk:** Medium · **Status:** Deferred
@@ -316,6 +318,13 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 - **Recommended solution:** Run `npm run format` across `src/` in a dedicated whitespace-only commit; then add a `prettier --check` step to CI so the two can't drift again. Kept out of feature commits to avoid mixing churn with logic.
 - **Files affected:** `src/**`, `.github/workflows/ci.yml`.
 - **Dependencies:** Independent; do as its own formatting-only commit.
+
+### CQ-08 — Dead `.collection-*` CSS — *discovered Session 002 (ARCH-04 follow-up)*
+- **Category:** Code Quality · **Severity:** Low · **Priority:** P4 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Description:** ~230 lines of `.collection-*` styles in `src/styles/index.css` (≈ lines 2080–2305, 3671–3706) for a collections-panel UI that no longer exists. No JSX references these classes. Surfaced when ARCH-04 dropped the backing tables.
+- **Recommended solution:** Delete the dead rules in a style-only commit. Low priority — no runtime cost beyond a slightly larger bundle.
+- **Files affected:** `src/styles/index.css`.
+- **Dependencies:** None. Pairs naturally with CQ-07 (both src/ style-only churn).
 
 ---
 
@@ -609,6 +618,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-03 (Session 002)** — ✅ **ARCH-04 (+ logs CQ-08).** Dropped the unused
+  `collections`/`photo_collections` tables via migration **v4**; cleaned `resetAll()`;
+  migration test asserts they're gone. Dead `.collection-*` CSS logged as CQ-08 for a
+  separate style-only pass. Suite **78 tests**. [ARCH-04]
 - **2026-07-03 (Session 002)** — ✅ **OPS-04 + OPS-05.** Added `GET /health` (liveness)
   and `GET /ready` (DB `SELECT 1` → 503 on failure) outside `/api`; graceful
   SIGTERM/SIGINT shutdown in `index.js` (drain via `server.close`, then `closeDb`,

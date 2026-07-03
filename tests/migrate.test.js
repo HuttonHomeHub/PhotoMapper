@@ -88,5 +88,15 @@ describe('legacy upgrade path (db.js baseline)', () => {
     // a backup snapshot was written before mutating the existing DB
     const backups = readdirSync(dir).filter((f) => f.startsWith('legacy.db.backup-'));
     expect(backups).toHaveLength(1);
+
+    // ARCH-04: the unused collections tables are dropped by migration v4.
+    const inspect = new Database(dbPath, { readonly: true });
+    const tables = inspect
+      .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+      .all()
+      .map((r) => r.name);
+    inspect.close();
+    expect(tables).not.toContain('collections');
+    expect(tables).not.toContain('photo_collections');
   });
 });

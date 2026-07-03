@@ -249,6 +249,19 @@ const migrations = [
       `);
     },
   },
+  {
+    // ARCH-04: drop the unused collections feature. The `collections` /
+    // `photo_collections` tables were created by the baseline schema but no route,
+    // query or UI ever read or wrote them (superseded by projects). Drop the child
+    // table first so the FK reference is gone before its parent. Their indexes are
+    // dropped automatically with the tables.
+    version: 4,
+    name: 'drop-unused-collections',
+    up(db) {
+      db.exec('DROP TABLE IF EXISTS photo_collections');
+      db.exec('DROP TABLE IF EXISTS collections');
+    },
+  },
 ];
 
 // Applies any pending migrations (records versions, backs up existing data first,
@@ -572,7 +585,7 @@ export function deleteClient(id) {
 export function resetAll() {
   db.pragma('foreign_keys = OFF');
   db.exec(
-    'DELETE FROM photo_collections; DELETE FROM photos; DELETE FROM collections; DELETE FROM projects; DELETE FROM clients; DELETE FROM geocode_cache;'
+    'DELETE FROM photos; DELETE FROM projects; DELETE FROM clients; DELETE FROM geocode_cache;'
   );
   db.pragma('foreign_keys = ON');
 }
