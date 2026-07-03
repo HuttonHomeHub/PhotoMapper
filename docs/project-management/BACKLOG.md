@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 37 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 27
-- **Current phase:** Phase 4 — Frontend architecture & quality (ARCH-02/06, CQ-01/03/06, SEC-12 ✅). PERF-05/07 ✅ (PERF-07 also retired SEC-10 + BE-05). Remaining Phase 4: FE-05/06/02/03. Backend (Phases 0–3) complete.
+- **Findings:** 73 (72 + CQ-07 discovered) · **Completed:** 38 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 6 · **Not Started:** 26
+- **Current phase:** Phase 4 tail + opportunistic wins. Done so far incl. DOC-01 (README). Remaining: FE-05/06/02/03, Phase 5 (PERF-01/02/06), Phase 7 docs, Phase 8 infra. Backend (Phases 0–3) complete.
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -26,7 +26,7 @@
 | 4 | Frontend architecture & quality | 6 / 10 | **Active** (ARCH-02/06, CQ-01/03/06, SEC-12 ✅; next FE-05/06/02/03) |
 | 5 | Performance | 3 / 6 | PERF-03, PERF-05, PERF-07 ✅ |
 | 6 | Testing depth | 0 / 2 | Not started |
-| 7 | Documentation | 0 / 5 | Not started |
+| 7 | Documentation | 1 / 5 | DOC-01 ✅ (README); DOC-04 in progress (ADRs) |
 | 8 | DevOps & infra | 0 / 7 | Not started |
 
 **Quality gates:** build ✅ · lint ✅ (15 pre-existing warnings, 0 new) · tests ✅ 11 passing (`npm test`) · CI = lint+build only (OPS-01 pending — tests not yet run in CI).
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 27 |
+| Not Started | 26 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 37 |
+| Completed | 38 |
 | Deferred | 6 |
 | **Total** | **73** |
 
@@ -549,11 +549,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 ## DOCUMENTATION
 
 ### DOC-01 — No README
-- **Category:** Documentation · **Severity:** High · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** No project overview, setup, run, or deploy docs.
-- **Recommended solution:** README: what/why, stack, dev setup, scripts, architecture summary, link to `docs/project-management/`.
-- **Files affected:** new `README.md`.
-- **Dependencies:** Independent; keep updated as architecture changes.
+- **Category:** Documentation · **Severity:** High · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** Added `README.md` — overview, features, tech stack, quick-start + scripts table, configuration table (links `.env.example`), the current (post-ARCH-01) architecture tree, DB/migrations notes, testing, and a production-deployment section linking `docs/DEPLOYMENT-SECURITY.md` (edge-auth) and `docs/project-management/`.
+- **Files affected:** `README.md`.
+- **Dependencies:** Keep updated as architecture changes. Notes the DOC-02 name consolidation.
 
 ### DOC-02 — Name mismatch (fuzzy-guide / PhotoMap / PhotoMapper)
 - **Category:** Documentation · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
@@ -610,6 +609,8 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 7 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **DOC-01.** Added `README.md` (overview, stack,
+  quick-start, config, current architecture tree, testing, deployment link). [DOC-01]
 - **2026-07-02 (Session 002)** — ✅ **PERF-07 (+ obsoletes SEC-10, BE-05).** Removed
   client-side file hashing + `check-hash` pre-check from DropZone; rely on the
   server 409 dedupe. Retired the `check-hash` route. Suite **76 tests**. [PERF-07, SEC-10, BE-05]
