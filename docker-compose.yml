@@ -16,8 +16,9 @@ services:
       #   ALLOWED_ORIGINS: "https://photos.example.com"
       #   UPLOAD_MAX_BYTES: "62914560"
     volumes:
-      # Named volume holds both the SQLite DB and uploads (see Dockerfile ENV).
-      - photomapper-data:/data
+      # Holds both the SQLite DB and uploads (see Dockerfile ENV). Swap the named
+      # volume for a host path if you prefer, e.g. /apps/photomapper/config:/config.
+      - photomapper-config:/config
     # Give the OPS-05 graceful shutdown (10s force-exit guard) time to drain.
     stop_grace_period: 15s
     healthcheck:
@@ -32,4 +33,4 @@ services:
       retries: 3
 
 volumes:
-  photomapper-data:
+  photomapper-config:

@@ -106,15 +106,16 @@ docker compose down               # stop (waits up to stop_grace_period for drai
 
 Key points:
 
-- **Data persistence** — a named volume `photomapper-data` is mounted at `/data`;
-  the image sets `PHOTOS_DB_PATH=/data/photos.db` and `UPLOADS_DIR=/data/uploads`
-  so both the database and uploads live on that volume and survive rebuilds.
-  **Back this volume up** — see Backups (OPS-03) below.
+- **Data persistence** — a named volume `photomapper-config` is mounted at `/config`
+  (matching the common self-hosted convention); the image sets
+  `PHOTOS_DB_PATH=/config/photos.db` and `UPLOADS_DIR=/config/uploads` so both the
+  database and uploads live there and survive rebuilds. Both are overridable if you
+  want a different layout. **Back this volume up** — see Backups (OPS-03) below.
 - **Loopback only** — compose publishes `127.0.0.1:3001:3001`, so the Node port is
   never exposed to the internet directly. Point your reverse proxy (above) at
   `127.0.0.1:3001`. If the proxy runs in its own container, put both on a shared
   Docker network and drop the published port entirely.
-- **Non-root** — the container runs as the unprivileged `node` user; `/data` is
+- **Non-root** — the container runs as the unprivileged `node` user; `/config` is
   pre-owned by it so a fresh named volume is writable.
 - **Graceful shutdown** — `stop_grace_period: 15s` gives the app's SIGTERM handler
   (OPS-05, 10 s force-exit guard) time to drain in-flight requests and close the
@@ -149,7 +150,7 @@ photomapper:
     # - ALLOWED_ORIGINS=https://photos.example.com
     # - ALLOW_RESET=false
   volumes:
-    - /apps/photomapper/data:/data   # holds photos.db + uploads
+    - /apps/photomapper/config:/config   # holds photos.db + uploads
   restart: unless-stopped
 ```
 
@@ -157,7 +158,7 @@ Notes:
 
 - **Bind-mount ownership** — the container runs as the `node` user (**uid 1000**).
   If you bind-mount a host directory (as above) rather than a named volume, make it
-  writable by that uid first: `sudo mkdir -p /apps/photomapper/data && sudo chown -R 1000:1000 /apps/photomapper/data`.
+  writable by that uid first: `sudo mkdir -p /apps/photomapper/config && sudo chown -R 1000:1000 /apps/photomapper/config`.
   (No `PUID`/`PGID` support — this isn't a linuxserver.io image; uid 1000 is fixed.)
 - **Package visibility** — GHCR packages are **private by default**. Either make the
   package public (repo → Packages → the image → Package settings → change visibility)
@@ -182,7 +183,7 @@ Notes:
 ## Backups (OPS-03) — ⚠️ not yet implemented
 
 **This is the single largest open production risk.** The SQLite database and the
-`uploads/` directory (both on the `/data` volume under Docker) hold **all** state,
+`uploads/` directory (both on the `/config` volume under Docker) hold **all** state,
 and there is currently **no automated backup**. If the volume or host is lost,
 everything is gone.
 
@@ -190,8 +191,8 @@ Until OPS-03 is delivered, run a manual off-box backup, e.g.:
 
 ```bash
 # DB: use SQLite's online backup (safe while the app is running)
-docker compose exec app node -e "new (require('better-sqlite3'))(process.env.PHOTOS_DB_PATH).backup('/data/backup-'+Date.now()+'.db')"
-# then copy /data (DB backup + uploads) OFF the host — to another server or object storage
+docker compose exec app node -e "new (require('better-sqlite3'))(process.env.PHOTOS_DB_PATH).backup('/config/backup-'+Date.now()+'.db')"
+# then copy /config (DB backup + uploads) OFF the host — to another server or object storage
 ```
 
 A scripted, scheduled, off-box backup + a tested restore procedure are tracked as

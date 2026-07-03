@@ -24,12 +24,13 @@ WORKDIR /app
 
 ENV NODE_ENV=production \
     PORT=3001 \
-    PHOTOS_DB_PATH=/data/photos.db \
-    UPLOADS_DIR=/data/uploads
+    PHOTOS_DB_PATH=/config/photos.db \
+    UPLOADS_DIR=/config/uploads
 
-# Persistent data dir (SQLite file + uploads). Owned by the unprivileged `node`
-# user so a fresh named volume inherits writable ownership.
-RUN mkdir -p /data && chown node:node /data
+# Persistent state dir (SQLite file + uploads). Named `/config` to match the
+# common self-hosted convention. Owned by the unprivileged `node` user so a fresh
+# named volume inherits writable ownership.
+RUN mkdir -p /config && chown node:node /config
 
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
@@ -38,7 +39,7 @@ COPY --from=build /app/package.json ./package.json
 
 USER node
 EXPOSE 3001
-VOLUME ["/data"]
+VOLUME ["/config"]
 
 # Reuses the OPS-04 liveness endpoint as the container health probe.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
