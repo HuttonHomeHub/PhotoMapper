@@ -93,13 +93,24 @@ wiring) to keep changes cohesive.
 - Commits pushed: programme setup, doc consolidation, TEST-01, OPS-01, DEP-05,
   TEST-05, BE-01, edge-auth/SEC-02, security-middleware batch, FE-01+FE-04.
 
-### Next session start-here (Phase 3 — Backend architecture & correctness)
-Read this log + BACKLOG. Suggested order (low-risk correctness first, then the
-big refactors under test cover):
-1. **BE-03** fix `updateProject` COALESCE unset bug (+ test). **BE-04** clients PATCH validation/404/409 (+ test). Small, high-value, already testable.
-2. **BE-02** zod validation layer for routes (reuse the zod dep).
-3. **ARCH-03** versioned migration runner + DB backup on destructive steps — **high-risk**; must land with expanded TEST-02 and a backup step. Precedes PERF-03 indexes.
-4. **ARCH-01** split `server/index.js` into routes/services/repositories (grow TEST-02 alongside). Folds in BE-06. Then **BE-07/SEC-05** background geocoding, **CQ-05/OPS-06** logging (adds pino → closes DEP-02).
+### Phase 3 progress (Session 002)
+- ✅ **BE-03** `updateProject` unset bug (presence-based dynamic SQL + route
+  validation/404). ✅ **BE-04** clients PATCH validation/404/409. Suite 32 tests.
+
+### Next session start-here (Phase 3 continues)
+Read this log + BACKLOG. Remaining Phase 3, in order (rising risk — keep each
+isolated and grow TEST-02 alongside):
+1. **BE-02** zod validation layer for the remaining routes (photos upload/batch,
+   projects/clients create) — reuse the `zod` dep; centralize in a middleware.
+   Medium, mechanical, fully testable.
+2. **ARCH-03** versioned migration runner + DB backup before destructive steps —
+   **HIGH RISK** (recreates tables). Prereqs: broaden TEST-02 first; add a file
+   backup step; run against a copy. Precedes PERF-03 (index migrations).
+3. **ARCH-01** split `server/index.js` (439 lines) into routes/services/
+   repositories — **LARGE**; do as its own session, moving tests in lockstep.
+   Folds in BE-06 (route ordering). Then **BE-07/SEC-05** background geocoding,
+   **CQ-05/OPS-06** pino logging (closes DEP-02).
+Note: ARCH-01 and ARCH-03 each deserve a dedicated focused session.
 
 ---
 
