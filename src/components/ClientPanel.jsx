@@ -5,6 +5,9 @@ export default function ClientPanel({
   clients,
   projects,
   photos,
+  loading = false,
+  error = null,
+  onRetry,
   activeClientId,
   activeProjectId,
   activeSurveyDate,
@@ -122,7 +125,22 @@ export default function ClientPanel({
 
   return (
     <div className="client-panel">
+      {/* FE-06: surface load failures with a retry, instead of silently showing
+          an empty tree. */}
+      {error && (
+        <div className="panel-error" role="alert">
+          <span>Couldn’t load clients &amp; projects.</span>
+          {onRetry && (
+            <button type="button" className="panel-error-retry" onClick={onRetry}>Retry</button>
+          )}
+        </div>
+      )}
       <div className="client-tree">
+        {/* FE-06: loading placeholder only when there is nothing to show yet;
+            a background refresh keeps the existing tree visible. */}
+        {loading && !error && clients.length === 0 && (
+          <p className="panel-loading-hint" role="status">Loading…</p>
+        )}
         {/* Client rows */}
         {clients.map(cl => {
           const isExpanded = expandedClientIds.has(cl.id)
@@ -271,7 +289,7 @@ export default function ClientPanel({
           )
         })}
 
-        {clients.length === 0 && (
+        {!loading && !error && clients.length === 0 && (
           <p className="panel-empty-hint">No clients yet — upload photos to get started.</p>
         )}
       </div>

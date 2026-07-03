@@ -56,10 +56,14 @@ export function App() {
     photos, loading, error, refresh, deletePhoto, updatePhoto, exportPhotos,
     batchUpdate, batchDelete
   } = usePhotos()
-  const { clients, refresh: refreshClients, updateClient, deleteClient } = useClients()
-  const { projects, refresh: refreshProjects, updateProject, deleteProject } = useProjects({
-    onPhotosChanged: refresh
-  })
+  const {
+    clients, loading: clientsLoading, error: clientsError,
+    refresh: refreshClients, updateClient, deleteClient
+  } = useClients()
+  const {
+    projects, loading: projectsLoading, error: projectsError,
+    refresh: refreshProjects, updateProject, deleteProject
+  } = useProjects({ onPhotosChanged: refresh })
 
   function refreshAll() {
     return Promise.all([refresh(), refreshProjects().catch(() => {}), refreshClients().catch(() => {})])
@@ -347,6 +351,9 @@ export function App() {
               clients={clients}
               projects={projects}
               photos={photos}
+              loading={clientsLoading || projectsLoading}
+              error={clientsError || projectsError}
+              onRetry={() => { refreshClients(); refreshProjects() }}
               activeClientId={activeClientId}
               activeProjectId={activeProjectId}
               activeSurveyDate={activeSurveyDate}

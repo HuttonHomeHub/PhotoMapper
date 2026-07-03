@@ -16,15 +16,27 @@ async function postJson(url, method, data) {
 // ARCH-06: client state + operations (split out of the old usePhotos).
 export function useClients() {
   const [clients, setClients] = useState([])
+  // FE-06: expose loading/error so the panel can show real states instead of a
+  // misleading "no clients yet" while the first fetch is still in flight.
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   const refresh = useCallback(async () => {
-    const res = await fetch('/api/clients')
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    setClients(await res.json())
+    setLoading(true)
+    try {
+      const res = await fetch('/api/clients')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setClients(await res.json())
+      setError(null)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => {
-    refresh().catch(() => {})
+    refresh()
   }, [refresh])
 
   const createClient = useCallback(async (data) => {
@@ -43,5 +55,5 @@ export function useClients() {
     setClients((prev) => prev.filter((c) => c.id !== id))
   }, [])
 
-  return { clients, refresh, createClient, updateClient, deleteClient }
+  return { clients, loading, error, refresh, createClient, updateClient, deleteClient }
 }

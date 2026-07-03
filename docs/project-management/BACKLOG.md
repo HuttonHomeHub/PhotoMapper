@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 43 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 7 · **Not Started:** 22
-- **Current phase:** Phase 4 tail + opportunistic wins. Done so far incl. DOC-01 (README), OPS-04/05 (health + graceful shutdown), ARCH-04 (dropped dead collections tables), OPS-02 (Docker + compose), PERF-02 (by-id read-after-write). Remaining: FE-05/06/02/03, Phase 5 (PERF-01/06), Phase 7 docs. Backend (Phases 0–3) complete. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
+- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 44 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 7 · **Not Started:** 21
+- **Current phase:** Phase 4 tail + opportunistic wins. Done so far incl. DOC-01 (README), OPS-04/05 (health + graceful shutdown), ARCH-04 (dropped dead collections tables), OPS-02 (Docker + compose), PERF-02 (by-id read-after-write), FE-06 (nav loading/error states). Remaining: FE-05/02/03, Phase 5 (PERF-01/06), Phase 7 docs. Backend (Phases 0–3) complete. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -23,7 +23,7 @@
 | 1 | Verification foundation | 5 / 5 | ✅ Complete |
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
 | 3 | Backend architecture & correctness | 10 / 10 | ✅ Complete (BE-02/03/04/06/07, SEC-05, ARCH-01/03, CQ-05/OPS-06) |
-| 4 | Frontend architecture & quality | 6 / 10 | **Active** (ARCH-02/06, CQ-01/03/06, SEC-12 ✅; next FE-05/06/02/03) |
+| 4 | Frontend architecture & quality | 7 / 10 | **Active** (ARCH-02/06, CQ-01/03/06, SEC-12, FE-06 ✅; next FE-05/02/03) |
 | 5 | Performance | 4 / 6 | PERF-02, PERF-03, PERF-05, PERF-07 ✅ |
 | 6 | Testing depth | 0 / 2 | Not started |
 | 7 | Documentation | 1 / 5 | DOC-01 ✅ (README); DOC-04 in progress (ADRs) |
@@ -49,11 +49,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 22 |
+| Not Started | 21 |
 | Blocked | 0 |
 | In Progress | 3 |
 | Needs Review | 0 |
-| Completed | 43 |
+| Completed | 44 |
 | Deferred | 7 |
 | **Total** | **74** |
 
@@ -415,10 +415,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Benefits from BE-07/SEC-05.
 
 ### FE-06 — No loading/empty states for clients/projects
-- **Category:** Frontend/UX · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** Not Started
-- **Description:** Projects/clients fetch has no loading or error surface.
-- **Recommended solution:** Loading skeleton + error state in ClientPanel.
-- **Files affected:** `src/components/ClientPanel.jsx`, `src/hooks/usePhotos.js`.
+- **Category:** Frontend/UX · **Severity:** Low · **Priority:** P3 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Description:** Projects/clients fetch had no loading or error surface — the panel showed "No clients yet" even mid-load, and a failed fetch showed the same, silently.
+- **Resolution:** Added `loading`/`error` state to `useClients` and `useProjects` (mirrors `usePhotos`). `ClientPanel` now shows a "Loading…" hint while the first fetch is in flight (kept out of the way during a background refresh so existing data stays visible), an error banner with a **Retry** button on failure, and the "No clients yet" empty hint only once loaded with no error. App wires a combined loading/error + retry (refetches both). Added theme-matched styles. 3 component tests cover the three states.
+- **Files affected:** `src/hooks/useClients.js`, `src/hooks/useProjects.js`, `src/components/ClientPanel.jsx`, `src/App.jsx`, `src/styles/index.css`, `tests/components/ClientPanel.test.jsx`.
 
 ---
 
@@ -622,6 +622,10 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-03 (Session 002)** — ✅ **FE-06.** Added `loading`/`error` to `useClients`
+  and `useProjects`; `ClientPanel` now shows a Loading hint, an error banner with
+  Retry, and the empty hint only when genuinely loaded-and-empty. 3 component tests.
+  Suite **83 tests**. [FE-06]
 - **2026-07-03 (Session 002)** — ✅ **PERF-02.** Replaced `getAllX().find()`
   read-after-write full scans in the photos/projects/clients PATCH routes with
   indexed by-id getters (`getPhotoFullById`, `getProjectById`, `getClientById`).

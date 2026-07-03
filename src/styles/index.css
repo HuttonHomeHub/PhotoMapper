@@ -3678,6 +3678,45 @@ textarea:focus-visible {
   line-height: 1.5;
 }
 
+/* FE-06: navigation-panel loading / error states */
+.panel-loading-hint {
+  font-size: 11px;
+  color: var(--color-muted);
+  padding: 8px 12px;
+  font-style: italic;
+}
+
+.panel-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px;
+  padding: 8px 10px;
+  background: rgba(229, 62, 62, 0.1);
+  border: 1px solid rgba(229, 62, 62, 0.4);
+  border-radius: 6px;
+  color: #feb2b2;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.panel-error-retry {
+  flex-shrink: 0;
+  background: var(--color-accent);
+  color: #1a1a2e;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.panel-error-retry:hover {
+  background: var(--color-accent-hover);
+}
+
 /* ── Mobile responsive fixes ────────────────────────────────────────── */
 
 @media (max-width: 768px) {

@@ -18,15 +18,26 @@ async function postJson(url, method, data) {
 // `onPhotosChanged` so the photo list can refresh its project_id links.
 export function useProjects({ onPhotosChanged } = {}) {
   const [projects, setProjects] = useState([])
+  // FE-06: loading/error for the navigation panel (see useClients).
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   const refresh = useCallback(async () => {
-    const res = await fetch('/api/projects')
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    setProjects(await res.json())
+    setLoading(true)
+    try {
+      const res = await fetch('/api/projects')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setProjects(await res.json())
+      setError(null)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => {
-    refresh().catch(() => {})
+    refresh()
   }, [refresh])
 
   const createProject = useCallback(async (data) => {
@@ -59,5 +70,5 @@ export function useProjects({ onPhotosChanged } = {}) {
     [onPhotosChanged, refresh]
   )
 
-  return { projects, refresh, createProject, updateProject, deleteProject, assignToProject }
+  return { projects, loading, error, refresh, createProject, updateProject, deleteProject, assignToProject }
 }
