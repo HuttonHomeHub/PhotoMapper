@@ -13,13 +13,13 @@
 
 ## Programme status
 
-- **Findings:** 72 (71 imported + DEP-05 discovered) · **Completed:** 3 (TEST-01, OPS-01, DEP-04) · **In Progress:** 0 · **Deferred:** 4
-- **Current phase:** Phase 1 — Verification foundation (3/4 done; DEP-05 next, then TEST-05)
+- **Findings:** 72 (71 imported + DEP-05 discovered) · **Completed:** 4 (TEST-01, OPS-01, DEP-04, DEP-05) · **In Progress:** 0 · **Deferred:** 4
+- **Current phase:** Phase 1 — Verification foundation (4/5 done; TEST-05 next closes the phase)
 
 | Phase | Theme | Done / Total | Status |
 |---|---|---|---|
 | 0 | Programme setup | ✅ | Complete |
-| 1 | Verification foundation | 3 / 4 | **Active** |
+| 1 | Verification foundation | 4 / 5 | **Active** |
 | 2 | Critical security & reliability | 0 / 13 | Not started |
 | 3 | Backend architecture & correctness | 0 / 10 | Not started |
 | 4 | Frontend architecture & quality | 0 / 10 | Not started |
@@ -48,11 +48,11 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 65 |
+| Not Started | 64 |
 | Blocked | 0 |
 | In Progress | 0 |
 | Needs Review | 0 |
-| Completed | 3 |
+| Completed | 4 |
 | Deferred | 4 |
 | **Total** | **72** |
 
@@ -544,7 +544,8 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 - **Dependencies:** Delivered with OPS-01. Feeds DEP-05.
 
 ### DEP-05 — Remediate known-vulnerable dependencies (`npm audit fix`) — *discovered Session 002*
-- **Category:** Dependencies · **Severity:** High · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** Not Started
+- **Category:** Dependencies · **Severity:** High · **Priority:** P1 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
+- **Resolution:** `npm audit fix` cleared all 11 advisories → **0 vulnerabilities**. All bumps were within existing semver ranges (only `package-lock.json` changed, no `package.json` churn): **multer 2.1.1→2.2.0** (High upload-DoS fixed), **express 4.21.2→4.22.2**, **qs→6.15.3**, **uuid→11.1.1**, plus dev-dep patches. Gates green (build/lint/test 11/11). Flipped the CI audit step from advisory to **blocking** (`--audit-level=high`, no `continue-on-error`).
 - **Description:** `npm audit` reports 11 advisories. Production-relevant: **multer 1.0.0–2.1.1** (High — upload DoS, directly related to SEC-07), **express/qs** (Moderate DoS), **uuid <11.1.1** (Moderate — v3/v5/v6 only; we use v4, so not exploitable but should bump). Remainder are dev/build deps (babel, js-yaml, postcss, shell-quote via concurrently, vite).
 - **Root cause:** Dependencies drifted behind published security fixes.
 - **Recommended solution:** `npm audit fix` (all fixes are semver-compatible per audit); run full gate (build+lint+test) to confirm no regression; then flip the CI audit step from advisory to blocking (remove `continue-on-error`).
@@ -618,6 +619,9 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 6 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-02 (Session 002)** — ✅ **DEP-05 Completed.** `npm audit fix` →
+  0 vulnerabilities (multer 2.2.0, express 4.22.2, qs 6.15.3, uuid 11.1.1).
+  CI audit gate flipped to blocking. [DEP-05]
 - **2026-07-02 (Session 002)** — ✅ **OPS-01 + DEP-04 Completed.** CI now runs
   `npm test` and an advisory `npm audit`; triggers extended to `claude/**`.
   Triage surfaced production-relevant vulns → logged **DEP-05** (new). [OPS-01, DEP-04]

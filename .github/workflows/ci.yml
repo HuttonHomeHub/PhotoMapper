@@ -31,9 +31,7 @@ jobs:
       - name: Build
         run: npm run build
 
-      # Advisory until DEP-05 applies `npm audit fix`. Once the known
-      # vulnerabilities are cleared this becomes a blocking gate (remove
-      # continue-on-error and raise as appropriate).
-      - name: Audit dependencies (advisory)
+      # Blocking as of DEP-05 (tree is clean at high severity). A newly
+      # disclosed high/critical advisory will fail CI until triaged.
+      - name: Audit dependencies
         run: npm audit --audit-level=high
-        continue-on-error: true
