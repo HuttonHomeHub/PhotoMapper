@@ -522,6 +522,91 @@ export function getAllPhotos() {
   return selectAllStmt.all().map(mapPhotoRow);
 }
 
+// PERF-01: shared WHERE builder for the filtered photo query/count. Only keys that
+// are actually present in `opts` contribute a clause; `null` means "unassigned"
+// (project/client/surveyDate). Returns whether a projects join is needed (client
+// filter). Draw-region polygon filtering is not expressible here — callers apply
+// it client-side over a bbox-loaded set.
+function buildPhotoWhere(opts) {
+  const where = [];
+  const params = {};
+  const needsProjectsJoin = 'clientId' in opts;
+
+  if ('projectId' in opts) {
+    if (opts.projectId === null) where.push('p.project_id IS NULL');
+    else {
+      where.push('p.project_id = @projectId');
+      params.projectId = opts.projectId;
+    }
+  }
+  if ('clientId' in opts) {
+    if (opts.clientId === null) where.push('pr.client_id IS NULL');
+    else {
+      where.push('pr.client_id = @clientId');
+      params.clientId = opts.clientId;
+    }
+  }
+  if ('surveyDate' in opts) {
+    if (opts.surveyDate === null) where.push('p.survey_date IS NULL');
+    else {
+      where.push('p.survey_date = @surveyDate');
+      params.surveyDate = opts.surveyDate;
+    }
+  }
+  if (opts.hasGps === true) where.push('p.has_gps = 1');
+  if (opts.tag != null) {
+    // json1 (bundled with better-sqlite3). Guard NULL tags so json_each doesn't error.
+    where.push("p.tags IS NOT NULL AND EXISTS (SELECT 1 FROM json_each(p.tags) WHERE value = @tag)");
+    params.tag = opts.tag;
+  }
+  if (opts.search) {
+    where.push('(p.original_name LIKE @q OR p.location_name LIKE @q OR p.description LIKE @q)');
+    params.q = `%${opts.search}%`;
+  }
+  if (opts.from) {
+    where.push('substr(p.date_taken, 1, 10) >= @from');
+    params.from = opts.from;
+  }
+  if (opts.to) {
+    where.push('substr(p.date_taken, 1, 10) <= @to');
+    params.to = opts.to;
+  }
+  if (opts.bbox) {
+    where.push(
+      'p.has_gps = 1 AND p.lat BETWEEN @south AND @north AND p.lng BETWEEN @west AND @east'
+    );
+    params.south = opts.bbox.south;
+    params.north = opts.bbox.north;
+    params.west = opts.bbox.west;
+    params.east = opts.bbox.east;
+  }
+
+  return {
+    clause: where.length ? `WHERE ${where.join(' AND ')}` : '',
+    join: needsProjectsJoin ? 'LEFT JOIN projects pr ON pr.id = p.project_id' : '',
+    params,
+  };
+}
+
+// PERF-01: filtered + paginated photo query. With no `limit` it returns all
+// matching rows (ordered newest-first), matching the legacy behaviour.
+export function queryPhotos(opts = {}) {
+  const { clause, join, params } = buildPhotoWhere(opts);
+  let sql = `SELECT p.* FROM photos p ${join} ${clause} ORDER BY p.uploaded_at DESC`;
+  if (opts.limit != null) {
+    sql += ' LIMIT @limit OFFSET @offset';
+    params.limit = opts.limit;
+    params.offset = opts.offset ?? 0;
+  }
+  return db.prepare(sql).all(params).map(mapPhotoRow);
+}
+
+// PERF-01: total number of rows matching the same filters (for pagination).
+export function countPhotos(opts = {}) {
+  const { clause, join, params } = buildPhotoWhere(opts);
+  return db.prepare(`SELECT COUNT(*) AS n FROM photos p ${join} ${clause}`).get(params).n;
+}
+
 export function getAllProjects() {
   return selectAllProjectsStmt.all().map(mapProjectRow);
 }

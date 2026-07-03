@@ -166,6 +166,40 @@ describe('clients and projects', () => {
   });
 });
 
+describe('PERF-01: queryPhotos / countPhotos', () => {
+  it('seeds two photos with a distinct tag and survey date', () => {
+    dbmod.insertPhoto(
+      makePhoto({ id: 'pq1', fileHash: 'pq1', hasGps: 1, lat: 10, lng: 10, surveyDate: '2026-09-09', originalName: 'Query One.jpg' })
+    );
+    dbmod.insertPhoto(
+      makePhoto({ id: 'pq2', fileHash: 'pq2', hasGps: 0, lat: null, lng: null, surveyDate: '2026-09-09', originalName: 'Query Two.jpg' })
+    );
+    dbmod.updatePhoto('pq1', { tags: ['perfq'] });
+    dbmod.updatePhoto('pq2', { tags: ['perfq'] });
+    expect(dbmod.countPhotos({ tag: 'perfq' })).toBe(2);
+  });
+
+  it('filters by tag, survey date, hasGps and bbox', () => {
+    expect(dbmod.queryPhotos({ tag: 'perfq' }).map((p) => p.id).sort()).toEqual(['pq1', 'pq2']);
+    expect(dbmod.queryPhotos({ tag: 'perfq', hasGps: true }).map((p) => p.id)).toEqual(['pq1']);
+    expect(dbmod.queryPhotos({ surveyDate: '2026-09-09' }).map((p) => p.id).sort()).toEqual(['pq1', 'pq2']);
+    // bbox forces has_gps=1, so the no-GPS photo is excluded
+    const inBox = dbmod.queryPhotos({ bbox: { west: 5, south: 5, east: 15, north: 15 } });
+    expect(inBox.map((p) => p.id)).toContain('pq1');
+    expect(inBox.map((p) => p.id)).not.toContain('pq2');
+  });
+
+  it('matches a free-text search on original name', () => {
+    expect(dbmod.queryPhotos({ search: 'Query One' }).map((p) => p.id)).toEqual(['pq1']);
+  });
+
+  it('paginates with limit/offset while total reflects the full match', () => {
+    const page = dbmod.queryPhotos({ tag: 'perfq', limit: 1, offset: 0 });
+    expect(page).toHaveLength(1);
+    expect(dbmod.countPhotos({ tag: 'perfq' })).toBe(2);
+  });
+});
+
 describe('PERF-03: performance indexes', () => {
   it('creates indexes on the hot photo columns', () => {
     const raw = new Database(process.env.PHOTOS_DB_PATH, { readonly: true });

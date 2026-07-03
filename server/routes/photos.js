@@ -15,6 +15,8 @@ import { logger } from '../logger.js';
 import {
   insertPhoto,
   getAllPhotos,
+  queryPhotos,
+  countPhotos,
   getPhotoById,
   getPhotoFullById,
   deletePhoto,
@@ -121,7 +123,46 @@ router.post('/', upload.single('photo'), async (req, res) => {
   res.status(201).json({ ...record, hasGps: !!record.hasGps, tags: [], description: null });
 });
 
-router.get('/', (_req, res) => res.json(getAllPhotos()));
+// PERF-01 (ADR-0010): filtered + paginated listing. With NO query params this
+// returns the legacy bare array (back-compat during the phased frontend
+// migration); with any filter/paging param it returns { items, total, limit,
+// offset }. Draw-region polygon filtering stays client-side (not SQL-expressible).
+const FILTER_KEYS = [
+  'limit', 'offset', 'projectId', 'clientId', 'surveyDate',
+  'tag', 'search', 'hasGps', 'from', 'to', 'bbox',
+];
+
+router.get('/', (req, res) => {
+  const q = req.query;
+  if (!FILTER_KEYS.some((k) => q[k] !== undefined)) {
+    return res.json(getAllPhotos());
+  }
+
+  const opts = {};
+  if (q.projectId !== undefined) opts.projectId = q.projectId === 'none' ? null : q.projectId;
+  if (q.clientId !== undefined) opts.clientId = q.clientId === 'none' ? null : q.clientId;
+  if (q.surveyDate !== undefined) opts.surveyDate = q.surveyDate === 'undated' ? null : q.surveyDate;
+  if (q.tag !== undefined) opts.tag = q.tag;
+  if (q.search !== undefined) opts.search = q.search;
+  if (q.hasGps === 'true') opts.hasGps = true;
+  if (q.from) opts.from = q.from;
+  if (q.to) opts.to = q.to;
+  if (q.bbox !== undefined) {
+    const [west, south, east, north] = String(q.bbox).split(',').map(Number);
+    if ([west, south, east, north].every(Number.isFinite)) opts.bbox = { west, south, east, north };
+  }
+
+  let limit = null;
+  let offset = 0;
+  if (q.limit !== undefined) {
+    limit = Math.min(Math.max(parseInt(q.limit, 10) || 0, 0), 500); // cap page size
+    offset = Math.max(parseInt(q.offset, 10) || 0, 0);
+    opts.limit = limit;
+    opts.offset = offset;
+  }
+
+  res.json({ items: queryPhotos(opts), total: countPhotos(opts), limit, offset });
+});
 
 router.get('/export', (req, res) => {
   const format = req.query.format === 'kml' ? 'kml' : 'geojson';

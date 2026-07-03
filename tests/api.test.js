@@ -29,6 +29,15 @@ describe('photos API', () => {
     expect(Array.isArray(res.body)).toBe(true);
   });
 
+  it('PERF-01: GET /api/photos with a paging param returns { items, total }', async () => {
+    const res = await request(app).get('/api/photos?limit=10');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.items)).toBe(true);
+    expect(res.body).toHaveProperty('total');
+    expect(res.body.limit).toBe(10);
+    expect(res.body.offset).toBe(0);
+  });
+
   it('POST /api/photos with no file returns 400', async () => {
     const res = await request(app).post('/api/photos');
     expect(res.status).toBe(400);

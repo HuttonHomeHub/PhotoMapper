@@ -132,11 +132,25 @@
 
 ---
 
+## ADR-0010 — PERF-01: full server-side pagination + filtering (phased)
+- **Status:** Accepted (user chose "C", Session 002) · **Date:** 2026-07-03 · **Session:** 002
+- **Context:** `GET /api/photos` returns the entire dataset and the frontend holds it all in memory; filtering, timeline, heatmap, map clustering and sidebar counts all run client-side over the full array. This does not scale.
+- **Options considered:** A) slim the payload (column projection + detail-by-id), no paging; B) bbox/viewport loading for the map; **C) full offset/cursor pagination + server-side filtering + aggregate endpoints** — chosen.
+- **Decision:** Move filtering, sorting, pagination and aggregate counts into SQL; the frontend stops holding the whole dataset. Because the SPA cannot be runtime-verified in this environment, **execute in back-compatible phases** so no intermediate state is broken:
+  - **PERF-01a (server foundation):** parameterized, paginated, filtered `queryPhotos`/`countPhotos` in `db.js`; `GET /api/photos` gains optional `limit/offset` + filter params and returns `{ items, total, limit, offset }` when paginated. With **no params it still returns the legacy array**, so the current frontend keeps working. Fully covered by DB + API tests.
+  - **PERF-01b (aggregate/map endpoints):** lightweight map-points (optionally bbox), timeline dates, and facet counts (project/client/survey-date buckets) so the whole-dataset features survive pagination.
+  - **PERF-01c (frontend migration):** `usePhotos` + list/map/timeline/filters consume the new endpoints; drop the in-memory full-set assumption. Verified interactively under TEST-04 (staging).
+- **Advantages:** Scales to large libraries; correct long-term architecture; phased rollout keeps every step shippable.
+- **Disadvantages / risk:** Largest change in the programme; reimplements the client-side filter/timeline/heatmap data path server-side. Polygon (draw-region) filtering isn't expressible in plain SQL — it stays client-side over the bbox-loaded set (or a future spatial extension).
+- **Consequences:** Satisfies FEAT-01. Interacts with PERF-06 (bbox marker loading) and ARCH-07 (multi-user). PERF-01 in the backlog is split into 01a/01b/01c so partial completion is tracked honestly.
+- **Future implications:** Cursor pagination can replace offset if deep paging becomes hot.
+
+---
+
 ## Pending decisions (need user input; tracked so they are not forgotten)
 - **OPS-03** backup destination (S3-compatible / second SSH host / local disk) — needed before the automated backup script can be written. User answered "decide later" Session 002.
-- **PERF-01** photo-loading strategy — changes the `GET /api/photos` contract (frontend currently holds all photos for filter/timeline/heatmap). Options presented to the user Session 002; awaiting choice.
 
-_Resolved Session 002: ARCH-04 (drop collections → ADR-0008), OPS-02 (Docker → ADR-0009), DOC-02 (name → PhotoMapper), OPS-07/edge-auth, etc._
+_Resolved Session 002: ARCH-04 (drop collections → ADR-0008), OPS-02 (Docker → ADR-0009), DOC-02 (name → PhotoMapper), PERF-01 (server pagination → ADR-0010), OPS-07/edge-auth, etc._
 
 _Resolved Session 002: ADR-0002 (single-operator), ADR-0003 (single VPS),
 ADR-0005 (4-doc consolidation) all confirmed by the user._

@@ -13,8 +13,8 @@
 
 ## Programme status
 
-- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 52 · **In Progress:** 3 (TEST-02, TEST-03, CQ-07) · **Deferred:** 7 · **Not Started:** 13
-- **Current phase:** Phases 0–4 **complete**. Recent: PERF-06, DOC-03 (API.md), CQ-08, DOC-02 (renamed → PhotoMapper), DOC-06 (geo-math). Remaining: Phase 5 (PERF-01 only), Phase 7 docs (DOC-05), CQ-07, deeper tests. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
+- **Findings:** 74 (72 + CQ-07 + CQ-08 discovered) · **Completed:** 52 · **In Progress:** 4 (TEST-02, TEST-03, CQ-07, PERF-01) · **Deferred:** 7 · **Not Started:** 12
+- **Current phase:** Phases 0–4 **complete**. Recent: DOC-02/03/06, CQ-08, and **PERF-01a** (server-side paginated/filtered photo query, back-compatible). Remaining: PERF-01b/c (aggregate endpoints + frontend migration — ADR-0010), DOC-05 (CONTRIBUTING), CQ-07, deeper tests. **Top open risk: OPS-03 (no automated backups) — deferred pending a backup destination.**
 - **Auth decision:** ADR-0007 — enforced at the reverse proxy; SEC-01 & SEC-03 handled at infra (see `docs/DEPLOYMENT-SECURITY.md`).
 
 | Phase | Theme | Done / Total | Status |
@@ -24,7 +24,7 @@
 | 2 | Critical security & reliability | 13 / 13 | ✅ Complete (SEC-01/03 → infra) |
 | 3 | Backend architecture & correctness | 10 / 10 | ✅ Complete (BE-02/03/04/06/07, SEC-05, ARCH-01/03, CQ-05/OPS-06) |
 | 4 | Frontend architecture & quality | 10 / 10 | ✅ Complete (ARCH-02/06, CQ-01/03/06, SEC-12, FE-02/03/05/06) |
-| 5 | Performance | 5 / 6 | PERF-02/03/05/06/07 ✅; PERF-01 (pagination/bbox) left |
+| 5 | Performance | 5 / 6 | PERF-02/03/05/06/07 ✅; PERF-01 in progress (01a server foundation ✅; 01b/01c pending) |
 | 6 | Testing depth | 0 / 2 | Not started |
 | 7 | Documentation | 4 / 5 | DOC-01/03/06 ✅ + DOC-02 (rename); DOC-04 ongoing (ADRs); DOC-05 (CONTRIBUTING) left |
 | 8 | DevOps & infra | 6 / 7 | OPS-01/02/04/05/06/07 ✅ (CI, Docker, health, shutdown, logging, config); OPS-03 ⏸️ deferred (backup destination) |
@@ -49,9 +49,9 @@
 
 | Status | Count |
 |---|---|
-| Not Started | 13 |
+| Not Started | 12 |
 | Blocked | 0 |
-| In Progress | 3 |
+| In Progress | 4 |
 | Needs Review | 0 |
 | Completed | 52 |
 | Deferred | 7 |
@@ -331,11 +331,14 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 ## PERFORMANCE
 
 ### PERF-01 — `GET /api/photos` unpaginated, all rows/cols
-- **Category:** Performance · **Severity:** High · **Priority:** P2 · **Effort:** M · **Risk:** Medium · **Status:** Not Started
-- **Description:** Returns entire dataset (`server/index.js:190`, `db.js:285-289`); frontend holds it all in memory.
-- **Recommended solution:** Cursor/offset pagination + bbox/viewport query params; map fetches by bounds; list paginates.
-- **Files affected:** `server/index.js`, `server/db.js`, `src/hooks/usePhotos.js`, map/list.
-- **Dependencies:** Satisfies FEAT-01. Do after ARCH-01. Interacts with PERF-06.
+- **Category:** Performance · **Severity:** High · **Priority:** P2 · **Effort:** L · **Risk:** Medium · **Status:** In Progress (01a done; 01b/01c pending)
+- **Description:** Returns the entire dataset; the frontend holds it all in memory (filter/timeline/heatmap/counts client-side).
+- **Decision:** Option **C** — full server-side pagination + filtering, executed in back-compatible phases (ADR-0010), because the SPA can't be runtime-verified here.
+- **PERF-01a — server foundation ✅ (Session 002):** `queryPhotos`/`countPhotos` in `db.js` with a shared WHERE builder (filters: `projectId`/`clientId`/`surveyDate` incl. unassigned, `tag` via json1, `search`, `hasGps`, `from`/`to`, `bbox`) + `LIMIT/OFFSET`. `GET /api/photos` gains optional paging/filter params and returns `{ items, total, limit, offset }` when any is present; **no params → legacy bare array** (frontend unaffected). Page size capped at 500. 5 tests (4 DB + 1 API shape).
+- **PERF-01b — aggregate/map endpoints (Not Started):** map-points (bbox-aware), timeline dates, facet counts so whole-dataset features survive pagination.
+- **PERF-01c — frontend migration (Not Started):** `usePhotos` + list/map/timeline/filters consume the new endpoints; drop the in-memory full-set assumption. Verify under TEST-04 (staging). Draw-region polygon filtering stays client-side over the bbox set.
+- **Files affected:** `server/db.js`, `server/routes/photos.js`, `tests/db.test.js`, `tests/api.test.js` (01a); `src/hooks/usePhotos.js`, map/list/timeline (01c).
+- **Dependencies:** Satisfies FEAT-01. Interacts with PERF-06 (bbox markers), ARCH-07 (multi-user).
 
 ### PERF-02 — Read-after-write full scans
 - **Category:** Performance · **Severity:** Medium · **Priority:** P2 · **Effort:** S · **Risk:** Low · **Status:** ✅ Completed (Session 002)
@@ -624,6 +627,12 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 > Absorbed from CHANGELOG.md under the 4-doc consolidation (ADR-0005). Records
 > completed items and structural changes, newest first. Backlog IDs in brackets.
 
+- **2026-07-03 (Session 002)** — ▶ **PERF-01a (of PERF-01, ADR-0010: Option C).**
+  Server-side filtered + paginated photo query: `queryPhotos`/`countPhotos` (shared
+  WHERE builder — project/client/surveyDate/tag(json1)/search/hasGps/date-range/bbox
+  + LIMIT/OFFSET); `GET /api/photos` returns `{items,total,limit,offset}` when
+  paginated, legacy array otherwise (back-compat). 5 tests. Suite **96 tests**.
+  01b (aggregate endpoints) + 01c (frontend migration) pending. [PERF-01]
 - **2026-07-03 (Session 002)** — ✅ **DOC-02 + DOC-06.** DOC-02: canonical name set to
   **PhotoMapper** (user decision) — renamed package/lockfile to `photomapper`, UI title
   + sidebar brand, Nominatim User-Agent, devcontainer, CLAUDE.md, agent docs; no
