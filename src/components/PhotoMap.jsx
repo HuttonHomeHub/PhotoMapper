@@ -99,14 +99,22 @@ function createPhotoIcon(photo) {
       ? `<div class="pin-arrow" style="transform: rotate(${photo.imgDirection}deg)">▲</div>`
       : '';
 
+  // Hand-placed pins get a distinct accent ring + badge so they read as "manually
+  // positioned" rather than a real EXIF fix (FEAT: manual GPS placement).
+  const manualClass = photo.manualGps ? ' photo-pin--manual' : '';
+  const manualBadge = photo.manualGps
+    ? '<div class="pin-manual-badge" title="Placed manually">📍</div>'
+    : '';
+
   return L.divIcon({
     className: '',
     html: `
-      <div class="photo-pin">
+      <div class="photo-pin${manualClass}">
         <div class="pin-thumbnail">
           <img src="/uploads/${photo.thumbnailFilename ?? photo.filename}" alt="" loading="lazy" />
         </div>
         ${arrowHtml}
+        ${manualBadge}
       </div>
     `,
     iconSize: [56, 56],
@@ -144,6 +152,9 @@ export const PhotoMap = forwardRef(function PhotoMap(
     onBoundsChange,
     exportPhotos,
     hasGps,
+    placingPhoto,
+    onPlacePhoto,
+    onRepositionPhoto,
   },
   ref
 ) {
@@ -162,6 +173,8 @@ export const PhotoMap = forwardRef(function PhotoMap(
   const onRegionChangeRef = useRef(onRegionChange);
   const onPhotoHoverRef = useRef(onPhotoHover);
   const onBoundsChangeRef = useRef(onBoundsChange);
+  const onPlacePhotoRef = useRef(onPlacePhoto);
+  const onRepositionPhotoRef = useRef(onRepositionPhoto);
   const photosRef = useRef(photos);
   const prevGeoCountRef = useRef(0);
 
@@ -195,6 +208,12 @@ export const PhotoMap = forwardRef(function PhotoMap(
   useEffect(() => {
     onBoundsChangeRef.current = onBoundsChange;
   }, [onBoundsChange]);
+  useEffect(() => {
+    onPlacePhotoRef.current = onPlacePhoto;
+  }, [onPlacePhoto]);
+  useEffect(() => {
+    onRepositionPhotoRef.current = onRepositionPhoto;
+  }, [onRepositionPhoto]);
   useEffect(() => {
     photosRef.current = photos;
   }, [photos]);
@@ -518,6 +537,25 @@ export const PhotoMap = forwardRef(function PhotoMap(
     };
   }, [drawMode]);
 
+  // FEAT: placement mode. While a GPS-less photo is being placed, the next map
+  // click assigns its coordinates. Uses a ref for the callback so entering/leaving
+  // placement mode doesn't rebuild markers.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !placingPhoto) return;
+
+    map.getContainer().style.cursor = 'crosshair';
+    function onClick(e) {
+      onPlacePhotoRef.current?.(e.latlng.lat, e.latlng.lng);
+    }
+    map.on('click', onClick);
+
+    return () => {
+      map.off('click', onClick);
+      map.getContainer().style.cursor = '';
+    };
+  }, [placingPhoto]);
+
   // PERF-06: incremental marker sync. Diff the photo set and add/remove/rebuild
   // only what changed, instead of clearing and recreating every marker (+ popup +
   // FOV cone) on any photos change. FOV visibility is toggled by its own effect,
@@ -546,8 +584,19 @@ export const PhotoMap = forwardRef(function PhotoMap(
     }
 
     function addMarker(photo) {
-      const marker = L.marker([photo.lat, photo.lng], { icon: createPhotoIcon(photo) });
+      const marker = L.marker([photo.lat, photo.lng], {
+        icon: createPhotoIcon(photo),
+        // FEAT: hand-placed pins can be dragged to fine-tune their position.
+        draggable: !!photo.manualGps,
+      });
       markersRef.current[photo.id] = marker;
+
+      if (photo.manualGps) {
+        marker.on('dragend', () => {
+          const ll = marker.getLatLng();
+          onRepositionPhotoRef.current?.(photo.id, ll.lat, ll.lng);
+        });
+      }
 
       // SEC-12: render the popup as a React component into a container div. The
       // 'add' handler resolves the latest photo by id so an edited description or

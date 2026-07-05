@@ -49,6 +49,34 @@ export function usePhotos() {
     return updated;
   }, []);
 
+  // FEAT: manually place (or reposition) a photo's pin on the map.
+  const setPhotoLocation = useCallback(async (id, lat, lng) => {
+    const res = await fetch(`/api/photos/${id}/location`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lat, lng }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `HTTP ${res.status}`);
+    }
+    const updated = await res.json();
+    setPhotos((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    return updated;
+  }, []);
+
+  // FEAT: remove a hand-placed pin, returning the photo to "No GPS".
+  const clearPhotoLocation = useCallback(async (id) => {
+    const res = await fetch(`/api/photos/${id}/location`, { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `HTTP ${res.status}`);
+    }
+    const updated = await res.json();
+    setPhotos((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    return updated;
+  }, []);
+
   const exportPhotos = useCallback((format = 'geojson') => {
     const a = document.createElement('a');
     a.href = `/api/photos/export?format=${format}`;
@@ -96,6 +124,8 @@ export function usePhotos() {
     refresh,
     deletePhoto,
     updatePhoto,
+    setPhotoLocation,
+    clearPhotoLocation,
     exportPhotos,
     updatePhotoSurveyDate,
     updatePhotoProject,

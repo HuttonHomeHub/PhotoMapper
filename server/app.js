@@ -18,6 +18,7 @@ import photosRouter from './routes/photos.js';
 import clientsRouter from './routes/clients.js';
 import projectsRouter from './routes/projects.js';
 import geocodeRouter from './routes/geocode.js';
+import publicRouter from './routes/public.js';
 
 export function createApp() {
   const app = express();
@@ -106,6 +107,9 @@ export function createApp() {
   app.use('/api/clients', clientsRouter);
   app.use('/api/projects', projectsRouter);
   app.use('/api/geocode', geocodeRouter);
+  // FEAT: the single public, unauthenticated surface — read-only project shares
+  // via capability token. Still rate-limited (mounted under /api). See routes/public.js.
+  app.use('/api/public', publicRouter);
 
   // SEC-02: destructive full wipe. Disabled unless explicitly enabled via env, as
   // defense-in-depth behind the reverse-proxy auth (ADR-0007).

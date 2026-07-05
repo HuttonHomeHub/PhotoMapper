@@ -25,6 +25,8 @@ import {
   updatePhoto,
   updatePhotoSurveyDate,
   updatePhotoProject,
+  setPhotoLocation,
+  clearManualLocation,
   batchUpdatePhotos,
 } from '../db.js';
 
@@ -246,6 +248,27 @@ router.patch('/:id', validate(schemas.updatePhoto), (req, res) => {
     updatePhoto(req.params.id, { description, tags });
   if (projectId !== undefined) updatePhotoProject(req.params.id, projectId);
   if (surveyDate !== undefined) updatePhotoSurveyDate(req.params.id, surveyDate);
+  res.json(getPhotoFullById(req.params.id));
+});
+
+// FEAT: manually place a GPS-less photo (or reposition a hand-placed pin). A
+// two-segment path, so it never collides with the single-segment PATCH/DELETE
+// `/:id` routes above.
+router.put('/:id/location', validate(schemas.setPhotoLocation), (req, res) => {
+  const photo = getPhotoById(req.params.id);
+  if (!photo) return res.status(404).json({ error: 'Photo not found' });
+  setPhotoLocation(req.params.id, req.body.lat, req.body.lng);
+  res.json(getPhotoFullById(req.params.id));
+});
+
+// FEAT: remove a hand-placed location, returning the photo to "No GPS". Refuses
+// (409) if the photo has no manual location — real EXIF fixes can't be cleared.
+router.delete('/:id/location', (req, res) => {
+  const photo = getPhotoById(req.params.id);
+  if (!photo) return res.status(404).json({ error: 'Photo not found' });
+  const changed = clearManualLocation(req.params.id);
+  if (!changed)
+    return res.status(409).json({ error: 'Photo has no manually-set location to clear' });
   res.json(getPhotoFullById(req.params.id));
 });
 

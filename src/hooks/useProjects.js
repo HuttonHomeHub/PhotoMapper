@@ -70,6 +70,23 @@ export function useProjects({ onPhotosChanged } = {}) {
     [onPhotosChanged, refresh]
   );
 
+  // FEAT: enable a public read-only share link. Returns the (stable) token.
+  const enableShare = useCallback(async (id) => {
+    const { shareToken } = await postJson(`/api/projects/${id}/share`, 'POST');
+    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, shareToken } : p)));
+    return shareToken;
+  }, []);
+
+  // FEAT: revoke the share link (the old URL stops working immediately).
+  const disableShare = useCallback(async (id) => {
+    const res = await fetch(`/api/projects/${id}/share`, { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `HTTP ${res.status}`);
+    }
+    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, shareToken: null } : p)));
+  }, []);
+
   return {
     projects,
     loading,
@@ -79,5 +96,7 @@ export function useProjects({ onPhotosChanged } = {}) {
     updateProject,
     deleteProject,
     assignToProject,
+    enableShare,
+    disableShare,
   };
 }

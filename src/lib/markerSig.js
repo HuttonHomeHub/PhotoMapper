@@ -9,6 +9,7 @@ export function photoMarkerSignature(photo) {
     photo.lat,
     photo.lng,
     photo.imgDirection,
+    photo.manualGps,
     photo.thumbnailFilename ?? photo.filename,
     photo.focalLengthIn35mm ?? photo.focalLength,
     photo.panoHFov,

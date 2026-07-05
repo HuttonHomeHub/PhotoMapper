@@ -49,6 +49,12 @@ export const schemas = {
     surveyDate: isoDate.nullable().optional(),
   }),
 
+  // FEAT: manual GPS placement. Both coordinates are required and range-checked.
+  setPhotoLocation: z.object({
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+  }),
+
   batchUpdatePhotos: z.object({
     ids: z.array(z.string()).min(1, 'ids array required'),
     tags: z.array(z.string()).optional(),

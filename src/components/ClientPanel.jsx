@@ -18,6 +18,9 @@ export default function ClientPanel({
   onDeleteClient,
   onUpdateProject,
   onDeleteProject,
+  onEnableShare,
+  onDisableShare,
+  toast,
 }) {
   const [expandedClientIds, setExpandedClientIds] = useState(new Set());
   const [expandedProjectIds, setExpandedProjectIds] = useState(new Set());
@@ -28,8 +31,41 @@ export default function ClientPanel({
   const [renamingProjectId, setRenamingProjectId] = useState(null);
   const [renameProjectValue, setRenameProjectValue] = useState('');
 
+  // FEAT: which project's share panel is open (null = none).
+  const [sharePanelProjectId, setSharePanelProjectId] = useState(null);
+
   // FE-04: confirm destructive client/project deletes. { type, id, name }
   const [pendingDelete, setPendingDelete] = useState(null);
+
+  const shareUrl = (token) => `${window.location.origin}/share/${token}`;
+
+  async function handleShareClick(proj) {
+    try {
+      if (!proj.shareToken) await onEnableShare?.(proj.id);
+      setSharePanelProjectId((cur) => (cur === proj.id ? null : proj.id));
+    } catch (err) {
+      toast?.(err.message || 'Could not create share link', 'error');
+    }
+  }
+
+  async function handleCopyShare(token) {
+    try {
+      await navigator.clipboard.writeText(shareUrl(token));
+      toast?.('Share link copied', 'success');
+    } catch {
+      toast?.('Could not copy — select and copy the link manually', 'error');
+    }
+  }
+
+  async function handleStopSharing(proj) {
+    try {
+      await onDisableShare?.(proj.id);
+      setSharePanelProjectId(null);
+      toast?.('Sharing stopped', 'info');
+    } catch (err) {
+      toast?.(err.message || 'Could not stop sharing', 'error');
+    }
+  }
 
   useEffect(() => {
     if (activeClientId) setExpandedClientIds((prev) => new Set([...prev, activeClientId]));
@@ -285,6 +321,19 @@ export default function ClientPanel({
                           <span className="client-tree-badge">{proj.photoCount}</span>
                           <span className="client-tree-actions">
                             <button
+                              className={`client-tree-share-btn${proj.shareToken ? ' active' : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleShareClick(proj);
+                              }}
+                              title={
+                                proj.shareToken ? 'Shared — manage link' : 'Share read-only link'
+                              }
+                              aria-label={proj.shareToken ? 'Manage share link' : 'Share project'}
+                            >
+                              🔗
+                            </button>
+                            <button
                               className="client-tree-delete-btn"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -296,6 +345,36 @@ export default function ClientPanel({
                             </button>
                           </span>
                         </div>
+
+                        {sharePanelProjectId === proj.id && proj.shareToken && (
+                          <div className="share-panel" onClick={(e) => e.stopPropagation()}>
+                            <div className="share-panel-label">Public read-only link</div>
+                            <input
+                              className="share-panel-url"
+                              value={shareUrl(proj.shareToken)}
+                              readOnly
+                              onFocus={(e) => e.target.select()}
+                              aria-label="Share link"
+                            />
+                            <div className="share-panel-actions">
+                              <button
+                                className="share-panel-btn"
+                                onClick={() => handleCopyShare(proj.shareToken)}
+                              >
+                                Copy link
+                              </button>
+                              <button
+                                className="share-panel-btn share-panel-btn--danger"
+                                onClick={() => handleStopSharing(proj)}
+                              >
+                                Stop sharing
+                              </button>
+                            </div>
+                            <div className="share-panel-hint">
+                              Anyone with this link can view this project’s photos — no login.
+                            </div>
+                          </div>
+                        )}
 
                         {isProjExpanded && (
                           <div className="client-tree-children client-tree-children--l2">
