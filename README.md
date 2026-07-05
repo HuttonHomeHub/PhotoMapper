@@ -11,6 +11,11 @@ tools for organising them into clients, projects and survey dates.
   altitude, image direction, panorama FOV. Photos without GPS still upload.
 - **Interactive map** (Leaflet) — clustered pins, photo thumbnails, FOV cones,
   heatmap, trip route, draw-a-region filter, multiple base layers
+- **Manual GPS placement** — position photos that have no EXIF GPS by clicking
+  the map; hand-placed pins can be dragged to fine-tune or removed
+- **Shareable read-only maps** — expose a single project via a public,
+  revocable link (`/share/:token`); no login, no editing (see
+  [Public share links](#public-share-links))
 - **Reverse geocoding** of coordinates to place names (cached, rate-limited,
   off the upload request path)
 - **Organisation** — clients → projects → survey dates; tags and field notes
@@ -129,6 +134,32 @@ CI.
 [`docs/DEPLOYMENT-SECURITY.md`](docs/DEPLOYMENT-SECURITY.md) for the required
 setup (TLS, HTTP auth, keeping the Node port private, backups). Do not expose the
 Node port directly to the internet.
+
+### Public share links
+
+The 🔗 control on a project mints a public, read-only link
+(`https://<host>/share/<token>`) that shows only that project's photos — no
+login, no upload/edit/delete, no client data or other projects. It is opt-in per
+project and revocable (**Stop sharing** invalidates the old link immediately).
+
+This is the **one deliberately public surface** in the otherwise
+proxy-authenticated app. For a client to open a link *without* your proxy's
+auth, allowlist the two public paths ahead of your catch-all `location /` — for
+example, in Nginx (or an NPM host's *Advanced → Custom Nginx Configuration*):
+
+```nginx
+# Read-only share view + its data API — no auth. Everything else stays gated.
+location /share/     { proxy_pass http://<upstream>; }
+location /api/public/ { proxy_pass http://<upstream>; }
+```
+
+`<upstream>` is the same `scheme://host:port` your main host already forwards to.
+Because these `location` blocks are more specific than `location /`, Nginx
+matches them first and skips whatever auth (`auth_request`, an Access List,
+Authelia, …) is attached to the rest of the host. Without this exemption the
+links still work but prompt for your normal login, so they stay effectively
+internal until allowlisted. Only enable sharing per project when you intend it —
+anyone holding a live link can view that project's photos.
 
 ## Contributing
 
