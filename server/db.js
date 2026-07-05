@@ -262,6 +262,31 @@ const migrations = [
       db.exec('DROP TABLE IF EXISTS collections');
     },
   },
+  {
+    // FEAT: manual GPS placement. Photos without EXIF GPS (has_gps = 0) can be
+    // positioned by hand on the map. `manual_gps` flags those so the UI/export can
+    // distinguish a hand-placed pin from a real EXIF fix, and so clearing a manual
+    // pin never touches genuine EXIF coordinates.
+    version: 5,
+    name: 'photo-manual-gps',
+    up(db) {
+      addColumnIfMissing(db, 'photos', 'manual_gps', 'manual_gps INTEGER NOT NULL DEFAULT 0');
+    },
+  },
+  {
+    // FEAT: per-project shareable read-only map. A project with a non-null
+    // `share_token` is reachable via the public capability URL /share/:token. The
+    // token is an unguessable secret; the UNIQUE index lets us look a project up by
+    // it (SQLite UNIQUE indexes skip NULLs, so un-shared projects don't collide).
+    version: 6,
+    name: 'project-share-token',
+    up(db) {
+      addColumnIfMissing(db, 'projects', 'share_token', 'share_token TEXT');
+      db.exec(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_share_token ON projects(share_token)'
+      );
+    },
+  },
 ];
 
 // Applies any pending migrations (records versions, backs up existing data first,
@@ -318,6 +343,16 @@ const insertProjectStmt = db.prepare(`
 
 const deleteProjectStmt = db.prepare('DELETE FROM projects WHERE id = ?');
 
+// Per-project share token (FEAT). A non-null token exposes the project via the
+// public /share/:token capability URL; clearing it revokes access immediately.
+const setShareTokenStmt = db.prepare(
+  'UPDATE projects SET share_token = @token, updated_at = @updatedAt WHERE id = @id'
+);
+const clearShareTokenStmt = db.prepare(
+  'UPDATE projects SET share_token = NULL, updated_at = @updatedAt WHERE id = @id'
+);
+const selectProjectByShareTokenStmt = db.prepare('SELECT * FROM projects WHERE share_token = ?');
+
 const assignPhotosToProjectStmt = db.prepare(
   'UPDATE photos SET project_id = @projectId WHERE id = @id'
 );
@@ -342,6 +377,15 @@ const updateSurveyDateStmt = db.prepare(
 );
 const updatePhotoProjectStmt = db.prepare(
   'UPDATE photos SET project_id = @projectId WHERE id = @id'
+);
+
+// Manual GPS placement (FEAT). Setting a location marks the pin as manually
+// placed; clearing only affects manual pins so real EXIF fixes are never wiped.
+const setPhotoLocationStmt = db.prepare(
+  'UPDATE photos SET lat = @lat, lng = @lng, has_gps = 1, manual_gps = 1 WHERE id = @id'
+);
+const clearManualLocationStmt = db.prepare(
+  'UPDATE photos SET lat = NULL, lng = NULL, has_gps = 0, manual_gps = 0 WHERE id = @id AND manual_gps = 1'
 );
 
 const selectGeocodeStmt = db.prepare('SELECT location_name FROM geocode_cache WHERE key = ?');
@@ -405,6 +449,7 @@ function mapPhotoRow(row) {
     originalName: row.original_name,
     uploadedAt: row.uploaded_at,
     hasGps: row.has_gps === 1,
+    manualGps: row.manual_gps === 1,
     lat: row.lat,
     lng: row.lng,
     altitude: row.altitude,
@@ -435,6 +480,7 @@ function mapProjectRow(row) {
     clientName: row.client_name ?? null,
     status: row.status,
     color: row.color,
+    shareToken: row.share_token ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     photoCount: row.photo_count,
@@ -500,6 +546,18 @@ export function updatePhotoSurveyDate(id, surveyDate) {
 
 export function updatePhotoProject(id, projectId) {
   updatePhotoProjectStmt.run({ id, projectId: projectId ?? null });
+}
+
+// FEAT: set a hand-placed location on a photo (marks it manual_gps = 1).
+export function setPhotoLocation(id, lat, lng) {
+  setPhotoLocationStmt.run({ id, lat, lng });
+}
+
+// FEAT: remove a hand-placed location. Only affects manually-placed pins, so a
+// real EXIF fix is never cleared. Returns the number of rows changed (0 = the
+// photo had no manual location to clear).
+export function clearManualLocation(id) {
+  return clearManualLocationStmt.run({ id }).changes;
 }
 
 // BE-07/SEC-05 reverse-geocode cache. Returns `undefined` on a cache miss and the
@@ -664,6 +722,24 @@ export function updateProject(id, changes = {}) {
 
 export function deleteProject(id) {
   return deleteProjectStmt.run(id).changes;
+}
+
+// FEAT: set/replace a project's share token (enables the public share link).
+export function setProjectShareToken(id, token) {
+  return setShareTokenStmt.run({ id, token, updatedAt: new Date().toISOString() }).changes;
+}
+
+// FEAT: revoke a project's share link.
+export function clearProjectShareToken(id) {
+  return clearShareTokenStmt.run({ id, updatedAt: new Date().toISOString() }).changes;
+}
+
+// FEAT: resolve a share token to its project. Returns only the minimal fields the
+// public share view needs — never client data or the token itself downstream.
+export function getProjectByShareToken(token) {
+  const row = selectProjectByShareTokenStmt.get(token);
+  if (!row) return null;
+  return { id: row.id, name: row.name, color: row.color };
 }
 
 export function assignPhotosToProject(projectId, photoIds) {

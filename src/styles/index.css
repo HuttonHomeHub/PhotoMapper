@@ -4302,3 +4302,250 @@ textarea:focus-visible {
   color: #1a1a2e;
   font-weight: 600;
 }
+
+/* ── FEAT: manual GPS placement ─────────────────────────────────────── */
+
+/* Placement banner overlaid on the map while positioning a GPS-less photo. */
+.placement-banner {
+  position: absolute;
+  top: var(--space-md);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  max-width: min(90%, 520px);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-sidebar);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  color: var(--color-text);
+}
+.placement-banner-thumb {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+.placement-banner-text {
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.placement-banner-cancel {
+  flex-shrink: 0;
+  padding: var(--space-xs) var(--space-md);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-dim);
+  cursor: pointer;
+}
+.placement-banner-cancel:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+/* "Place on map" / "Remove pin" controls in the photo list. */
+.photo-list-place-btn {
+  margin-top: var(--space-xs);
+  padding: 2px var(--space-sm);
+  font-size: 0.75rem;
+  background: var(--color-accent-dim);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  color: var(--color-accent);
+  cursor: pointer;
+}
+.photo-list-place-btn:hover,
+.photo-list-place-btn.active {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+.photo-list-place-btn--clear {
+  background: transparent;
+  border-color: var(--color-border);
+  color: var(--color-muted);
+}
+.photo-list-place-btn--clear:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+/* Hand-placed pins get an accent ring + a small badge to set them apart. */
+.photo-pin--manual .pin-thumbnail {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
+}
+.pin-manual-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  font-size: 0.7rem;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+}
+
+/* ── FEAT: project share links ──────────────────────────────────────── */
+
+.client-tree-share-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0.5;
+  font-size: 0.85rem;
+  padding: 0 2px;
+}
+.client-tree-share-btn:hover,
+.client-tree-share-btn.active {
+  opacity: 1;
+}
+.share-panel {
+  margin: var(--space-xs) 0 var(--space-sm) var(--space-xl);
+  padding: var(--space-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.share-panel-label {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  margin-bottom: var(--space-xs);
+}
+.share-panel-url {
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  font-size: 0.78rem;
+  background: var(--color-surface-dark);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+}
+.share-panel-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+.share-panel-btn {
+  flex: 1;
+  padding: var(--space-xs) var(--space-sm);
+  font-size: 0.78rem;
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-bg);
+  cursor: pointer;
+}
+.share-panel-btn--danger {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-muted);
+}
+.share-panel-btn--danger:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+.share-panel-hint {
+  margin-top: var(--space-sm);
+  font-size: 0.7rem;
+  color: var(--color-muted);
+}
+
+/* ── FEAT: public read-only share view (/share/:token) ──────────────── */
+
+.share-view {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.share-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-xl);
+  background: var(--color-sidebar);
+  border-bottom: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-accent);
+}
+.share-header-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+.share-header-title h1 {
+  font-size: 1.1rem;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.share-header-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.share-header-meta {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+.share-map {
+  flex: 1;
+  min-height: 0;
+}
+.share-empty-note {
+  padding: var(--space-md);
+  text-align: center;
+  color: var(--color-muted);
+  background: var(--color-sidebar);
+  border-top: 1px solid var(--color-border);
+}
+.share-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  height: 100vh;
+  padding: var(--space-xl);
+  text-align: center;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.share-message h1 {
+  font-size: 1.3rem;
+  margin: 0;
+}
+.share-message p {
+  color: var(--color-muted);
+  margin: 0;
+}
+.share-popup {
+  text-align: center;
+}
+.share-popup-img {
+  width: 100%;
+  max-width: 240px;
+  border-radius: var(--radius-md);
+  display: block;
+}
+.share-popup-name {
+  font-weight: 600;
+  margin-top: var(--space-xs);
+}
+.share-popup-loc,
+.share-popup-date,
+.share-popup-desc {
+  font-size: 0.8rem;
+  color: var(--color-text-dim);
+  margin-top: 2px;
+}

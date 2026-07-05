@@ -30,6 +30,9 @@ export function PhotoList({
   onBatchDelete,
   comparingPhotoId,
   onCompareClick,
+  onPlacePhoto,
+  onClearLocation,
+  placingPhotoId,
   toast,
   hasActiveFilters,
   onClearAllFilters,
@@ -339,8 +342,40 @@ export function PhotoList({
             <div className="photo-list-info">
               <div className="photo-list-name">{photo.originalName}</div>
               <div className="photo-list-meta">
-                {photo.locationName ? photo.locationName : photo.hasGps ? 'On map' : 'No GPS'}
+                {photo.locationName
+                  ? photo.locationName
+                  : photo.hasGps
+                    ? photo.manualGps
+                      ? 'Placed manually'
+                      : 'On map'
+                    : 'No GPS'}
               </div>
+              {!photo.hasGps && onPlacePhoto && (
+                <button
+                  className={`photo-list-place-btn${placingPhotoId === photo.id ? ' active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPlacePhoto(photo);
+                  }}
+                  tabIndex={-1}
+                  title="Click, then click the map to position this photo"
+                >
+                  📍 {placingPhotoId === photo.id ? 'Click the map…' : 'Place on map'}
+                </button>
+              )}
+              {photo.manualGps && onClearLocation && (
+                <button
+                  className="photo-list-place-btn photo-list-place-btn--clear"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClearLocation(photo);
+                  }}
+                  tabIndex={-1}
+                  title="Remove the hand-placed pin (returns to No GPS)"
+                >
+                  ✕ Remove pin
+                </button>
+              )}
               {photo.tags?.length > 0 && (
                 <div className="photo-list-tags">
                   {photo.tags.slice(0, 3).map((tag) => (

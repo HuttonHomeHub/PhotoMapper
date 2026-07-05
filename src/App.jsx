@@ -59,6 +59,8 @@ export function App() {
     refresh,
     deletePhoto,
     updatePhoto,
+    setPhotoLocation,
+    clearPhotoLocation,
     exportPhotos,
     batchUpdate,
     batchDelete,
@@ -78,6 +80,8 @@ export function App() {
     refresh: refreshProjects,
     updateProject,
     deleteProject,
+    enableShare,
+    disableShare,
   } = useProjects({ onPhotosChanged: refresh });
 
   function refreshAll() {
@@ -112,6 +116,8 @@ export function App() {
   const [selectedPhotoIds, setSelectedPhotoIds] = useState(new Set());
   const [comparingPhotoId, setComparingPhotoId] = useState(null);
   const [comparisonPair, setComparisonPair] = useState(null);
+  // FEAT: the GPS-less photo currently being placed on the map (null = not placing).
+  const [placingPhoto, setPlacingPhoto] = useState(null);
   const mapRef = useRef(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
@@ -199,6 +205,8 @@ export function App() {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       if (e.key === '?') setShortcutsOpen((v) => !v);
       if (e.key === 'Escape' && shortcutsOpen) setShortcutsOpen(false);
+      // FEAT: Escape cancels an in-progress map placement.
+      if (e.key === 'Escape') setPlacingPhoto(null);
       if (e.key === ' ' && timelineActive) {
         e.preventDefault();
         setTimelinePlaying((p) => !p);
@@ -242,6 +250,43 @@ export function App() {
     } else {
       setComparisonPair([comparingPhotoId, photoId]);
       setComparingPhotoId(null);
+    }
+  }
+
+  // FEAT: manual GPS placement. Start places from the photo list; the map click
+  // (or a drag of an existing manual pin) commits the coordinates.
+  function startPlacingPhoto(photo) {
+    setPlacingPhoto(photo);
+    setMobileSidebarOpen(false);
+  }
+
+  async function handlePlacePhoto(lat, lng) {
+    const target = placingPhoto;
+    if (!target) return;
+    setPlacingPhoto(null);
+    try {
+      await setPhotoLocation(target.id, lat, lng);
+      toast(`Placed “${target.originalName}” on the map`, 'success');
+    } catch (err) {
+      toast(err.message || 'Could not place photo', 'error');
+    }
+  }
+
+  async function handleRepositionPhoto(id, lat, lng) {
+    try {
+      await setPhotoLocation(id, lat, lng);
+    } catch (err) {
+      toast(err.message || 'Could not move pin', 'error');
+      await refresh(); // snap the dragged pin back to its stored position
+    }
+  }
+
+  async function handleClearPhotoLocation(photo) {
+    try {
+      await clearPhotoLocation(photo.id);
+      toast(`Removed pin from “${photo.originalName}”`, 'success');
+    } catch (err) {
+      toast(err.message || 'Could not remove pin', 'error');
     }
   }
 
@@ -547,6 +592,9 @@ export function App() {
                   onDeleteClient={deleteClient}
                   onUpdateProject={updateProject}
                   onDeleteProject={deleteProject}
+                  onEnableShare={enableShare}
+                  onDisableShare={disableShare}
+                  toast={toast}
                 />
               </SidebarSection>
               <SidebarSection
@@ -619,6 +667,9 @@ export function App() {
                   onBatchDelete={batchDelete}
                   comparingPhotoId={comparingPhotoId}
                   onCompareClick={handleCompareClick}
+                  onPlacePhoto={startPlacingPhoto}
+                  onClearLocation={handleClearPhotoLocation}
+                  placingPhotoId={placingPhoto?.id ?? null}
                   toast={toast}
                   hasActiveFilters={
                     !!(
@@ -804,6 +855,21 @@ export function App() {
       </aside>
 
       <div className="map-panel">
+        {placingPhoto && (
+          <div className="placement-banner" role="status">
+            <img
+              className="placement-banner-thumb"
+              src={`/uploads/${placingPhoto.thumbnailFilename ?? placingPhoto.filename}`}
+              alt=""
+            />
+            <span className="placement-banner-text">
+              Click the map to place <strong>{placingPhoto.originalName}</strong>
+            </span>
+            <button className="placement-banner-cancel" onClick={() => setPlacingPhoto(null)}>
+              Cancel
+            </button>
+          </div>
+        )}
         <PhotoMap
           ref={mapRef}
           photos={displayPhotos}
@@ -815,6 +881,9 @@ export function App() {
           onBoundsChange={setMapBounds}
           exportPhotos={exportPhotos}
           hasGps={photos.some((p) => p.hasGps)}
+          placingPhoto={placingPhoto}
+          onPlacePhoto={handlePlacePhoto}
+          onRepositionPhoto={handleRepositionPhoto}
         />
         {elevationOpen && (
           <ElevationProfile

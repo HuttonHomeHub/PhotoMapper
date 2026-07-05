@@ -273,3 +273,115 @@ describe('BE-01: async error handling', () => {
     expect(res.body).toHaveProperty('error');
   });
 });
+
+describe('FEAT: manual GPS placement', () => {
+  let photoId;
+
+  it('uploads a no-GPS photo to place', async () => {
+    const jpeg = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: { r: 40, g: 80, b: 120 } },
+    })
+      .jpeg()
+      .toBuffer();
+    const up = await request(app).post('/api/photos').attach('photo', jpeg, 'place-me.jpg');
+    expect(up.status).toBe(201);
+    expect(up.body.hasGps).toBe(false);
+    photoId = up.body.id;
+  });
+
+  it('PUT /:id/location places the photo and flags it manual', async () => {
+    const res = await request(app)
+      .put(`/api/photos/${photoId}/location`)
+      .send({ lat: 51.5, lng: -0.12 });
+    expect(res.status).toBe(200);
+    expect(res.body.hasGps).toBe(true);
+    expect(res.body.manualGps).toBe(true);
+    expect(res.body.lat).toBeCloseTo(51.5);
+    expect(res.body.lng).toBeCloseTo(-0.12);
+  });
+
+  it('rejects out-of-range coordinates (400)', async () => {
+    const res = await request(app)
+      .put(`/api/photos/${photoId}/location`)
+      .send({ lat: 200, lng: 0 });
+    expect(res.status).toBe(400);
+  });
+
+  it('PUT /:id/location for an unknown photo returns 404', async () => {
+    const res = await request(app).put('/api/photos/nope/location').send({ lat: 1, lng: 1 });
+    expect(res.status).toBe(404);
+  });
+
+  it('DELETE /:id/location clears the manual pin back to no-GPS', async () => {
+    const res = await request(app).delete(`/api/photos/${photoId}/location`);
+    expect(res.status).toBe(200);
+    expect(res.body.hasGps).toBe(false);
+    expect(res.body.manualGps).toBe(false);
+    expect(res.body.lat).toBeNull();
+  });
+
+  it('DELETE /:id/location on a photo with no manual pin returns 409', async () => {
+    const res = await request(app).delete(`/api/photos/${photoId}/location`);
+    expect(res.status).toBe(409);
+  });
+});
+
+describe('FEAT: project share links', () => {
+  let projectId;
+  let sharedPhotoId;
+  let token;
+
+  it('sets up a project with one placed photo', async () => {
+    const p = await request(app).post('/api/projects').send({ name: 'Shared Job' });
+    projectId = p.body.id;
+    expect(p.body.shareToken).toBeNull();
+
+    const jpeg = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: { r: 5, g: 15, b: 25 } },
+    })
+      .jpeg()
+      .toBuffer();
+    const up = await request(app).post('/api/photos').attach('photo', jpeg, 'shared.jpg');
+    sharedPhotoId = up.body.id;
+    await request(app).patch(`/api/photos/${sharedPhotoId}`).send({ projectId });
+    await request(app)
+      .put(`/api/photos/${sharedPhotoId}/location`)
+      .send({ lat: 40.4, lng: -3.7 });
+  });
+
+  it('an un-shared project 404s on the public endpoint even with a guessed token', async () => {
+    const res = await request(app).get('/api/public/share/totally-made-up-token');
+    expect(res.status).toBe(404);
+  });
+
+  it('POST /:id/share mints a token; repeat calls are idempotent', async () => {
+    const res = await request(app).post(`/api/projects/${projectId}/share`);
+    expect(res.status).toBe(200);
+    expect(res.body.shareToken).toBeTruthy();
+    token = res.body.shareToken;
+
+    const again = await request(app).post(`/api/projects/${projectId}/share`);
+    expect(again.body.shareToken).toBe(token);
+  });
+
+  it('the public endpoint returns only the project name and its photos', async () => {
+    const res = await request(app).get(`/api/public/share/${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.project.name).toBe('Shared Job');
+    expect(res.body.project).not.toHaveProperty('shareToken');
+    expect(res.body.photos.some((p) => p.id === sharedPhotoId)).toBe(true);
+    // Only safe fields are exposed — no file hash, project id, or client data.
+    const sample = res.body.photos[0];
+    expect(sample).not.toHaveProperty('fileHash');
+    expect(sample).not.toHaveProperty('projectId');
+  });
+
+  it('DELETE /:id/share revokes access — the old link 404s', async () => {
+    const del = await request(app).delete(`/api/projects/${projectId}/share`);
+    expect(del.status).toBe(200);
+    expect(del.body.shareToken).toBeNull();
+
+    const gone = await request(app).get(`/api/public/share/${token}`);
+    expect(gone.status).toBe(404);
+  });
+});
