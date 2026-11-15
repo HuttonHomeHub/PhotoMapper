@@ -1,12 +1,25 @@
 name: Publish image
 
-# Builds the Docker image and pushes it to GitHub Container Registry (GHCR).
-# Uses the built-in GITHUB_TOKEN — no personal access token needed to publish.
+# A release is a merge into main. This workflow runs CI, then publishes
+# ghcr.io/huttonhomehub/photomapper as X.Y.Z, X.Y, latest and sha-<short>, taking
+# the version from package.json. Last, it creates the vX.Y.Z tag and GitHub
+# Release with the built-in token (no personal access token). A tag made that way
+# doesn't trigger workflows, so nothing publishes twice. If vX.Y.Z already exists
+# the run fails before building, so a release without a version bump can't
+# overwrite an image. To retry a failed run, use "Re-run jobs" on GitHub.
 on:
   push:
     branches: [main]
-    tags: ['v*']
-  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-image
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: ghcr.io/huttonhomehub/photomapper
 
 jobs:
   # Same checks as ci.yml (lint, format, tests, build, audit). The image is only
@@ -18,10 +31,35 @@ jobs:
     needs: ci
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      contents: write   # create the vX.Y.Z tag and GitHub Release
+      packages: write   # push to GHCR
     steps:
       - uses: actions/checkout@v4
+
+      - name: Read and check version
+        id: version
+        run: |
+          v="$(jq -r .version package.json)"
+          if ! printf '%s' "$v" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::package.json version must be X.Y.Z, got '$v'"; exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v$v" >/dev/null; then
+            echo "::error::v$v already exists. Bump the version and add a CHANGELOG entry."; exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Release notes from CHANGELOG
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          awk -v h="## v$VERSION" '
+            index($0, h) == 1 && (length($0) == length(h) || substr($0, length(h) + 1, 1) == " ") { on = 1; next }
+            on && /^## / { exit }
+            on { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md"; then
+            echo "::error::CHANGELOG.md has no '## v$VERSION' section"; exit 1
+          fi
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -30,16 +68,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Image tags & labels
+      - name: Image tags and labels
         id: meta
         uses: docker/metadata-action@v5
         with:
-          # Resolves to ghcr.io/huttonhomehub/photomapper (lowercased automatically)
-          images: ghcr.io/${{ github.repository }}
+          images: ${{ env.IMAGE_NAME }}
+          flavor: latest=false
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=tag
-            type=semver,pattern={{version}}
+            type=semver,pattern={{version}},value=v${{ steps.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ steps.version.outputs.version }}
+            type=raw,value=latest
             type=sha,format=short
 
       - name: Set up Buildx
@@ -54,3 +92,11 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Create tag and GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "v$VERSION" --notes-file "$RUNNER_TEMP/notes.md"
