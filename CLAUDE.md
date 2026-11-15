@@ -22,7 +22,7 @@ Stack and scripts are in `package.json`. Backend listens on port `3001` (overrid
 - A push or merge to `main` publishes a new `:latest`. A `v*` tag publishes `:vX.Y.Z`. A manual workflow run publishes whatever branch it is run on.
 - `ci.yml` (lint, Prettier, tests with coverage, build, `npm audit`) runs on `dev`, `claude/**` and PRs into `main` or `dev`. `publish-image.yml` calls it first and only builds the image if it passes, so a red build never reaches GHCR.
 - Merging `dev` into `main` is the release. Only the user does this, or tags, or triggers a publish. Pushing `dev` or a `claude/*` branch runs CI only and publishes nothing.
-- After a release, if `git log origin/dev..origin/main` is not empty (the release was squash-merged), merge `main` into `dev` and push `dev`, so the next release PR only shows new work.
+- After a release, if `git log origin/dev..origin/main` is not empty (the release was squash-merged), open a PR from `main` into `dev` and merge it with a merge commit (not squash) once CI passes, so the next release PR only shows new work. `main` and `dev` require the `build` check, so direct pushes to them are blocked.
 - Dependabot (`.github/dependabot.yml`) opens weekly PRs into `dev` for npm, GitHub Actions and the Docker base image. Treat them like any other PR: run `npm run check` on the branch, and test major bumps properly before merging into `dev`. Dependabot security updates stay off, because they always target `main`.
 - `npm run check` runs every CI check locally. Run it before every push. Node is not installed on CT 106, so run it in Docker from the repo root:
   `docker run --rm --user 1000:1000 -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$PWD":/app -w /app node:22-bookworm sh -c 'npm ci && npm run check'`
