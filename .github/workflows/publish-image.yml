@@ -34,7 +34,7 @@ jobs:
       contents: write   # create the vX.Y.Z tag and GitHub Release
       packages: write   # push to GHCR
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Read and check version
         id: version
