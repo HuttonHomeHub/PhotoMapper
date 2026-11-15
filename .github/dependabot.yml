@@ -1,0 +1,37 @@
+# Dependency updates. Every PR targets dev, never main: merging into main is a
+# release, and that stays the owner's decision. Minor and patch bumps are
+# grouped into one weekly PR per ecosystem; major bumps get their own PRs so
+# they can be tested on their own.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
+
+  # Node base image in the Dockerfile. Major Node versions (e.g. 22 -> 24) are
+  # a deliberate choice that also touches ci.yml, so they are not proposed here.
+  - package-ecosystem: docker
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+    ignore:
+      - dependency-name: node
+        update-types: [version-update:semver-major]
