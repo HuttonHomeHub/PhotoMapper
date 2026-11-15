@@ -131,11 +131,13 @@ still terminate at the reverse proxy in front of the container (ADR-0007).
 ### Pre-built image from GHCR
 
 The `.github/workflows/publish-image.yml` workflow builds and pushes the image to
-GitHub Container Registry on every push to `main` (and on `v*` tags), so you can
-pull instead of building:
+GitHub Container Registry on every release (a merge into `main`), so you can pull
+instead of building. Each release is tagged with its version (`X.Y.Z` and `X.Y`),
+`latest` and `sha-<short>`:
 
 ```
 ghcr.io/huttonhomehub/photomapper:latest
+ghcr.io/huttonhomehub/photomapper:1.1.0   # pin a version to control upgrades
 ```
 
 Compose snippet (mirrors a typical self-hosted stack):

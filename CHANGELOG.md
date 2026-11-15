@@ -1,0 +1,28 @@
+# Changelog
+
+All notable changes to PhotoMapper. Versions are the published Docker image tags
+(`ghcr.io/huttonhomehub/photomapper:<version>`). The version lives in `package.json`.
+
+Every PR into `dev` adds its line under `## Unreleased`, in `### Added`, `### Changed` or
+`### Fixed`. At release, the Ship It skill turns that section into `## vX.Y.Z — <summary>`:
+a minor bump if anything is under Added, otherwise a patch bump. The publish workflow uses
+that section as the GitHub Release notes.
+
+## Unreleased
+
+### Added
+- **Version numbers for releases.** Each release now publishes the image as `X.Y.Z`, `X.Y`,
+  `latest` and `sha-<short>`, and gets a `vX.Y.Z` tag and a GitHub Release with these notes,
+  so you can see what is running and pin or roll back to a known version.
+- **This changelog.**
+
+### Changed
+- **Publishing only happens on a release** (a merge of `dev` into `main`). The version comes
+  from `package.json`; a release whose version already exists fails instead of overwriting an
+  image. Pushing a `v*` tag and running the workflow by hand no longer publish.
+
+## Before versioned releases
+Releases up to 2026-11-15 (PRs #33 and #35) were published as `:latest` and `:sha-<short>`
+only, with `package.json` left at `1.0.0`. They included the dev-branch workflow, dependency
+security fixes, Dependabot, CI-gated publishing and the Ship It skill. The first numbered
+release is `1.1.0`.
