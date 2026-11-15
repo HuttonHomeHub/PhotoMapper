@@ -1,10 +1,13 @@
 name: CI
 
 on:
+  # Pushes to main are checked by publish-image.yml, which calls this workflow
+  # before building, so main isn't listed here (avoids running CI twice).
   push:
-    branches: [main, dev, 'claude/**']
+    branches: [dev, 'claude/**']
   pull_request:
     branches: [main, dev]
+  workflow_call:
 
 jobs:
   build:
