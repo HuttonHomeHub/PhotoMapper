@@ -47,7 +47,7 @@
     "eslint": "^9.0.0",
     "eslint-plugin-react": "^7.37.0",
     "eslint-plugin-react-hooks": "^5.0.0",
-    "globals": "^15.0.0",
+    "globals": "^17.14.0",
     "jsdom": "^29.1.1",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
