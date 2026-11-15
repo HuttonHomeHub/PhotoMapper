@@ -12,7 +12,8 @@
     "format:check": "prettier --check src server",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "check": "npm run lint && npm run format:check && npm run test:coverage && npm run build && npm audit --audit-level=high"
   },
   "dependencies": {
     "better-sqlite3": "^11.9.1",
@@ -31,7 +32,7 @@
     "pino-http": "^11.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "sharp": "^0.33.5",
+    "sharp": "^0.35.5",
     "uuid": "^11.1.0",
     "zod": "^4.4.3"
   },

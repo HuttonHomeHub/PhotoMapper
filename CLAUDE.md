@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for AI assistants working in this repository.
+Guidance for AI assistants working in this repository. The rules in `~/projects/CLAUDE.md` apply here too. If the two ever disagree, the stricter one wins.
 
 ## Project
 
@@ -10,9 +10,22 @@ Stack and scripts are in `package.json`. Backend listens on port `3001` (overrid
 
 ## Development Environment
 
-- **Editor:** GitHub Codespaces + Claude Code VS Code plugin
-- **App access:** Vite and the API are accessed via Codespaces forwarded port URLs (`*.app.github.dev`), not `localhost`
-- **Dev server:** Start manually with `npm run dev`; `.devcontainer/` exists for Codespaces setup
+- **Where:** CT 106, development only. The live copy runs on VM 113 and is never touched from here.
+- **Editor:** Claude Code VS Code plugin
+- **Dev server:** `npm run dev` (Vite plus the API on `:3001`). Node is not installed on CT 106, so run it in Docker (see Build and Release) or use `docker compose up --build`.
+- **Docker test stack:** `docker compose up --build`, test data only
+- `.devcontainer/` is a leftover from Codespaces and is not used on CT 106
+
+## Build and Release
+
+- GitHub Actions builds and publishes the image (`.github/workflows/publish-image.yml`) to `ghcr.io/huttonhomehub/photomapper`. Never build-and-push it from CT 106.
+- A push or merge to `main` publishes a new `:latest`. A `v*` tag publishes `:vX.Y.Z`. A manual workflow run publishes whatever branch it is run on.
+- `ci.yml` (lint, Prettier, tests with coverage, build, `npm audit`) runs on `main`, `dev`, `claude/**` and PRs into `main` or `dev`. It does not gate publishing.
+- Merging `dev` into `main` is the release. Only the user does this, or tags, or triggers a publish. Pushing `dev` or a `claude/*` branch runs CI only and publishes nothing.
+- `npm run check` runs every CI check locally. Run it before every push. Node is not installed on CT 106, so run it in Docker from the repo root:
+  `docker run --rm --user 1000:1000 -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$PWD":/app -w /app node:22-bookworm sh -c 'npm ci && npm run check'`
+- Nothing deploys automatically. The user updates VM 113 by pulling the new image by hand, when they choose.
+- Changes to the `Dockerfile`, `docker-compose.yml` or `.github/workflows/` change what gets released. Say so before editing them.
 
 ## File Map
 
@@ -43,7 +56,7 @@ server/
 - **Non-fatal EXIF** — photos without GPS still upload successfully; `has_gps = 0`
 - **Dark theme palette** — `#1a1a2e` bg, `#16213e` sidebar, `#e97b25` accent — match this in new UI
 - Vite dev server proxies `/api` and `/uploads` to `:3001`
-- No test suite yet — place tests under `tests/` when adding one
+- Tests live under `tests/` (Vitest). Run `npm run lint`, `npm run format:check` and `npm run test:coverage` before handing work back, because CI enforces them.
 
 ## Subagents
 
@@ -54,9 +67,11 @@ Use these for focused work to avoid loading irrelevant context:
 
 ## Development Workflow
 
-- Branch: `claude/<description>-<id>` for AI tasks; never push directly to `main`
+- Branches: `dev` is the integration branch. Work on `claude/<description>-<id>`, branched from `dev`. Never push directly to `main`.
 - Commits: imperative, focused — `add deletion endpoint`, `fix map clustering on zoom`
-- Claude makes file changes only — user handles all git operations (stage, commit, push, PR) via VS Code source control or terminal
+- Flow: run `npm run check`, push the branch, open a PR into `dev`, and merge it into `dev` when CI is green. Claude decides when.
+- Claude may run any git command on CT 106, and push `claude/*` branches and `dev` only
+- The user handles everything that reaches `main`: the `dev` into `main` merge (the release), tags, publish. When the user says "release", tell them CI state and what `dev` contains first.
 
 ## AI Assistant Rules
 
@@ -68,9 +83,10 @@ Use these for focused work to avoid loading irrelevant context:
 **Don't:**
 - Add error handling, comments, or refactors beyond what was asked
 - Introduce new dependencies without discussing first
-- Run any git commands — no `git add`, `git commit`, `git push`, or `gh pr create`; user owns all git operations
+- Push to or merge into `main`, create or push tags, or run `gh workflow run` — the user owns everything that reaches `main` and all releases
+- Connect to VM 113 or any live service, or use live data, passwords or tokens
 - Create backup files, scratch files, or temporary docs
 
 ## Updating This File
 
-Keep only what Claude cannot infer from source files. If it's already in `package.json`, `server/index.js`, or `server/db.js` — don't repeat it here.
+Keep only what Claude cannot infer from source files. If it's already in `package.json`, `server/index.js`, or `server/db.js` — don't repeat it here. Keep it consistent with `~/projects/CLAUDE.md`.
