@@ -16,7 +16,7 @@
     "check": "npm run lint && npm run format:check && npm run test:coverage && npm run build && npm audit --audit-level=high"
   },
   "dependencies": {
-    "better-sqlite3": "^11.9.1",
+    "better-sqlite3": "^13.1.1",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "exifr": "^7.1.3",
