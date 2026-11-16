@@ -2,6 +2,11 @@ import { app } from './app.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { closeDb } from './db.js';
+import { deprecatedSettings } from './paths.js';
+
+for (const [oldName, newName] of deprecatedSettings) {
+  logger.warn(`setting ${oldName} is deprecated; use ${newName}`);
+}
 
 // Don't bind a port under test — supertest drives the app object directly.
 if (!config.isTest) {

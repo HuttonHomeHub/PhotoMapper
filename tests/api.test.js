@@ -7,14 +7,14 @@ import sharp from 'sharp';
 
 // Seeds TEST-02 (API integration) and locks in BE-01 (async error handling).
 // The app is imported with NODE_ENV=test so it does not bind a port, and with a
-// throwaway PHOTOS_DB_PATH + UPLOADS_DIR so it never touches real data.
+// throwaway DB_PATH + UPLOADS_DIR so it never touches real data.
 
 let app;
 let tmpDir;
 
 beforeAll(async () => {
   tmpDir = mkdtempSync(join(tmpdir(), 'photomapper-api-'));
-  process.env.PHOTOS_DB_PATH = join(tmpDir, 'test.db');
+  process.env.DB_PATH = join(tmpDir, 'test.db');
   process.env.UPLOADS_DIR = join(tmpDir, 'uploads');
   process.env.NODE_ENV = 'test';
   ({ app } = await import('../server/index.js'));
@@ -233,7 +233,13 @@ describe('OPS-04: health & readiness probes', () => {
   it('GET /health returns 200 without touching the database', async () => {
     const res = await request(app).get('/health');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: 'ok' });
+    expect(res.body).toEqual({ status: 'ok', version: 'dev' });
+  });
+
+  it('GET /version reports the running version', async () => {
+    const res = await request(app).get('/version');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ version: 'dev' });
   });
 
   it('GET /ready returns 200 when the database is reachable', async () => {

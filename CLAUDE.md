@@ -17,6 +17,11 @@ Stack and scripts are in `package.json`. Backend listens on port `3001` (overrid
 - **Test stack:** `docker compose up -d --build`, test data only. The git-excluded `compose.override.yaml` publishes port 3001 on all interfaces (the tracked `docker-compose.yml` binds loopback only, for the live layout). code-server's `/proxy/3001/` does not work, because the app loads its files from root paths.
 - `.devcontainer/` is a leftover from Codespaces and is not used on CT 106.
 
+## Settings
+
+- Named to the shared container standard in `~/projects/CLAUDE.md`. Data paths are resolved in `server/paths.js`: `DATA_DIR` (the image sets `/config`), then `DB_PATH` (old name `PHOTOS_DB_PATH` still works and is collected in `deprecatedSettings`, which `server/index.js` logs at startup) and `UPLOADS_DIR`. Everything else is validated in `server/config.js`, including `APP_VERSION` (reported at `/health` and `/version`).
+- `deploy/compose.example.yml` is the live layout; the root `docker-compose.yml` builds from source for local use.
+
 ## Release
 
 - Version: `version` in `package.json` (and `package-lock.json`). `CHANGELOG.md` has an `## Unreleased` section with `### Added` / `### Changed` / `### Fixed`; every PR into `dev` adds its line there.

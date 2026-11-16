@@ -28,14 +28,18 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends gosu \
   && rm -rf /var/lib/apt/lists/*
 
+# All state lives under /config (the shared container standard): DB_PATH and
+# UPLOADS_DIR default to photos.db and uploads/ inside DATA_DIR. The entrypoint
+# fixes ownership at startup.
 ENV NODE_ENV=production \
     PORT=3001 \
-    PHOTOS_DB_PATH=/config/photos.db \
-    UPLOADS_DIR=/config/uploads
-
-# Persistent state dir (SQLite file + uploads), named `/config` to match the
-# common self-hosted convention. The entrypoint fixes its ownership at startup.
+    DATA_DIR=/config
 RUN mkdir -p /config
+
+# Release version stamped in by the publish workflow (from the image tag). Reported
+# at GET /health and /version.
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
 
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
