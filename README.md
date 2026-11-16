@@ -21,7 +21,8 @@ tools for organising them into clients, projects and survey dates.
 - **Organisation** — clients → projects → survey dates; tags and field notes
 - **Timeline playback**, elevation profile, photo comparison, full-screen
   lightbox, GeoJSON/KML export, PNG map export
-- Keyboard shortcuts, dark theme, responsive/mobile layout
+- Keyboard shortcuts, light and dark themes (following the system, or the toggle), responsive/mobile layout
+- Settings panel: instance information, and backups with download and restore
 
 ## Tech stack
 

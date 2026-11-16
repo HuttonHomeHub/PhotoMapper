@@ -12,6 +12,12 @@ that section as the GitHub Release notes.
 
 ### Added
 
+- **New look, the HuttonHomeHub design system** (shared with Crane Charts): an app bar with the name,
+  the running version, keyboard shortcuts, a light/dark toggle and Settings; a **light theme**
+  alongside the dark one, following the system until you pick one; the Inter typeface on a 14px
+  scale. On a phone, the sidebar opens from the app bar's menu button.
+- **Settings panel** (the gear): this instance's version, library size, data folders, limits and proxy
+  set-up, and its backups: status and schedule, back up now, download, restore, upload and restore.
 - **Backups and restore**, the same as Crane Charts (shared kit): a zip of the database and uploads
   every `BACKUP_INTERVAL_HOURS` (24) into `BACKUP_DIR` (default `/config/backups`), keeping
   `BACKUP_KEEP` (7). `/api/backup` lists them, backs up now, downloads one or restores one (by name or
