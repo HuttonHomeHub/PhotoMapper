@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toGeoJSON, toKML } from '../server/services/exportPhotos.js';
+import { toGeoJSON, toKML } from '../server/services/exportPhotos.ts';
 
 // TEST-02: export serializers are pure and security-relevant (KML embeds
 // user-supplied names/descriptions into XML), so they get direct coverage.

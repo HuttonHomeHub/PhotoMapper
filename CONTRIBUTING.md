@@ -39,10 +39,10 @@ See the architecture tree in [`README.md`](README.md). In short:
 - **camelCase ↔ snake_case** — DB columns are `snake_case`; `db.js` maps them to
   `camelCase` at the boundary. Keep new columns consistent and map them there.
 - **Add API calls in the hooks**, not in components. New routes go in
-  `server/routes/*`; new DB access in `server/db.js`.
+  `server/routes/*`; new DB access in `server/db.ts`.
 - **Schema changes are migrations** — append a new `{ version, name, up(db) }` to
-  the `migrations` array in `server/db.js`. **Never edit an applied migration.**
-- **Validation** — declare a zod schema in `server/validation.js` and attach it
+  the `migrations` array in `server/db.ts`. **Never edit an applied migration.**
+- **Validation** — declare a zod schema in `server/validation.ts` and attach it
   with `validate(...)`; don't hand-roll body checks in handlers.
 - **Dark theme palette** — `#1a1a2e` bg, `#16213e` sidebar, `#e97b25` accent.
 - **Code style** — Prettier + ESLint. The whole tree follows `.prettierrc`
@@ -75,7 +75,7 @@ npm run test:coverage # with coverage thresholds (enforced in CI)
 
 ## Configuration
 
-All runtime config is validated on startup in `server/config.js`; copy
+All runtime config is validated on startup in `server/config.ts`; copy
 `.env.example` to `.env` for local overrides. See the table in
 [`README.md`](README.md#configuration). Production auth is enforced at a reverse
 proxy — read [`docs/DEPLOYMENT-SECURITY.md`](docs/DEPLOYMENT-SECURITY.md) before

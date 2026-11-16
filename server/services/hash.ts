@@ -2,7 +2,7 @@ import { createReadStream } from 'fs';
 import { createHash } from 'crypto';
 
 // SHA-256 of a file's contents, used for upload de-duplication.
-export function hashFile(filePath) {
+export function hashFile(filePath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const hash = createHash('sha256');
     createReadStream(filePath)

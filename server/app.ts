@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { type ErrorRequestHandler, type Express } from 'express';
 // BE-01: patches Express 4 so errors thrown/rejected in async route handlers are
 // forwarded to the error middleware instead of hanging the request.
 import 'express-async-errors';
@@ -6,21 +6,27 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
-import pinoHttp from 'pino-http';
+import { pinoHttp } from 'pino-http';
 import { join } from 'path';
 import { readdirSync } from 'fs';
 import { unlink } from 'fs/promises';
-import { config } from './config.js';
-import { logger } from './logger.js';
-import { uploadsDir, distDir } from './paths.js';
-import { resetAll, pingDb } from './db.js';
-import photosRouter from './routes/photos.js';
-import clientsRouter from './routes/clients.js';
-import projectsRouter from './routes/projects.js';
-import geocodeRouter from './routes/geocode.js';
-import publicRouter from './routes/public.js';
+import { config } from './config.ts';
+import { logger } from './logger.ts';
+import { uploadsDir, distDir } from './paths.ts';
+import { resetAll, pingDb } from './db.ts';
+import { photosRouter } from './routes/photos.ts';
+import { clientsRouter } from './routes/clients.ts';
+import { projectsRouter } from './routes/projects.ts';
+import { geocodeRouter } from './routes/geocode.ts';
+import { publicRouter } from './routes/public.ts';
 
-export function createApp() {
+/** An error a route throws; `status`/`statusCode` < 500 are shown to the client. */
+interface RouteError extends Error {
+  status?: number;
+  statusCode?: number;
+}
+
+export function createApp(): Express {
   const app = express();
 
   // Behind a reverse proxy, trust it so req.ip, the rate limiter, and protocol
@@ -109,7 +115,7 @@ export function createApp() {
   app.use('/api/projects', projectsRouter);
   app.use('/api/geocode', geocodeRouter);
   // FEAT: the single public, unauthenticated surface — read-only project shares
-  // via capability token. Still rate-limited (mounted under /api). See routes/public.js.
+  // via capability token. Still rate-limited (mounted under /api). See routes/public.ts.
   app.use('/api/public', publicRouter);
 
   // SEC-02: destructive full wipe. Disabled unless explicitly enabled via env, as
@@ -143,7 +149,7 @@ export function createApp() {
 
   // BE-06: error-handling middleware is registered LAST so it catches errors from
   // every route above it (previously it sat before the reset/SPA routes).
-  app.use((err, req, res, _next) => {
+  const errorHandler: ErrorRequestHandler = (err: RouteError, req, res, _next) => {
     (req.log ?? logger).error({ err }, 'Unhandled request error');
     const status = err.status || err.statusCode || 500;
     // SEC-08: don't leak internal error detail to clients in production. Client
@@ -153,7 +159,8 @@ export function createApp() {
         ? err.message || 'Internal server error'
         : 'Internal server error';
     res.status(status).json({ error: message });
-  });
+  };
+  app.use(errorHandler);
 
   return app;
 }

@@ -1,14 +1,15 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { validate, schemas } from '../validation.js';
-import { createClient, getAllClients, getClientById, updateClient, deleteClient } from '../db.js';
+import { validate, schemas, type Body } from '../validation.ts';
+import { createClient, getAllClients, getClientById, updateClient, deleteClient } from '../db.ts';
 
-const router = Router();
+export const clientsRouter = Router();
+const router = clientsRouter;
 
 router.get('/', (_req, res) => res.json(getAllClients()));
 
 router.post('/', validate(schemas.createClient), (req, res) => {
-  const { name } = req.body; // validated + trimmed
+  const { name } = req.body as Body<'createClient'>; // validated + trimmed
   const client = {
     id: uuidv4(),
     name,
@@ -18,7 +19,7 @@ router.post('/', validate(schemas.createClient), (req, res) => {
   try {
     createClient(client);
   } catch (err) {
-    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    if ((err as { code?: string }).code === 'SQLITE_CONSTRAINT_UNIQUE') {
       return res.status(409).json({ error: 'A client with that name already exists' });
     }
     throw err;
@@ -27,25 +28,25 @@ router.post('/', validate(schemas.createClient), (req, res) => {
 });
 
 router.patch('/:id', validate(schemas.updateClient), (req, res) => {
+  const { id } = req.params as { id: string };
   // BE-04: 404 on missing client, 409 on duplicate name (name validated by schema).
-  const { name } = req.body;
-  let changed;
+  const { name } = req.body as Body<'updateClient'>;
+  let changed: number;
   try {
-    changed = updateClient(req.params.id, { name, updatedAt: new Date().toISOString() });
+    changed = updateClient(id, { name, updatedAt: new Date().toISOString() });
   } catch (err) {
-    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    if ((err as { code?: string }).code === 'SQLITE_CONSTRAINT_UNIQUE') {
       return res.status(409).json({ error: 'A client with that name already exists' });
     }
     throw err;
   }
   if (!changed) return res.status(404).json({ error: 'Client not found' });
-  res.json(getClientById(req.params.id));
+  res.json(getClientById(id));
 });
 
 router.delete('/:id', (req, res) => {
-  const changes = deleteClient(req.params.id);
+  const { id } = req.params as { id: string };
+  const changes = deleteClient(id);
   if (!changes) return res.status(404).json({ error: 'not found' });
-  res.json({ id: req.params.id });
+  res.json({ id: id });
 });
-
-export default router;

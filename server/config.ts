@@ -38,7 +38,7 @@ const schema = z.object({
 
 // Parse TRUST_PROXY into a value Express accepts: false (off), true, a hop count,
 // or a raw string (comma-separated IPs/subnets or a preset like "loopback").
-export function parseTrustProxy(value) {
+export function parseTrustProxy(value: string | undefined): boolean | number | string {
   const s = (value ?? '').trim();
   if (s === '' || s === 'false') return false;
   if (s === 'true') return true;

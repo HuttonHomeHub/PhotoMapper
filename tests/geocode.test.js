@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { geoKey, searchPlaces, _clearSearchCache } from '../server/services/geocode.js';
+import { geoKey, searchPlaces, _clearSearchCache } from '../server/services/geocode.ts';
 
 // BE-07/SEC-05: exercises the cache + background-queue logic without touching
 // the network (only the cache-hit path is driven).
@@ -14,8 +14,8 @@ let tmpDir;
 beforeAll(async () => {
   tmpDir = mkdtempSync(join(tmpdir(), 'photomapper-geo-'));
   process.env.DB_PATH = join(tmpDir, 'geo.db');
-  db = await import('../server/db.js');
-  queue = await import('../server/services/geocodeQueue.js');
+  db = await import('../server/db.ts');
+  queue = await import('../server/services/geocodeQueue.ts');
 });
 
 afterAll(() => rmSync(tmpDir, { recursive: true, force: true }));

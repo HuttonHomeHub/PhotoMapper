@@ -1,10 +1,11 @@
 import { Router } from 'express';
-import { searchPlaces } from '../services/geocode.js';
+import { searchPlaces } from '../services/geocode.ts';
 
-const router = Router();
+export const geocodeRouter = Router();
+const router = geocodeRouter;
 
 // FE-05: forward geocoding proxy. The browser calls this instead of Nominatim
-// directly; the /api rate limiter (app.js) already covers it.
+// directly; the /api rate limiter (app.ts) already covers it.
 router.get('/search', async (req, res) => {
   const q = String(req.query.q ?? '').trim();
   if (!q) return res.status(400).json({ error: 'Missing query' });
@@ -14,5 +15,3 @@ router.get('/search', async (req, res) => {
     res.status(502).json({ error: 'Location search failed' });
   }
 });
-
-export default router;

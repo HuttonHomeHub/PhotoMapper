@@ -10,10 +10,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // they default to server/photos.db and server/uploads, as before.
 const dataDir = process.env.DATA_DIR ? resolve(process.env.DATA_DIR) : __dirname;
 
-// Old setting names still in use, as [old, new] pairs; index.js logs a warning each.
-export const deprecatedSettings = [];
+// Old setting names still in use, as [old, new] pairs; index.ts logs a warning each.
+export const deprecatedSettings: [string, string][] = [];
 
-function setting(name, legacyName) {
+function setting(name: string, legacyName?: string): string | undefined {
   if (process.env[name]) return process.env[name];
   if (legacyName && process.env[legacyName]) {
     deprecatedSettings.push([legacyName, name]);

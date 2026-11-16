@@ -1,6 +1,8 @@
 // Serialization of geotagged photos to GeoJSON and KML for export.
 
-export function toGeoJSON(photos) {
+import type { Photo } from '../db.ts';
+
+export function toGeoJSON(photos: Photo[]) {
   return {
     type: 'FeatureCollection',
     features: photos.map((p) => ({
@@ -27,14 +29,14 @@ export function toGeoJSON(photos) {
   };
 }
 
-const esc = (s) =>
+const esc = (s: unknown): string =>
   String(s ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
-export function toKML(photos) {
+export function toKML(photos: Photo[]): string {
   const placemarks = photos
     .map((p) => {
       const extData = [

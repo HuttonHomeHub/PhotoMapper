@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseTrustProxy } from '../server/config.js';
+import { parseTrustProxy } from '../server/config.ts';
 
 // Trust-proxy config parsing: behind a reverse proxy this drives Express's
 // `trust proxy` so req.ip / rate-limiting use the real client, not the proxy.

@@ -4,15 +4,15 @@ import sharp from 'sharp';
 import { join } from 'path';
 import { unlink } from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
-import { uploadsDir } from '../paths.js';
-import { config } from '../config.js';
-import { validate, schemas } from '../validation.js';
-import { hashFile } from '../services/hash.js';
-import { extractPhotoMetadata } from '../services/exif.js';
-import { cachedLocation, enqueueGeocode } from '../services/geocodeQueue.js';
-import { generateThumbnail } from '../services/thumbnail.js';
-import { toGeoJSON, toKML } from '../services/exportPhotos.js';
-import { logger } from '../logger.js';
+import { uploadsDir } from '../paths.ts';
+import { config } from '../config.ts';
+import { validate, schemas, type Body } from '../validation.ts';
+import { hashFile } from '../services/hash.ts';
+import { extractPhotoMetadata } from '../services/exif.ts';
+import { cachedLocation, enqueueGeocode } from '../services/geocodeQueue.ts';
+import { generateThumbnail } from '../services/thumbnail.ts';
+import { toGeoJSON, toKML } from '../services/exportPhotos.ts';
+import { logger } from '../logger.ts';
 import {
   insertPhoto,
   getAllPhotos,
@@ -28,12 +28,16 @@ import {
   setPhotoLocation,
   clearManualLocation,
   batchUpdatePhotos,
-} from '../db.js';
+  type NewPhoto,
+  type Photo,
+  type PhotoQuery,
+} from '../db.ts';
 
-const router = Router();
+export const photosRouter = Router();
+const router = photosRouter;
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/heic', 'image/webp']);
-const MIME_TO_EXT = {
+const MIME_TO_EXT: Record<string, string> = {
   'image/jpeg': '.jpg',
   'image/png': '.png',
   'image/heic': '.heic',
@@ -56,7 +60,7 @@ const upload = multer({
   limits: { fileSize: config.uploadMaxBytes }, // SEC-07: configurable, default 60 MB
 });
 
-const duplicate = (photo) => ({
+const duplicate = (photo: Photo | null) => ({
   error: 'duplicate',
   message: 'This photo has already been uploaded',
   photo,
@@ -67,10 +71,12 @@ const duplicate = (photo) => ({
 // rejects SVG (script-bearing) and any non-image renamed to look like one.
 const ALLOWED_CONTENT_FORMATS = new Set(['jpeg', 'png', 'webp', 'heif']);
 
-async function isSupportedImage(path) {
+async function isSupportedImage(path: string): Promise<boolean> {
   try {
     const meta = await sharp(path).metadata();
-    return !!meta && meta.width > 0 && ALLOWED_CONTENT_FORMATS.has(meta.format);
+    return (
+      (meta.width ?? 0) > 0 && meta.format !== undefined && ALLOWED_CONTENT_FORMATS.has(meta.format)
+    );
   } catch {
     return false;
   }
@@ -96,11 +102,13 @@ router.post('/', upload.single('photo'), async (req, res) => {
   const meta = await extractPhotoMetadata(file.path);
   // BE-07/SEC-05: use the geocode cache synchronously if available; otherwise the
   // photo is saved without a location and it's resolved in the background below.
-  const cachedName = meta.hasGps ? cachedLocation(meta.lat, meta.lng) : undefined;
+  const gps = meta.lat != null && meta.lng != null ? { lat: meta.lat, lng: meta.lng } : null;
+  const cachedName = gps ? cachedLocation(gps.lat, gps.lng) : undefined;
   const locationName = cachedName ?? null;
   const thumbnailFilename = await generateThumbnail(file.path, file.filename);
 
-  const record = {
+  const uploadBody = req.body as { projectId?: string } | undefined;
+  const record: NewPhoto = {
     id: uuidv4(),
     filename: file.filename,
     thumbnailFilename,
@@ -121,7 +129,7 @@ router.post('/', upload.single('photo'), async (req, res) => {
     exposureTime: meta.exposureTime,
     fileHash,
     locationName,
-    projectId: req.body?.projectId || null,
+    projectId: uploadBody?.projectId || null,
     focalLengthIn35mm: meta.focalLengthIn35mm,
     panoHFov: meta.panoHFov,
   };
@@ -129,7 +137,7 @@ router.post('/', upload.single('photo'), async (req, res) => {
   try {
     insertPhoto(record);
   } catch (err) {
-    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    if ((err as { code?: string }).code === 'SQLITE_CONSTRAINT_UNIQUE') {
       await unlink(file.path).catch(() => {});
       if (thumbnailFilename) await unlink(join(uploadsDir, thumbnailFilename)).catch(() => {});
       return res.status(409).json(duplicate(getPhotoByHash(fileHash)));
@@ -139,8 +147,8 @@ router.post('/', upload.single('photo'), async (req, res) => {
 
   // Resolve the location in the background (rate-limited, cached) when it wasn't
   // already cached. Fire-and-forget — the upload response is not blocked on it.
-  if (meta.hasGps && cachedName === undefined) {
-    enqueueGeocode(record.id, meta.lat, meta.lng);
+  if (gps && cachedName === undefined) {
+    void enqueueGeocode(record.id, gps.lat, gps.lng);
   }
 
   res.status(201).json({ ...record, hasGps: !!record.hasGps, tags: [], description: null });
@@ -165,12 +173,14 @@ const FILTER_KEYS = [
 ];
 
 router.get('/', (req, res) => {
-  const q = req.query;
+  // Every filter is a single string. (A repeated key arrives as an array; that
+  // case is handled when the routes move to the shared kit's validation.)
+  const q = req.query as Record<string, string | undefined>;
   if (!FILTER_KEYS.some((k) => q[k] !== undefined)) {
     return res.json(getAllPhotos());
   }
 
-  const opts = {};
+  const opts: PhotoQuery = {};
   if (q.projectId !== undefined) opts.projectId = q.projectId === 'none' ? null : q.projectId;
   if (q.clientId !== undefined) opts.clientId = q.clientId === 'none' ? null : q.clientId;
   if (q.surveyDate !== undefined)
@@ -182,14 +192,21 @@ router.get('/', (req, res) => {
   if (q.to) opts.to = q.to;
   if (q.bbox !== undefined) {
     const [west, south, east, north] = String(q.bbox).split(',').map(Number);
-    if ([west, south, east, north].every(Number.isFinite)) opts.bbox = { west, south, east, north };
+    if (
+      west !== undefined &&
+      south !== undefined &&
+      east !== undefined &&
+      north !== undefined &&
+      [west, south, east, north].every(Number.isFinite)
+    )
+      opts.bbox = { west, south, east, north };
   }
 
-  let limit = null;
+  let limit: number | null = null;
   let offset = 0;
   if (q.limit !== undefined) {
     limit = Math.min(Math.max(parseInt(q.limit, 10) || 0, 0), 500); // cap page size
-    offset = Math.max(parseInt(q.offset, 10) || 0, 0);
+    offset = Math.max(parseInt(q.offset ?? '', 10) || 0, 0);
     opts.limit = limit;
     opts.offset = offset;
   }
@@ -215,13 +232,14 @@ router.get('/export', (req, res) => {
 // PERF-01/A: single-photo detail. A proper REST resource for the lightbox/detail
 // view and deep-linking. Declared after /export so ":id" doesn't capture it.
 router.get('/:id', (req, res) => {
-  const photo = getPhotoFullById(req.params.id);
+  const { id } = req.params as { id: string };
+  const photo = getPhotoFullById(id);
   if (!photo) return res.status(404).json({ error: 'Photo not found' });
   res.json(photo);
 });
 
 router.patch('/batch', validate(schemas.batchUpdatePhotos), (req, res) => {
-  const { ids, tags, description, mergeTags } = req.body;
+  const { ids, tags, description, mergeTags } = req.body as Body<'batchUpdatePhotos'>;
   const allPhotos = getAllPhotos();
   const updates = ids
     .map((id) => {
@@ -235,45 +253,49 @@ router.patch('/batch', validate(schemas.batchUpdatePhotos), (req, res) => {
         tags: finalTags,
       };
     })
-    .filter(Boolean);
+    .filter((u) => u !== null);
   batchUpdatePhotos(updates);
   res.json({ updated: updates.length });
 });
 
 router.patch('/:id', validate(schemas.updatePhoto), (req, res) => {
-  const photo = getPhotoById(req.params.id);
+  const { id } = req.params as { id: string };
+  const photo = getPhotoById(id);
   if (!photo) return res.status(404).json({ error: 'Photo not found' });
-  const { description, tags, projectId, surveyDate } = req.body;
-  if (description !== undefined || tags !== undefined)
-    updatePhoto(req.params.id, { description, tags });
-  if (projectId !== undefined) updatePhotoProject(req.params.id, projectId);
-  if (surveyDate !== undefined) updatePhotoSurveyDate(req.params.id, surveyDate);
-  res.json(getPhotoFullById(req.params.id));
+  const { description, tags, projectId, surveyDate } = req.body as Body<'updatePhoto'>;
+  if (description !== undefined || tags !== undefined) updatePhoto(id, { description, tags });
+  if (projectId !== undefined) updatePhotoProject(id, projectId);
+  if (surveyDate !== undefined) updatePhotoSurveyDate(id, surveyDate);
+  res.json(getPhotoFullById(id));
 });
 
 // FEAT: manually place a GPS-less photo (or reposition a hand-placed pin). A
 // two-segment path, so it never collides with the single-segment PATCH/DELETE
 // `/:id` routes above.
 router.put('/:id/location', validate(schemas.setPhotoLocation), (req, res) => {
-  const photo = getPhotoById(req.params.id);
+  const { id } = req.params as { id: string };
+  const photo = getPhotoById(id);
   if (!photo) return res.status(404).json({ error: 'Photo not found' });
-  setPhotoLocation(req.params.id, req.body.lat, req.body.lng);
-  res.json(getPhotoFullById(req.params.id));
+  const { lat, lng } = req.body as Body<'setPhotoLocation'>;
+  setPhotoLocation(id, lat, lng);
+  res.json(getPhotoFullById(id));
 });
 
 // FEAT: remove a hand-placed location, returning the photo to "No GPS". Refuses
 // (409) if the photo has no manual location — real EXIF fixes can't be cleared.
 router.delete('/:id/location', (req, res) => {
-  const photo = getPhotoById(req.params.id);
+  const { id } = req.params as { id: string };
+  const photo = getPhotoById(id);
   if (!photo) return res.status(404).json({ error: 'Photo not found' });
-  const changed = clearManualLocation(req.params.id);
+  const changed = clearManualLocation(id);
   if (!changed)
     return res.status(409).json({ error: 'Photo has no manually-set location to clear' });
-  res.json(getPhotoFullById(req.params.id));
+  res.json(getPhotoFullById(id));
 });
 
 router.delete('/:id', async (req, res) => {
-  const photo = getPhotoById(req.params.id);
+  const { id } = req.params as { id: string };
+  const photo = getPhotoById(id);
   if (!photo) return res.status(404).json({ error: 'Photo not found' });
 
   deletePhoto(photo.id);
@@ -281,17 +303,17 @@ router.delete('/:id', async (req, res) => {
   try {
     await unlink(join(uploadsDir, photo.filename));
   } catch (err) {
-    if (err.code !== 'ENOENT') logger.error({ err }, 'File delete failed');
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT')
+      logger.error({ err }, 'File delete failed');
   }
   if (photo.thumbnailFilename) {
     try {
       await unlink(join(uploadsDir, photo.thumbnailFilename));
     } catch (err) {
-      if (err.code !== 'ENOENT') logger.error({ err }, 'Thumbnail delete failed');
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT')
+        logger.error({ err }, 'Thumbnail delete failed');
     }
   }
 
   res.json({ id: photo.id });
 });
-
-export default router;

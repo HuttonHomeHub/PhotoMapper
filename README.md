@@ -48,7 +48,7 @@ URL it prints (or the Codespaces forwarded port).
 | Script                  | Purpose                                    |
 | ----------------------- | ------------------------------------------ |
 | `npm run dev`           | API + Vite dev server (concurrently)       |
-| `npm run server`        | API only (`node server/index.js`)          |
+| `npm run server`        | API only (`node server/index.ts`)          |
 | `npm run build`         | Production build to `dist/`                |
 | `npm start`             | Serve the built app + API from one process |
 | `npm test`              | Run the Vitest suite once                  |
@@ -59,7 +59,7 @@ URL it prints (or the Codespaces forwarded port).
 
 ## Configuration
 
-All runtime config is validated on startup (`server/config.js`). Copy
+All runtime config is validated on startup (`server/config.ts`). Copy
 `.env.example` to `.env` for local overrides. Key variables:
 
 Shared with every HuttonHomeHub app (same name and meaning everywhere):
@@ -117,7 +117,7 @@ stored in the DB).
 ## Database & migrations
 
 SQLite via better-sqlite3. Schema changes are versioned migrations in
-`server/db.js`, applied by `server/migrate.js`, which records applied versions in
+`server/db.ts`, applied by `server/migrate.ts`, which records applied versions in
 a `schema_migrations` table, takes a `VACUUM INTO` backup before mutating an
 existing database, and fails loudly on error. Add a new schema change as the next
 `{ version, name, up(db) }` entry — never edit an applied migration.

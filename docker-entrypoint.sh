@@ -9,7 +9,7 @@ set -e
 PUID="${PUID:-1000}"
 PGID="${PGID:-1000}"
 
-# Same resolution as server/paths.js: the standard name, then the old name, then a
+# Same resolution as server/paths.ts: the standard name, then the old name, then a
 # default inside DATA_DIR (/config in the image).
 DATA_DIR="${DATA_DIR:-/config}"
 DB_DIR="$(dirname "${DB_PATH:-${PHOTOS_DB_PATH:-$DATA_DIR/photos.db}}")"

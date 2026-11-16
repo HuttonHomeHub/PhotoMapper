@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync, readdirSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { runMigrations } from '../server/migrate.js';
+import { runMigrations } from '../server/migrate.ts';
 
 const cleanup = [];
 afterAll(() => cleanup.forEach((d) => rmSync(d, { recursive: true, force: true })));
@@ -76,7 +76,7 @@ describe('legacy upgrade path (db.js baseline)', () => {
 
     // Import db.js against it → the baseline migration runs.
     process.env.DB_PATH = dbPath;
-    const dbmod = await import('../server/db.js');
+    const dbmod = await import('../server/db.ts');
 
     const all = dbmod.getAllPhotos();
     expect(all).toHaveLength(1);

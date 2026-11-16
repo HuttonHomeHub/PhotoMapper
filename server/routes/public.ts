@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import { getProjectByShareToken, queryPhotos } from '../db.js';
+import { getProjectByShareToken, queryPhotos } from '../db.ts';
 
-const router = Router();
+export const publicRouter = Router();
+const router = publicRouter;
 
 // FEAT: public, unauthenticated read-only access to a single shared project via
 // an unguessable capability token. This is the ONE deliberately public surface in
@@ -33,5 +34,3 @@ router.get('/share/:token', (req, res) => {
 
   res.json({ project: { name: project.name, color: project.color }, photos });
 });
-
-export default router;

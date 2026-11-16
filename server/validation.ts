@@ -1,10 +1,11 @@
+import type { RequestHandler } from 'express';
 import { z } from 'zod';
 
 // BE-02: centralized request-body validation. Each route declares a schema;
 // invalid bodies get a 400 with field-level detail before the handler runs, and
 // the handler receives the parsed (and coerced/trimmed) body.
 
-export function validate(schema) {
+export function validate(schema: z.ZodType): RequestHandler {
   return (req, res, next) => {
     const result = schema.safeParse(req.body);
     if (!result.success) {
@@ -66,3 +67,6 @@ export const schemas = {
     photoIds: z.array(z.string()).min(1, 'photoIds array required'),
   }),
 };
+
+/** The parsed body a route receives after `validate(schemas.<name>)`. */
+export type Body<K extends keyof typeof schemas> = z.infer<(typeof schemas)[K]>;
