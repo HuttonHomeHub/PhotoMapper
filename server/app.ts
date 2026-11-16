@@ -8,6 +8,8 @@ import { config } from './config.ts';
 import { logger } from './logger.ts';
 import { uploadsDir, distDir } from './paths.ts';
 import { resetAll, pingDb } from './db.ts';
+import { withLock } from './lock.ts';
+import { backupsRouter, infoRouter } from './routes/backups.ts';
 import { photosRouter } from './routes/photos.ts';
 import { clientsRouter } from './routes/clients.ts';
 import { projectsRouter } from './routes/projects.ts';
@@ -52,6 +54,9 @@ export function createApp(): Express {
   // FEAT: the single public, unauthenticated surface — read-only project shares
   // via capability token. Still rate-limited (mounted under /api). See routes/public.ts.
   app.use('/api/public', publicRouter);
+  // Backups and restore, and the instance information the Settings panel shows.
+  app.use('/api/backup', backupsRouter);
+  app.use('/api/info', infoRouter);
 
   // SEC-02: destructive full wipe. Disabled unless explicitly enabled via env, as
   // defense-in-depth behind the reverse-proxy auth (ADR-0007).
@@ -60,9 +65,11 @@ export function createApp(): Express {
       res.status(403).json({ error: 'Reset is disabled. Set ALLOW_RESET=true to enable it.' });
       return;
     }
-    resetAll();
-    const files = readdirSync(uploadsDir);
-    await Promise.all(files.map((f) => unlink(join(uploadsDir, f)).catch(() => {})));
+    await withLock(async () => {
+      resetAll();
+      const files = readdirSync(uploadsDir);
+      await Promise.all(files.map((f) => unlink(join(uploadsDir, f)).catch(() => {})));
+    });
     res.json({ ok: true });
   });
 

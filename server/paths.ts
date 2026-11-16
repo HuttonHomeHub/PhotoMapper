@@ -23,6 +23,9 @@ export const dataDir = resolve(paths.dataDir);
 export const dbPath = resolve(paths.dbPath);
 export const uploadsDir = resolve(paths.uploadsDir);
 export const distDir = join(serverDir, '..', 'dist');
+export const backupDir = resolve(config.backup.dir ?? join(dirname(dbPath), 'backups'));
+// Numbered SQL migrations (NNN-name.sql), run by the shared kit.
+export const migrationsDir = join(serverDir, 'migrations');
 
 // Kept here so the paths tests can check old names alongside the paths they set.
 export { deprecatedSettings } from './config.ts';

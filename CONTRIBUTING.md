@@ -27,7 +27,8 @@ See the architecture tree in [`README.md`](README.md). In short:
   `src/hooks/` (`usePhotos`/`useClients`/`useProjects`); all Leaflet code stays in
   `src/components/PhotoMap.jsx`.
 - `server/` — Express API. Entry `index.js` → `app.js` (middleware/routers) →
-  `routes/*` → `db.js` (repository) with versioned migrations in `migrate.js`.
+  `routes/*` → `db.ts` (repository), on the shared `@hhh/server` kit. Migrations are
+  numbered SQL files in `server/migrations/`.
 - `docs/` — [`API.md`](docs/API.md) (endpoint reference),
   [`geo-math.md`](docs/geo-math.md) (FOV/EXIF math),
   [`DEPLOYMENT-SECURITY.md`](docs/DEPLOYMENT-SECURITY.md), and
@@ -40,8 +41,9 @@ See the architecture tree in [`README.md`](README.md). In short:
   `camelCase` at the boundary. Keep new columns consistent and map them there.
 - **Add API calls in the hooks**, not in components. New routes go in
   `server/routes/*`; new DB access in `server/db.ts`.
-- **Schema changes are migrations** — append a new `{ version, name, up(db) }` to
-  the `migrations` array in `server/db.ts`. **Never edit an applied migration.**
+- **Schema changes are migrations** — add the next numbered SQL file to
+  `server/migrations/` (from `007-…sql`; 1–6 are the frozen JavaScript ones in
+  `server/db.ts`). **Never edit an applied migration.**
 - **Validation** — declare a zod schema in `server/validation.ts` and attach it
   with `validate(...)`; don't hand-roll body checks in handlers.
 - **Dark theme palette** — `#1a1a2e` bg, `#16213e` sidebar, `#e97b25` accent.

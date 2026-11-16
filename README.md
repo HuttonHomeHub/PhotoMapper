@@ -77,13 +77,19 @@ Shared with every HuttonHomeHub app (same name and meaning everywhere):
 
 PhotoMapper only:
 
-| Var                | Default               | Purpose                                                                                                                                                        |
-| ------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`             | `3001`                | API port inside the container (keep behind the reverse proxy in prod)                                                                                          |
-| `ALLOWED_ORIGINS`  | _(empty)_             | Comma-separated CORS allowlist; empty = same-origin                                                                                                            |
-| `ALLOW_RESET`      | `false`               | Enables the destructive `DELETE /api/reset`                                                                                                                    |
-| `UPLOAD_MAX_BYTES` | `62914560` (60 MB)    | Upload size cap                                                                                                                                                |
-| `API_RATE`         | `1000 per 15 minutes` | Per-IP rate limit over all of `/api`, e.g. `60 per minute`. Replaces `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`, which still work and log a deprecation warning |
+| Var                      | Default                        | Purpose                                                                                                                                                        |
+| ------------------------ | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                   | `3001`                         | API port inside the container (keep behind the reverse proxy in prod)                                                                                          |
+| `ALLOWED_ORIGINS`        | _(empty)_                      | Comma-separated CORS allowlist; empty = same-origin                                                                                                            |
+| `ALLOW_RESET`            | `false`                        | Enables the destructive `DELETE /api/reset`                                                                                                                    |
+| `UPLOAD_MAX_BYTES`       | `62914560` (60 MB)             | Upload size cap                                                                                                                                                |
+| `API_RATE`               | `1000 per 15 minutes`          | Per-IP rate limit over all of `/api`, e.g. `60 per minute`. Replaces `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`, which still work and log a deprecation warning |
+| `BACKUP_DIR`             | `backups/` beside the database | Where backups are written                                                                                                                                      |
+| `BACKUP_ENABLED`         | `1`                            | `0` turns off the schedule (backing up on demand still works)                                                                                                  |
+| `BACKUP_INTERVAL_HOURS`  | `24`                           | Time between scheduled backups                                                                                                                                 |
+| `BACKUP_KEEP`            | `7`                            | Backups kept of each kind (scheduled, prerestore)                                                                                                              |
+| `BACKUP_INCLUDE_UPLOADS` | `1`                            | `0` for database-only backups, e.g. when uploads live on storage with its own snapshots                                                                        |
+| `MAX_RESTORE_MB`         | `4096`                         | Largest backup (uncompressed) a restore accepts                                                                                                                |
 
 A deployment in the standard layout is in [deploy/compose.example.yml](deploy/compose.example.yml).
 
@@ -91,16 +97,18 @@ A deployment in the standard layout is in [deploy/compose.example.yml](deploy/co
 
 ```
 server/
-  index.js         entry point (imports app, listens)
-  app.js           createApp(): middleware, routers, static/SPA, error handler
-  config.js        zod-validated runtime configuration
-  db.js            SQLite schema + data access (repository layer)
-  migrate.js       versioned migration runner (records versions, backs up, fails loudly)
-  validation.js    zod request-body schemas + validate() middleware
-  logger.js        pino structured logger
-  paths.js         shared uploads/dist dirs
-  routes/          photos.js, clients.js, projects.js (Express routers)
-  services/        hash, exif, geocode, geocodeQueue, thumbnail, exportPhotos
+  index.ts         entry point: listens, backup schedule, graceful shutdown
+  app.ts           createApp() on the @hhh/server kit: routers, static/SPA
+  config.ts        every setting, read with the kit's loadSettings
+  db.ts            SQLite open/close, frozen migrations 1-6, data access
+  migrate.ts       the frozen runner for migrations 1-6
+  migrations/      numbered SQL migrations from 007, run by the kit
+  lock.ts          the write lock shared by uploads, deletes, reset and restore
+  validation.ts    zod request-body schemas + validate() middleware
+  logger.ts        the kit's pino logger
+  paths.ts         data, uploads, backups, dist and migrations dirs
+  routes/          photos, clients, projects, geocode, public, backups (Express routers)
+  services/        hash, exif, geocode, geocodeQueue, thumbnail, exportPhotos, backups
 src/
   main.jsx         entry (ErrorBoundary + ToastProvider + App)
   App.jsx          root layout: sidebar + map
@@ -116,11 +124,22 @@ stored in the DB).
 
 ## Database & migrations
 
-SQLite via better-sqlite3. Schema changes are versioned migrations in
-`server/db.ts`, applied by `server/migrate.ts`, which records applied versions in
-a `schema_migrations` table, takes a `VACUUM INTO` backup before mutating an
-existing database, and fails loudly on error. Add a new schema change as the next
-`{ version, name, up(db) }` entry — never edit an applied migration.
+SQLite via better-sqlite3, opened by the shared kit in WAL mode. Schema changes are
+numbered SQL files in `server/migrations/`, starting at `007-…sql` and run by the kit,
+which records each with its checksum in `schema_migrations` and copies a database that
+holds data before migrating it. Never edit an applied migration. Versions 1–6 are
+PhotoMapper's original JavaScript migrations in `server/db.ts`, frozen (see
+[server/migrations/README.md](server/migrations/README.md)).
+
+## Backups
+
+A backup is one zip: a consistent snapshot of the database plus the `uploads/` folder.
+PhotoMapper writes one every `BACKUP_INTERVAL_HOURS` (24) into `BACKUP_DIR` (default
+`/config/backups`) and keeps the newest `BACKUP_KEEP` (7). `/api/backup` lists them,
+makes one now, downloads one, or restores one (by name, or an uploaded zip). A restore
+checks the archive thoroughly first and takes a `prerestore` backup, so it can be
+undone. For copies that survive losing the host, mount `BACKUP_DIR` from another
+disk or a NAS. Details in [docs/DEPLOYMENT-SECURITY.md](docs/DEPLOYMENT-SECURITY.md).
 
 ## API
 

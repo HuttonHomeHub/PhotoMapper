@@ -14,14 +14,15 @@ PGID="${PGID:-1000}"
 DATA_DIR="${DATA_DIR:-/config}"
 DB_DIR="$(dirname "${DB_PATH:-${PHOTOS_DB_PATH:-$DATA_DIR/photos.db}}")"
 UPLOADS="${UPLOADS_DIR:-$DATA_DIR/uploads}"
+BACKUPS="${BACKUP_DIR:-$DB_DIR/backups}"
 
-mkdir -p "$DB_DIR" "$UPLOADS"
+mkdir -p "$DB_DIR" "$UPLOADS" "$BACKUPS"
 
 # Non-recursive on purpose: /config/uploads can hold a large photo library, so we
 # only fix the directories themselves (enough for the app to create/read/delete).
 # Files the app writes are already owned by the run user. To adopt a pre-existing
 # library owned by another uid, chown -R it once by hand.
-chown "$PUID:$PGID" "$DATA_DIR" "$DB_DIR" "$UPLOADS" 2>/dev/null || true
+chown "$PUID:$PGID" "$DATA_DIR" "$DB_DIR" "$UPLOADS" "$BACKUPS" 2>/dev/null || true
 
 # If already running unprivileged (e.g. compose `user:` override), just exec.
 if [ "$(id -u)" != "0" ]; then

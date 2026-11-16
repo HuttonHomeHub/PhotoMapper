@@ -14,6 +14,7 @@ import { cachedLocation, enqueueGeocode } from '../services/geocodeQueue.ts';
 import { generateThumbnail } from '../services/thumbnail.ts';
 import { toGeoJSON, toKML } from '../services/exportPhotos.ts';
 import { logger } from '../logger.ts';
+import { withLock } from '../lock.ts';
 import {
   insertPhoto,
   getAllPhotos,
@@ -83,77 +84,79 @@ async function isSupportedImage(path: string): Promise<boolean> {
   }
 }
 
-router.post('/', upload.single('photo'), async (req, res) => {
-  const file = req.file;
-  if (!file) return res.status(400).json({ error: 'No file uploaded' });
+router.post('/', upload.single('photo'), (req, res) =>
+  withLock(async () => {
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'No file uploaded' });
 
-  // SEC-06: verify actual content before storing anything.
-  if (!(await isSupportedImage(file.path))) {
-    await unlink(file.path).catch(() => {});
-    return res.status(400).json({ error: 'Uploaded file is not a supported image' });
-  }
-
-  const fileHash = await hashFile(file.path);
-  const existingByHash = getPhotoByHash(fileHash);
-  if (existingByHash) {
-    await unlink(file.path);
-    return res.status(409).json(duplicate(existingByHash));
-  }
-
-  const meta = await extractPhotoMetadata(file.path);
-  // BE-07/SEC-05: use the geocode cache synchronously if available; otherwise the
-  // photo is saved without a location and it's resolved in the background below.
-  const gps = meta.lat != null && meta.lng != null ? { lat: meta.lat, lng: meta.lng } : null;
-  const cachedName = gps ? cachedLocation(gps.lat, gps.lng) : undefined;
-  const locationName = cachedName ?? null;
-  const thumbnailFilename = await generateThumbnail(file.path, file.filename);
-
-  const uploadBody = req.body as { projectId?: string } | undefined;
-  const record: NewPhoto = {
-    id: uuidv4(),
-    filename: file.filename,
-    thumbnailFilename,
-    originalName: file.originalname,
-    uploadedAt: new Date().toISOString(),
-    hasGps: meta.hasGps ? 1 : 0,
-    lat: meta.lat,
-    lng: meta.lng,
-    altitude: meta.altitude,
-    imgDirection: meta.imgDirection,
-    dateTaken: meta.dateTaken,
-    surveyDate: meta.dateTaken ? meta.dateTaken.slice(0, 10) : null,
-    cameraMake: meta.cameraMake,
-    cameraModel: meta.cameraModel,
-    focalLength: meta.focalLength,
-    fNumber: meta.fNumber,
-    iso: meta.iso,
-    exposureTime: meta.exposureTime,
-    fileHash,
-    locationName,
-    projectId: uploadBody?.projectId || null,
-    focalLengthIn35mm: meta.focalLengthIn35mm,
-    panoHFov: meta.panoHFov,
-  };
-
-  try {
-    insertPhoto(record);
-  } catch (err) {
-    if ((err as { code?: string }).code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    // SEC-06: verify actual content before storing anything.
+    if (!(await isSupportedImage(file.path))) {
       await unlink(file.path).catch(() => {});
-      if (thumbnailFilename) await unlink(join(uploadsDir, thumbnailFilename)).catch(() => {});
-      return res.status(409).json(duplicate(getPhotoByHash(fileHash)));
+      return res.status(400).json({ error: 'Uploaded file is not a supported image' });
     }
-    throw err;
-  }
 
-  // Resolve the location in the background (rate-limited, cached) when it wasn't
-  // already cached. Fire-and-forget — the upload response is not blocked on it.
-  if (gps && cachedName === undefined) {
-    void enqueueGeocode(record.id, gps.lat, gps.lng);
-  }
+    const fileHash = await hashFile(file.path);
+    const existingByHash = getPhotoByHash(fileHash);
+    if (existingByHash) {
+      await unlink(file.path);
+      return res.status(409).json(duplicate(existingByHash));
+    }
 
-  res.status(201).json({ ...record, hasGps: !!record.hasGps, tags: [], description: null });
-});
+    const meta = await extractPhotoMetadata(file.path);
+    // BE-07/SEC-05: use the geocode cache synchronously if available; otherwise the
+    // photo is saved without a location and it's resolved in the background below.
+    const gps = meta.lat != null && meta.lng != null ? { lat: meta.lat, lng: meta.lng } : null;
+    const cachedName = gps ? cachedLocation(gps.lat, gps.lng) : undefined;
+    const locationName = cachedName ?? null;
+    const thumbnailFilename = await generateThumbnail(file.path, file.filename);
+
+    const uploadBody = req.body as { projectId?: string } | undefined;
+    const record: NewPhoto = {
+      id: uuidv4(),
+      filename: file.filename,
+      thumbnailFilename,
+      originalName: file.originalname,
+      uploadedAt: new Date().toISOString(),
+      hasGps: meta.hasGps ? 1 : 0,
+      lat: meta.lat,
+      lng: meta.lng,
+      altitude: meta.altitude,
+      imgDirection: meta.imgDirection,
+      dateTaken: meta.dateTaken,
+      surveyDate: meta.dateTaken ? meta.dateTaken.slice(0, 10) : null,
+      cameraMake: meta.cameraMake,
+      cameraModel: meta.cameraModel,
+      focalLength: meta.focalLength,
+      fNumber: meta.fNumber,
+      iso: meta.iso,
+      exposureTime: meta.exposureTime,
+      fileHash,
+      locationName,
+      projectId: uploadBody?.projectId || null,
+      focalLengthIn35mm: meta.focalLengthIn35mm,
+      panoHFov: meta.panoHFov,
+    };
+
+    try {
+      insertPhoto(record);
+    } catch (err) {
+      if ((err as { code?: string }).code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        await unlink(file.path).catch(() => {});
+        if (thumbnailFilename) await unlink(join(uploadsDir, thumbnailFilename)).catch(() => {});
+        return res.status(409).json(duplicate(getPhotoByHash(fileHash)));
+      }
+      throw err;
+    }
+
+    // Resolve the location in the background (rate-limited, cached) when it wasn't
+    // already cached. Fire-and-forget — the upload response is not blocked on it.
+    if (gps && cachedName === undefined) {
+      void enqueueGeocode(record.id, gps.lat, gps.lng);
+    }
+
+    res.status(201).json({ ...record, hasGps: !!record.hasGps, tags: [], description: null });
+  })
+);
 
 // PERF-01 (ADR-0010): filtered + paginated listing. With NO query params this
 // returns the legacy bare array (back-compat during the phased frontend
@@ -294,27 +297,29 @@ router.delete('/:id/location', (req, res) => {
   res.json(getPhotoFullById(id));
 });
 
-router.delete('/:id', async (req, res) => {
-  const { id } = req.params as { id: string };
-  const photo = getPhotoById(id);
-  if (!photo) return res.status(404).json({ error: 'Photo not found' });
+router.delete('/:id', (req, res) =>
+  withLock(async () => {
+    const { id } = req.params as { id: string };
+    const photo = getPhotoById(id);
+    if (!photo) return res.status(404).json({ error: 'Photo not found' });
 
-  deletePhoto(photo.id);
+    deletePhoto(photo.id);
 
-  try {
-    await unlink(join(uploadsDir, photo.filename));
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT')
-      logger.error({ err }, 'File delete failed');
-  }
-  if (photo.thumbnailFilename) {
     try {
-      await unlink(join(uploadsDir, photo.thumbnailFilename));
+      await unlink(join(uploadsDir, photo.filename));
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT')
-        logger.error({ err }, 'Thumbnail delete failed');
+        logger.error({ err }, 'File delete failed');
     }
-  }
+    if (photo.thumbnailFilename) {
+      try {
+        await unlink(join(uploadsDir, photo.thumbnailFilename));
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT')
+          logger.error({ err }, 'Thumbnail delete failed');
+      }
+    }
 
-  res.json({ id: photo.id });
-});
+    res.json({ id: photo.id });
+  })
+);

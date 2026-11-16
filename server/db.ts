@@ -1,6 +1,8 @@
-import Database from 'better-sqlite3';
-import { runMigrations, type Migration } from './migrate.ts';
-import { dbPath } from './paths.ts';
+import type Database from 'better-sqlite3';
+import { openDatabase, runMigrations } from '@hhh/server';
+import { logger } from './logger.ts';
+import { runLegacyMigrations, type LegacyMigration } from './migrate.ts';
+import { backupDir, dbPath, migrationsDir } from './paths.ts';
 
 type Db = Database.Database;
 
@@ -152,10 +154,8 @@ export interface PhotoQuery {
   offset?: number;
 }
 
-// DB path is injectable so tests can run against a throwaway file (DB_PATH).
-const db: Db = new Database(dbPath);
-
-db.pragma('foreign_keys = ON');
+// The live handle. It is replaced when a backup is restored (closeDb, then openDb).
+let db: Db;
 
 interface NameRow {
   name: string;
@@ -170,11 +170,15 @@ function addColumnIfMissing(db: Db, table: string, columnName: string, columnDef
   }
 }
 
+// PhotoMapper's original migrations (1-6), frozen: they still build a new database and
+// bring an old one up to date. Every schema change from now on is a numbered SQL file in
+// server/migrations/ (from 007), run by the shared kit. Both record in schema_migrations.
+//
 // The historical schema evolution, preserved as a single recorded baseline
 // migration (version 1). Every step is idempotent, so it is safe to run once
 // against a legacy DB that predates the migration runner. New schema changes
-// should be added as further entries (version 2, 3, …) rather than edited in here.
-const migrations: Migration[] = [
+// were added as further entries (version 2, 3, …) rather than edited in here.
+const legacyMigrations: LegacyMigration[] = [
   {
     version: 1,
     name: 'baseline-schema',
@@ -440,13 +444,21 @@ const migrations: Migration[] = [
   },
 ];
 
-// Applies any pending migrations (records versions, backs up existing data first,
-// fails loudly on error). See server/migrate.ts.
-runMigrations(db, migrations);
+// ─── Opening and closing ─────────────────────────────────────────────────────
 
-// ─── Prepared statements ────────────────────────────────────────────────────
+// PhotoMapper's own runner records versions 1-6 in `schema_migrations` without a
+// checksum; the kit's runner keeps the same table with a checksum per file. The column
+// is added with the value 'legacy' for the six old rows. They stay where they were, so
+// v1.2.0 still opens this database if it is ever rolled back to.
+function handOverToKitMigrations(db: Db): void {
+  const cols = db.prepare<[], NameRow>('PRAGMA table_info(schema_migrations)').all();
+  if (!cols.some((c) => c.name === 'checksum')) {
+    db.exec("ALTER TABLE schema_migrations ADD COLUMN checksum TEXT NOT NULL DEFAULT 'legacy'");
+  }
+}
 
-const insertStmt = db.prepare<[NewPhoto]>(`
+function prepareStatements(db: Db) {
+  const insertStmt = db.prepare<[NewPhoto]>(`
   INSERT INTO photos (
     id, filename, thumbnail_filename, original_name, uploaded_at, has_gps,
     lat, lng, altitude, img_direction,
@@ -462,13 +474,13 @@ const insertStmt = db.prepare<[NewPhoto]>(`
   )
 `);
 
-const selectAllStmt = db.prepare<[], PhotoRow>(`
+  const selectAllStmt = db.prepare<[], PhotoRow>(`
   SELECT p.*
   FROM photos p
   ORDER BY p.uploaded_at DESC
 `);
 
-const selectAllProjectsStmt = db.prepare<[], ProjectRow>(`
+  const selectAllProjectsStmt = db.prepare<[], ProjectRow>(`
   SELECT pr.*, COUNT(p.id) as photo_count, cl.name as client_name
   FROM projects pr
   LEFT JOIN photos p ON p.project_id = pr.id
@@ -477,8 +489,8 @@ const selectAllProjectsStmt = db.prepare<[], ProjectRow>(`
   ORDER BY pr.created_at DESC
 `);
 
-// PERF-02: single-project read-after-write, same aggregate shape as the list query.
-const selectProjectByIdStmt = db.prepare<[string], ProjectRow>(`
+  // PERF-02: single-project read-after-write, same aggregate shape as the list query.
+  const selectProjectByIdStmt = db.prepare<[string], ProjectRow>(`
   SELECT pr.*, COUNT(p.id) as photo_count, cl.name as client_name
   FROM projects pr
   LEFT JOIN photos p ON p.project_id = pr.id
@@ -487,38 +499,42 @@ const selectProjectByIdStmt = db.prepare<[string], ProjectRow>(`
   GROUP BY pr.id
 `);
 
-const insertProjectStmt = db.prepare(`
+  const insertProjectStmt = db.prepare(`
   INSERT INTO projects (id, name, client_id, status, color, created_at, updated_at)
   VALUES (@id, @name, @clientId, @status, @color, @createdAt, @updatedAt)
 `);
 
-const deleteProjectStmt = db.prepare<[string]>('DELETE FROM projects WHERE id = ?');
+  const deleteProjectStmt = db.prepare<[string]>('DELETE FROM projects WHERE id = ?');
 
-// Per-project share token (FEAT). A non-null token exposes the project via the
-// public /share/:token capability URL; clearing it revokes access immediately.
-const setShareTokenStmt = db.prepare(
-  'UPDATE projects SET share_token = @token, updated_at = @updatedAt WHERE id = @id'
-);
-const clearShareTokenStmt = db.prepare(
-  'UPDATE projects SET share_token = NULL, updated_at = @updatedAt WHERE id = @id'
-);
-const selectProjectByShareTokenStmt = db.prepare<[string], ProjectRow>(
-  'SELECT * FROM projects WHERE share_token = ?'
-);
+  // Per-project share token (FEAT). A non-null token exposes the project via the
+  // public /share/:token capability URL; clearing it revokes access immediately.
+  const setShareTokenStmt = db.prepare(
+    'UPDATE projects SET share_token = @token, updated_at = @updatedAt WHERE id = @id'
+  );
+  const clearShareTokenStmt = db.prepare(
+    'UPDATE projects SET share_token = NULL, updated_at = @updatedAt WHERE id = @id'
+  );
+  const selectProjectByShareTokenStmt = db.prepare<[string], ProjectRow>(
+    'SELECT * FROM projects WHERE share_token = ?'
+  );
 
-const assignPhotosToProjectStmt = db.prepare(
-  'UPDATE photos SET project_id = @projectId WHERE id = @id'
-);
-const selectByIdStmt = db.prepare<
-  [string],
-  Pick<PhotoRow, 'id' | 'filename' | 'thumbnail_filename'>
->('SELECT id, filename, thumbnail_filename FROM photos WHERE id = ?');
-const selectByHashStmt = db.prepare<[string], PhotoRow>('SELECT * FROM photos WHERE file_hash = ?');
-// PERF-02: fetch a single fully-mapped photo by id (read-after-write) instead of
-// scanning every row with getAllPhotos().find().
-const selectPhotoByIdFullStmt = db.prepare<[string], PhotoRow>('SELECT * FROM photos WHERE id = ?');
-const deleteStmt = db.prepare<[string]>('DELETE FROM photos WHERE id = ?');
-const updateStmt = db.prepare(`
+  const assignPhotosToProjectStmt = db.prepare(
+    'UPDATE photos SET project_id = @projectId WHERE id = @id'
+  );
+  const selectByIdStmt = db.prepare<
+    [string],
+    Pick<PhotoRow, 'id' | 'filename' | 'thumbnail_filename'>
+  >('SELECT id, filename, thumbnail_filename FROM photos WHERE id = ?');
+  const selectByHashStmt = db.prepare<[string], PhotoRow>(
+    'SELECT * FROM photos WHERE file_hash = ?'
+  );
+  // PERF-02: fetch a single fully-mapped photo by id (read-after-write) instead of
+  // scanning every row with getAllPhotos().find().
+  const selectPhotoByIdFullStmt = db.prepare<[string], PhotoRow>(
+    'SELECT * FROM photos WHERE id = ?'
+  );
+  const deleteStmt = db.prepare<[string]>('DELETE FROM photos WHERE id = ?');
+  const updateStmt = db.prepare(`
   UPDATE photos
   SET description = COALESCE(@description, description),
       tags        = COALESCE(@tags, tags),
@@ -526,37 +542,37 @@ const updateStmt = db.prepare(`
   WHERE id = @id
 `);
 
-const updateSurveyDateStmt = db.prepare(
-  'UPDATE photos SET survey_date = @surveyDate WHERE id = @id'
-);
-const updatePhotoProjectStmt = db.prepare(
-  'UPDATE photos SET project_id = @projectId WHERE id = @id'
-);
+  const updateSurveyDateStmt = db.prepare(
+    'UPDATE photos SET survey_date = @surveyDate WHERE id = @id'
+  );
+  const updatePhotoProjectStmt = db.prepare(
+    'UPDATE photos SET project_id = @projectId WHERE id = @id'
+  );
 
-// Manual GPS placement (FEAT). Setting a location marks the pin as manually
-// placed; clearing only affects manual pins so real EXIF fixes are never wiped.
-const setPhotoLocationStmt = db.prepare(
-  'UPDATE photos SET lat = @lat, lng = @lng, has_gps = 1, manual_gps = 1 WHERE id = @id'
-);
-const clearManualLocationStmt = db.prepare(
-  'UPDATE photos SET lat = NULL, lng = NULL, has_gps = 0, manual_gps = 0 WHERE id = @id AND manual_gps = 1'
-);
+  // Manual GPS placement (FEAT). Setting a location marks the pin as manually
+  // placed; clearing only affects manual pins so real EXIF fixes are never wiped.
+  const setPhotoLocationStmt = db.prepare(
+    'UPDATE photos SET lat = @lat, lng = @lng, has_gps = 1, manual_gps = 1 WHERE id = @id'
+  );
+  const clearManualLocationStmt = db.prepare(
+    'UPDATE photos SET lat = NULL, lng = NULL, has_gps = 0, manual_gps = 0 WHERE id = @id AND manual_gps = 1'
+  );
 
-const selectGeocodeStmt = db.prepare<[string], { location_name: string | null }>(
-  'SELECT location_name FROM geocode_cache WHERE key = ?'
-);
-const upsertGeocodeStmt = db.prepare(`
+  const selectGeocodeStmt = db.prepare<[string], { location_name: string | null }>(
+    'SELECT location_name FROM geocode_cache WHERE key = ?'
+  );
+  const upsertGeocodeStmt = db.prepare(`
   INSERT INTO geocode_cache (key, location_name, cached_at)
   VALUES (@key, @locationName, @cachedAt)
   ON CONFLICT(key) DO UPDATE SET location_name = @locationName, cached_at = @cachedAt
 `);
 
-const insertClientStmt = db.prepare(`
+  const insertClientStmt = db.prepare(`
   INSERT INTO clients (id, name, created_at, updated_at)
   VALUES (@id, @name, @createdAt, @updatedAt)
 `);
 
-const selectAllClientsStmt = db.prepare<[], ClientRow>(`
+  const selectAllClientsStmt = db.prepare<[], ClientRow>(`
   SELECT cl.*, COUNT(DISTINCT pr.id) as project_count
   FROM clients cl
   LEFT JOIN projects pr ON pr.client_id = cl.id
@@ -564,8 +580,8 @@ const selectAllClientsStmt = db.prepare<[], ClientRow>(`
   ORDER BY cl.name ASC
 `);
 
-// PERF-02: single-client read-after-write, same aggregate shape as the list query.
-const selectClientByIdStmt = db.prepare<[string], ClientRow>(`
+  // PERF-02: single-client read-after-write, same aggregate shape as the list query.
+  const selectClientByIdStmt = db.prepare<[string], ClientRow>(`
   SELECT cl.*, COUNT(DISTINCT pr.id) as project_count
   FROM clients cl
   LEFT JOIN projects pr ON pr.client_id = cl.id
@@ -573,16 +589,67 @@ const selectClientByIdStmt = db.prepare<[string], ClientRow>(`
   GROUP BY cl.id
 `);
 
-const updateClientStmt = db.prepare(`
+  const updateClientStmt = db.prepare(`
   UPDATE clients SET name = @name, updated_at = @updatedAt WHERE id = @id
 `);
 
-const deleteClientStmt = db.prepare<[string]>('DELETE FROM clients WHERE id = ?');
+  const deleteClientStmt = db.prepare<[string]>('DELETE FROM clients WHERE id = ?');
+
+  return {
+    insertStmt,
+    selectAllStmt,
+    selectAllProjectsStmt,
+    selectProjectByIdStmt,
+    insertProjectStmt,
+    deleteProjectStmt,
+    setShareTokenStmt,
+    clearShareTokenStmt,
+    selectProjectByShareTokenStmt,
+    assignPhotosToProjectStmt,
+    selectByIdStmt,
+    selectByHashStmt,
+    selectPhotoByIdFullStmt,
+    deleteStmt,
+    updateStmt,
+    updateSurveyDateStmt,
+    updatePhotoProjectStmt,
+    setPhotoLocationStmt,
+    clearManualLocationStmt,
+    selectGeocodeStmt,
+    upsertGeocodeStmt,
+    insertClientStmt,
+    selectAllClientsStmt,
+    selectClientByIdStmt,
+    updateClientStmt,
+    deleteClientStmt,
+  };
+}
+
+let s: ReturnType<typeof prepareStatements>;
+
+/**
+ * Opens the database (WAL, foreign keys, busy timeout), brings its schema up to date
+ * and prepares every statement. Runs at startup and again after a restore.
+ */
+export function openDb(): void {
+  db = openDatabase(dbPath);
+  runLegacyMigrations(db, legacyMigrations);
+  handOverToKitMigrations(db);
+  runMigrations(db, { dir: migrationsDir, backupDir, logger });
+  s = prepareStatements(db);
+}
+
+/** The live handle, for backups (it changes after a restore). */
+export function getDb(): Db {
+  return db;
+}
+
+openDb();
 
 // ─── Exported functions ──────────────────────────────────────────────────────
 
 export function insertPhoto(record: NewPhoto): void {
-  insertStmt.run(record);
+  s.insertStmt.run(record);
 }
 
 // Shared snake_case row → camelCase DTO mappers, so the list, by-hash and by-id
@@ -652,14 +719,14 @@ function mapClientRow(row: ClientRow): Client {
 }
 
 export function getPhotoByHash(hash: string): Photo | null {
-  const row = selectByHashStmt.get(hash);
+  const row = s.selectByHashStmt.get(hash);
   return row ? mapPhotoRow(row) : null;
 }
 
 // PERF-02: return only the affected photo after a write, instead of
 // getAllPhotos().find() scanning the whole table.
 export function getPhotoFullById(id: string): Photo | null {
-  const row = selectPhotoByIdFullStmt.get(id);
+  const row = s.selectPhotoByIdFullStmt.get(id);
   return row ? mapPhotoRow(row) : null;
 }
 
@@ -673,7 +740,7 @@ export function updatePhoto(
   id: string,
   { description, tags, locationName }: PhotoChanges = {}
 ): void {
-  updateStmt.run({
+  s.updateStmt.run({
     id,
     description: description ?? null,
     tags: tags != null ? JSON.stringify(tags) : null,
@@ -684,7 +751,7 @@ export function updatePhoto(
 export function getPhotoById(
   id: string
 ): { id: string; filename: string; thumbnailFilename: string | null } | null {
-  const row = selectByIdStmt.get(id);
+  const row = s.selectByIdStmt.get(id);
   if (!row) return null;
   return {
     id: row.id,
@@ -694,7 +761,7 @@ export function getPhotoById(
 }
 
 export function deletePhoto(id: string): number {
-  return deleteStmt.run(id).changes;
+  return s.deleteStmt.run(id).changes;
 }
 
 export function batchUpdatePhotos(updates: ({ id: string } & PhotoChanges)[]): void {
@@ -707,35 +774,35 @@ export function batchUpdatePhotos(updates: ({ id: string } & PhotoChanges)[]): v
 }
 
 export function updatePhotoSurveyDate(id: string, surveyDate: string | null | undefined): void {
-  updateSurveyDateStmt.run({ id, surveyDate: surveyDate ?? null });
+  s.updateSurveyDateStmt.run({ id, surveyDate: surveyDate ?? null });
 }
 
 export function updatePhotoProject(id: string, projectId: string | null | undefined): void {
-  updatePhotoProjectStmt.run({ id, projectId: projectId ?? null });
+  s.updatePhotoProjectStmt.run({ id, projectId: projectId ?? null });
 }
 
 // FEAT: set a hand-placed location on a photo (marks it manual_gps = 1).
 export function setPhotoLocation(id: string, lat: number, lng: number): void {
-  setPhotoLocationStmt.run({ id, lat, lng });
+  s.setPhotoLocationStmt.run({ id, lat, lng });
 }
 
 // FEAT: remove a hand-placed location. Only affects manually-placed pins, so a
 // real EXIF fix is never cleared. Returns the number of rows changed (0 = the
 // photo had no manual location to clear).
 export function clearManualLocation(id: string): number {
-  return clearManualLocationStmt.run({ id }).changes;
+  return s.clearManualLocationStmt.run({ id }).changes;
 }
 
 // BE-07/SEC-05 reverse-geocode cache. Returns `undefined` on a cache miss and the
 // stored value (a string or null) on a hit, so callers can tell "never looked up"
 // from "looked up, no result".
 export function getGeocodeCache(key: string): string | null | undefined {
-  const row = selectGeocodeStmt.get(key);
+  const row = s.selectGeocodeStmt.get(key);
   return row ? row.location_name : undefined;
 }
 
 export function setGeocodeCache(key: string, locationName: string | null | undefined): void {
-  upsertGeocodeStmt.run({
+  s.upsertGeocodeStmt.run({
     key,
     locationName: locationName ?? null,
     cachedAt: new Date().toISOString(),
@@ -743,7 +810,7 @@ export function setGeocodeCache(key: string, locationName: string | null | undef
 }
 
 export function getAllPhotos(): Photo[] {
-  return selectAllStmt.all().map(mapPhotoRow);
+  return s.selectAllStmt.all().map(mapPhotoRow);
 }
 
 // PERF-01: shared WHERE builder for the filtered photo query/count. Only keys that
@@ -846,12 +913,12 @@ export function countPhotos(opts: PhotoQuery = {}): number {
 }
 
 export function getAllProjects(): Project[] {
-  return selectAllProjectsStmt.all().map(mapProjectRow);
+  return s.selectAllProjectsStmt.all().map(mapProjectRow);
 }
 
 // PERF-02: return only the affected project after a write.
 export function getProjectById(id: string): Project | null {
-  const row = selectProjectByIdStmt.get(id);
+  const row = s.selectProjectByIdStmt.get(id);
   return row ? mapProjectRow(row) : null;
 }
 
@@ -874,7 +941,7 @@ export function createProject({
   createdAt,
   updatedAt,
 }: NewProject): void {
-  insertProjectStmt.run({
+  s.insertProjectStmt.run({
     id,
     name,
     clientId: clientId ?? null,
@@ -924,17 +991,17 @@ export function updateProject(id: string, changes: ProjectChanges = {}): number 
 }
 
 export function deleteProject(id: string): number {
-  return deleteProjectStmt.run(id).changes;
+  return s.deleteProjectStmt.run(id).changes;
 }
 
 // FEAT: set/replace a project's share token (enables the public share link).
 export function setProjectShareToken(id: string, token: string): number {
-  return setShareTokenStmt.run({ id, token, updatedAt: new Date().toISOString() }).changes;
+  return s.setShareTokenStmt.run({ id, token, updatedAt: new Date().toISOString() }).changes;
 }
 
 // FEAT: revoke a project's share link.
 export function clearProjectShareToken(id: string): number {
-  return clearShareTokenStmt.run({ id, updatedAt: new Date().toISOString() }).changes;
+  return s.clearShareTokenStmt.run({ id, updatedAt: new Date().toISOString() }).changes;
 }
 
 // FEAT: resolve a share token to its project. Returns only the minimal fields the
@@ -942,7 +1009,7 @@ export function clearProjectShareToken(id: string): number {
 export function getProjectByShareToken(
   token: string
 ): { id: string; name: string; color: string } | null {
-  const row = selectProjectByShareTokenStmt.get(token);
+  const row = s.selectProjectByShareTokenStmt.get(token);
   if (!row) return null;
   return { id: row.id, name: row.name, color: row.color };
 }
@@ -950,7 +1017,7 @@ export function getProjectByShareToken(
 export function assignPhotosToProject(projectId: string | null, photoIds: string[]): void {
   const run = db.transaction(() => {
     for (const id of photoIds) {
-      assignPhotosToProjectStmt.run({ projectId: projectId ?? null, id });
+      s.assignPhotosToProjectStmt.run({ projectId: projectId ?? null, id });
     }
   });
   run();
@@ -967,16 +1034,16 @@ export function createClient({
   createdAt: string;
   updatedAt: string;
 }): void {
-  insertClientStmt.run({ id, name, createdAt, updatedAt });
+  s.insertClientStmt.run({ id, name, createdAt, updatedAt });
 }
 
 export function getAllClients(): Client[] {
-  return selectAllClientsStmt.all().map(mapClientRow);
+  return s.selectAllClientsStmt.all().map(mapClientRow);
 }
 
 // PERF-02: return only the affected client after a write.
 export function getClientById(id: string): Client | null {
-  const row = selectClientByIdStmt.get(id);
+  const row = s.selectClientByIdStmt.get(id);
   return row ? mapClientRow(row) : null;
 }
 
@@ -984,11 +1051,11 @@ export function updateClient(
   id: string,
   { name, updatedAt }: { name: string; updatedAt: string }
 ): number {
-  return updateClientStmt.run({ id, name, updatedAt }).changes;
+  return s.updateClientStmt.run({ id, name, updatedAt }).changes;
 }
 
 export function deleteClient(id: string): number {
-  return deleteClientStmt.run(id).changes;
+  return s.deleteClientStmt.run(id).changes;
 }
 
 export function resetAll(): void {
@@ -1007,4 +1074,11 @@ export function pingDb(): void {
 // OPS-05: flush and release the SQLite handle during graceful shutdown.
 export function closeDb(): void {
   db.close();
+}
+
+/** Row counts for the Settings panel's instance information. */
+export function countRows(): { photos: number; projects: number; clients: number } {
+  const count = (table: string) =>
+    db.prepare<[], { n: number }>(`SELECT COUNT(*) AS n FROM ${table}`).get()?.n ?? 0;
+  return { photos: count('photos'), projects: count('projects'), clients: count('clients') };
 }
