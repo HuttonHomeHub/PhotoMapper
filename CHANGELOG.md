@@ -10,6 +10,8 @@ that section as the GitHub Release notes.
 
 ## Unreleased
 
+## v1.1.0 — versioned releases, React 19 and dependency updates
+
 ### Added
 - **Version numbers for releases.** Each release now publishes the image as `X.Y.Z`, `X.Y`,
   `latest` and `sha-<short>`, and gets a `vX.Y.Z` tag and a GitHub Release with these notes,
