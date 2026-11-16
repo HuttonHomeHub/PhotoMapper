@@ -10,6 +10,8 @@ that section as the GitHub Release notes.
 
 ## Unreleased
 
+## v1.2.0 — shared container standard: DATA_DIR, DB_PATH, version at /health
+
 ### Added
 - **The running version is reported** at `GET /health` (`{"status":"ok","version":"X.Y.Z"}`)
   and `GET /version`, from `APP_VERSION`, which the publish workflow sets from the release.
