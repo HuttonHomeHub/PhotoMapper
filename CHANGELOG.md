@@ -17,6 +17,8 @@ that section as the GitHub Release notes.
 - **This changelog.**
 
 ### Changed
+- **React 19.** `react` and `react-dom` move from 18.3 to 19.3 together. No app code changes
+  were needed.
 - **Publishing only happens on a release** (a merge of `dev` into `main`). The version comes
   from `package.json`; a release whose version already exists fails instead of overwriting an
   image. Pushing a `v*` tag and running the workflow by hand no longer publish.
