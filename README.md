@@ -45,17 +45,17 @@ URL it prints (or the Codespaces forwarded port).
 
 ### Scripts
 
-| Script | Purpose |
-|---|---|
-| `npm run dev` | API + Vite dev server (concurrently) |
-| `npm run server` | API only (`node server/index.js`) |
-| `npm run build` | Production build to `dist/` |
-| `npm start` | Serve the built app + API from one process |
-| `npm test` | Run the Vitest suite once |
-| `npm run test:watch` | Vitest in watch mode |
-| `npm run test:coverage` | Tests with coverage (enforces thresholds) |
-| `npm run lint` | ESLint over `src` and `server` |
-| `npm run format` | Prettier over `src` and `server` |
+| Script                  | Purpose                                    |
+| ----------------------- | ------------------------------------------ |
+| `npm run dev`           | API + Vite dev server (concurrently)       |
+| `npm run server`        | API only (`node server/index.js`)          |
+| `npm run build`         | Production build to `dist/`                |
+| `npm start`             | Serve the built app + API from one process |
+| `npm test`              | Run the Vitest suite once                  |
+| `npm run test:watch`    | Vitest in watch mode                       |
+| `npm run test:coverage` | Tests with coverage (enforces thresholds)  |
+| `npm run lint`          | ESLint over `src` and `server`             |
+| `npm run format`        | Prettier over `src` and `server`           |
 
 ## Configuration
 
@@ -64,26 +64,26 @@ All runtime config is validated on startup (`server/config.js`). Copy
 
 Shared with every HuttonHomeHub app (same name and meaning everywhere):
 
-| Var | Default | Purpose |
-|---|---|---|
-| `PUID` / `PGID` | `1000` | User and group the app runs as in the image; data directories are chowned to them |
-| `TZ` | UTC | Time zone, e.g. `Europe/London` |
-| `TRUST_PROXY` | _(off)_ | Number of reverse-proxy hops in front whose `X-Forwarded-*` headers are trusted (`1` when nginx restores the real client IP). Also accepts `true`/`false` or an IP/subnet list |
-| `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` (`silent` under test; `warn` drops per-request logs) |
-| `DATA_DIR` | `/config` in the image | Where all state lives; the next two default inside it |
-| `DB_PATH` | `$DATA_DIR/photos.db` (locally `server/photos.db`) | SQLite file. Replaces `PHOTOS_DB_PATH`, which still works and logs a deprecation warning |
-| `UPLOADS_DIR` | `$DATA_DIR/uploads` (locally `server/uploads`) | Uploaded-image + thumbnail directory |
-| `APP_VERSION` | `dev` | Release version, set from the image tag at build time; reported at `/health` and `/version` |
+| Var             | Default                                            | Purpose                                                                                                                                                                        |
+| --------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PUID` / `PGID` | `1000`                                             | User and group the app runs as in the image; data directories are chowned to them                                                                                              |
+| `TZ`            | UTC                                                | Time zone, e.g. `Europe/London`                                                                                                                                                |
+| `TRUST_PROXY`   | _(off)_                                            | Number of reverse-proxy hops in front whose `X-Forwarded-*` headers are trusted (`1` when nginx restores the real client IP). Also accepts `true`/`false` or an IP/subnet list |
+| `LOG_LEVEL`     | `info`                                             | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` (`silent` under test; `warn` drops per-request logs)                                                              |
+| `DATA_DIR`      | `/config` in the image                             | Where all state lives; the next two default inside it                                                                                                                          |
+| `DB_PATH`       | `$DATA_DIR/photos.db` (locally `server/photos.db`) | SQLite file. Replaces `PHOTOS_DB_PATH`, which still works and logs a deprecation warning                                                                                       |
+| `UPLOADS_DIR`   | `$DATA_DIR/uploads` (locally `server/uploads`)     | Uploaded-image + thumbnail directory                                                                                                                                           |
+| `APP_VERSION`   | `dev`                                              | Release version, set from the image tag at build time; reported at `/health` and `/version`                                                                                    |
 
 PhotoMapper only:
 
-| Var | Default | Purpose |
-|---|---|---|
-| `PORT` | `3001` | API port inside the container (keep behind the reverse proxy in prod) |
-| `ALLOWED_ORIGINS` | _(empty)_ | Comma-separated CORS allowlist; empty = same-origin |
-| `ALLOW_RESET` | `false` | Enables the destructive `DELETE /api/reset` |
-| `UPLOAD_MAX_BYTES` | `62914560` (60 MB) | Upload size cap |
-| `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` | `900000` / `1000` | Per-IP API rate limit |
+| Var                                       | Default            | Purpose                                                               |
+| ----------------------------------------- | ------------------ | --------------------------------------------------------------------- |
+| `PORT`                                    | `3001`             | API port inside the container (keep behind the reverse proxy in prod) |
+| `ALLOWED_ORIGINS`                         | _(empty)_          | Comma-separated CORS allowlist; empty = same-origin                   |
+| `ALLOW_RESET`                             | `false`            | Enables the destructive `DELETE /api/reset`                           |
+| `UPLOAD_MAX_BYTES`                        | `62914560` (60 MB) | Upload size cap                                                       |
+| `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` | `900000` / `1000`  | Per-IP API rate limit                                                 |
 
 A deployment in the standard layout is in [deploy/compose.example.yml](deploy/compose.example.yml).
 
@@ -157,9 +157,9 @@ login, no upload/edit/delete, no client data or other projects. It is opt-in per
 project and revocable (**Stop sharing** invalidates the old link immediately).
 
 This is the **one deliberately public surface** in the otherwise
-proxy-authenticated app. For a client to open a link *without* your proxy's
+proxy-authenticated app. For a client to open a link _without_ your proxy's
 auth, allowlist the two public paths ahead of your catch-all `location /` — for
-example, in Nginx (or an NPM host's *Advanced → Custom Nginx Configuration*):
+example, in Nginx (or an NPM host's _Advanced → Custom Nginx Configuration_):
 
 ```nginx
 # Read-only share view + its data API — no auth. Everything else stays gated.

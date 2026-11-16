@@ -11,13 +11,13 @@ roughly where the camera was pointed and how wide its view was.
 
 ### Inputs (from EXIF)
 
-| Field | Meaning |
-|---|---|
-| `lat`, `lng` | Camera position (the wedge apex). |
-| `imgDirection` | Camera bearing in degrees clockwise from north (EXIF `GPSImgDirection`). **Required** — with no bearing there's nothing to point the cone at, so no cone is drawn. |
-| `focalLength` | Lens focal length in mm (as recorded). |
-| `focalLengthIn35mm` | 35mm-**equivalent** focal length. Preferred, because the FOV formula below assumes a full-frame sensor. |
-| `panoHFov` | Horizontal FOV in degrees for panoramas (EXIF/XMP `GPano:CroppedAreaImageWidthPixels`-derived). Overrides the focal-length estimate when present. |
+| Field               | Meaning                                                                                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lat`, `lng`        | Camera position (the wedge apex).                                                                                                                                  |
+| `imgDirection`      | Camera bearing in degrees clockwise from north (EXIF `GPSImgDirection`). **Required** — with no bearing there's nothing to point the cone at, so no cone is drawn. |
+| `focalLength`       | Lens focal length in mm (as recorded).                                                                                                                             |
+| `focalLengthIn35mm` | 35mm-**equivalent** focal length. Preferred, because the FOV formula below assumes a full-frame sensor.                                                            |
+| `panoHFov`          | Horizontal FOV in degrees for panoramas (EXIF/XMP `GPano:CroppedAreaImageWidthPixels`-derived). Overrides the focal-length estimate when present.                  |
 
 ### Horizontal FOV angle
 
@@ -44,7 +44,7 @@ Two ways to obtain the horizontal FOV (HFOV):
 
 ### Wedge geometry
 
-- The wedge is drawn to a fixed **`groundRadius` of 40 m**. This is a *visual*
+- The wedge is drawn to a fixed **`groundRadius` of 40 m**. This is a _visual_
   length for legibility — it is **not** derived from the photo and does not imply
   the subject was 40 m away.
 - The arc is sampled at **20 points** from `bearing − HFOV/2` to `bearing + HFOV/2`.

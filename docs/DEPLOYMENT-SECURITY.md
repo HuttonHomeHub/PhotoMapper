@@ -194,18 +194,18 @@ photomapper:
   container_name: photomapper
   image: ghcr.io/huttonhomehub/photomapper:latest
   ports:
-    - 127.0.0.1:3001:3001   # loopback only — the reverse proxy fronts it (no in-app auth)
+    - 127.0.0.1:3001:3001 # loopback only — the reverse proxy fronts it (no in-app auth)
   environment:
     - PUID=1000
     - PGID=1000
     - TZ=Europe/London
     - NODE_ENV=production
-    - TRUST_PROXY=1       # one hop: nginx (which restores the real client IP from Cloudflare)
-    - LOG_LEVEL=warn      # quieter logs (drop the per-request info lines)
+    - TRUST_PROXY=1 # one hop: nginx (which restores the real client IP from Cloudflare)
+    - LOG_LEVEL=warn # quieter logs (drop the per-request info lines)
     # - ALLOWED_ORIGINS=https://photos.example.com
     # - ALLOW_RESET=false
   volumes:
-    - /apps/photomapper/config:/config   # holds photos.db + uploads
+    - /apps/photomapper/config:/config # holds photos.db + uploads
   restart: unless-stopped
 ```
 
@@ -213,7 +213,7 @@ Notes:
 
 - **No manual chown needed** — the entrypoint chowns `/config` to `PUID:PGID` at
   startup (like linuxserver/hotio images), so a bare bind mount just works. `PUID`/
-  `PGID` default to `1000` if unset. (One edge case: to adopt a *pre-existing* photo
+  `PGID` default to `1000` if unset. (One edge case: to adopt a _pre-existing_ photo
   library owned by a different uid, `chown -R` it once — the startup chown is
   non-recursive so it stays fast as the library grows.)
 - **Package visibility** — GHCR packages are **private by default**. Either make the
@@ -221,22 +221,22 @@ Notes:
   for anonymous pulls, or `docker login ghcr.io` on the host with a token that has
   `read:packages`.
 - **First publish** — if the workflow's push step 403s, allow Actions to write
-  packages: repo Settings → Actions → General → Workflow permissions → *Read and
-  write permissions* (the workflow already requests `packages: write`).
+  packages: repo Settings → Actions → General → Workflow permissions → _Read and
+  write permissions_ (the workflow already requests `packages: write`).
 
 ## Environment variables
 
-| Var | Default | Purpose |
-|---|---|---|
-| `PORT` | `3001` | App listen port (keep behind the proxy). |
-| `DATA_DIR` | `/config` in the image | Where all state lives (shared container standard). |
-| `DB_PATH` | `$DATA_DIR/photos.db` | SQLite file location (OPS-03). Replaces `PHOTOS_DB_PATH`, which still works and logs a deprecation warning. |
-| `UPLOADS_DIR` | `$DATA_DIR/uploads` | Uploaded-image + thumbnail directory. |
-| `APP_VERSION` | `dev` | Release version, set at build time; reported at `/health` and `/version`. |
-| `ALLOW_RESET` | _unset_ | Set to `true` only if you want `DELETE /api/reset` enabled. |
-| `NODE_ENV` | _unset_ | `production` in prod; `test` is used by the test suite. |
-| `TRUST_PROXY` | _(off)_ | Express `trust proxy` for reverse-proxy deploys. A hop count (`1` when nginx restores the real client IP, see "Behind Cloudflare"), `true`/`false`, or an IP/subnet list. Makes `req.ip`, rate-limiting and protocol use the real client. Prefer a hop count over `true` (the rate limiter rejects fully-permissive trust). |
-| `LOG_LEVEL` | `info` | pino level; set `warn` to drop per-request access logs. |
+| Var           | Default                | Purpose                                                                                                                                                                                                                                                                                                                     |
+| ------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`        | `3001`                 | App listen port (keep behind the proxy).                                                                                                                                                                                                                                                                                    |
+| `DATA_DIR`    | `/config` in the image | Where all state lives (shared container standard).                                                                                                                                                                                                                                                                          |
+| `DB_PATH`     | `$DATA_DIR/photos.db`  | SQLite file location (OPS-03). Replaces `PHOTOS_DB_PATH`, which still works and logs a deprecation warning.                                                                                                                                                                                                                 |
+| `UPLOADS_DIR` | `$DATA_DIR/uploads`    | Uploaded-image + thumbnail directory.                                                                                                                                                                                                                                                                                       |
+| `APP_VERSION` | `dev`                  | Release version, set at build time; reported at `/health` and `/version`.                                                                                                                                                                                                                                                   |
+| `ALLOW_RESET` | _unset_                | Set to `true` only if you want `DELETE /api/reset` enabled.                                                                                                                                                                                                                                                                 |
+| `NODE_ENV`    | _unset_                | `production` in prod; `test` is used by the test suite.                                                                                                                                                                                                                                                                     |
+| `TRUST_PROXY` | _(off)_                | Express `trust proxy` for reverse-proxy deploys. A hop count (`1` when nginx restores the real client IP, see "Behind Cloudflare"), `true`/`false`, or an IP/subnet list. Makes `req.ip`, rate-limiting and protocol use the real client. Prefer a hop count over `true` (the rate limiter rejects fully-permissive trust). |
+| `LOG_LEVEL`   | `info`                 | pino level; set `warn` to drop per-request access logs.                                                                                                                                                                                                                                                                     |
 
 > Full config reference is in `.env.example` and validated in `server/config.js` (OPS-07).
 

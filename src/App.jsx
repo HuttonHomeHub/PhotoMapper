@@ -228,11 +228,6 @@ export function App() {
     });
   }
 
-  function clearSelection() {
-    setSelectedPhotoIds(new Set());
-    setSelectionMode(false);
-  }
-
   function clearAllFilters() {
     setUserTouchedFilter(false);
     setActiveTag(null);

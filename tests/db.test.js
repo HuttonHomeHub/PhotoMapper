@@ -169,10 +169,26 @@ describe('clients and projects', () => {
 describe('PERF-01: queryPhotos / countPhotos', () => {
   it('seeds two photos with a distinct tag and survey date', () => {
     dbmod.insertPhoto(
-      makePhoto({ id: 'pq1', fileHash: 'pq1', hasGps: 1, lat: 10, lng: 10, surveyDate: '2026-09-09', originalName: 'Query One.jpg' })
+      makePhoto({
+        id: 'pq1',
+        fileHash: 'pq1',
+        hasGps: 1,
+        lat: 10,
+        lng: 10,
+        surveyDate: '2026-09-09',
+        originalName: 'Query One.jpg',
+      })
     );
     dbmod.insertPhoto(
-      makePhoto({ id: 'pq2', fileHash: 'pq2', hasGps: 0, lat: null, lng: null, surveyDate: '2026-09-09', originalName: 'Query Two.jpg' })
+      makePhoto({
+        id: 'pq2',
+        fileHash: 'pq2',
+        hasGps: 0,
+        lat: null,
+        lng: null,
+        surveyDate: '2026-09-09',
+        originalName: 'Query Two.jpg',
+      })
     );
     dbmod.updatePhoto('pq1', { tags: ['perfq'] });
     dbmod.updatePhoto('pq2', { tags: ['perfq'] });
@@ -180,9 +196,19 @@ describe('PERF-01: queryPhotos / countPhotos', () => {
   });
 
   it('filters by tag, survey date, hasGps and bbox', () => {
-    expect(dbmod.queryPhotos({ tag: 'perfq' }).map((p) => p.id).sort()).toEqual(['pq1', 'pq2']);
+    expect(
+      dbmod
+        .queryPhotos({ tag: 'perfq' })
+        .map((p) => p.id)
+        .sort()
+    ).toEqual(['pq1', 'pq2']);
     expect(dbmod.queryPhotos({ tag: 'perfq', hasGps: true }).map((p) => p.id)).toEqual(['pq1']);
-    expect(dbmod.queryPhotos({ surveyDate: '2026-09-09' }).map((p) => p.id).sort()).toEqual(['pq1', 'pq2']);
+    expect(
+      dbmod
+        .queryPhotos({ surveyDate: '2026-09-09' })
+        .map((p) => p.id)
+        .sort()
+    ).toEqual(['pq1', 'pq2']);
     // bbox forces has_gps=1, so the no-GPS photo is excluded
     const inBox = dbmod.queryPhotos({ bbox: { west: 5, south: 5, east: 15, north: 15 } });
     expect(inBox.map((p) => p.id)).toContain('pq1');
@@ -195,7 +221,12 @@ describe('PERF-01: queryPhotos / countPhotos', () => {
 
   it('FEAT-02: search also matches tags (json1)', () => {
     // pq1/pq2 carry the tag "perfq"; the name doesn't contain it.
-    expect(dbmod.queryPhotos({ search: 'perfq' }).map((p) => p.id).sort()).toEqual(['pq1', 'pq2']);
+    expect(
+      dbmod
+        .queryPhotos({ search: 'perfq' })
+        .map((p) => p.id)
+        .sort()
+    ).toEqual(['pq1', 'pq2']);
   });
 
   it('paginates with limit/offset while total reflects the full match', () => {

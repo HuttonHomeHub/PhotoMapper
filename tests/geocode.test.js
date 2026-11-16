@@ -47,9 +47,10 @@ describe('searchPlaces', () => {
   });
 
   it('caches by normalized query (second call does not re-fetch)', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue({ ok: true, json: async () => [{ lat: '1', lon: '2', display_name: 'A' }] });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [{ lat: '1', lon: '2', display_name: 'A' }],
+    });
     vi.stubGlobal('fetch', fetchMock);
     await searchPlaces('Paris');
     await searchPlaces('  paris  '); // same after trim+lowercase

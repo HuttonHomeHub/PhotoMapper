@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react';
 import React from 'react';
-import { useFocusTrap } from '../hooks/useFocusTrap.js';
 import { ConfirmModal } from './ConfirmModal.jsx';
 
 function SkeletonRow() {
@@ -27,7 +26,6 @@ export function PhotoList({
   onToggleSelection,
   onToggleSelectionMode,
   onBatchUpdate,
-  onBatchDelete,
   comparingPhotoId,
   onCompareClick,
   onPlacePhoto,
@@ -37,11 +35,9 @@ export function PhotoList({
   hasActiveFilters,
   onClearAllFilters,
   timelinePhotoId,
-  totalCount,
 }) {
   const [deletingId, setDeletingId] = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null);
-  const confirmTrapRef = useFocusTrap(!!pendingDelete);
   const [tagPromptOpen, setTagPromptOpen] = React.useState(false);
   const [batchTagValue, setBatchTagValue] = React.useState('');
   const [batchConfirmOpen, setBatchConfirmOpen] = React.useState(false);

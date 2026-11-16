@@ -1,9 +1,9 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
-import { fileURLToPath } from 'url'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Cloudflare Rocket Loader rewrites <script> tags and injects an inline loader to
 // run them. Our strict CSP (script-src 'self', no unsafe-inline) blocks that
@@ -13,22 +13,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const cfAsyncFalse = {
   name: 'cf-async-false',
   transformIndexHtml(html) {
-    return html.replace(/<script /g, '<script data-cfasync="false" ')
-  }
-}
+    return html.replace(/<script /g, '<script data-cfasync="false" ');
+  },
+};
 
 export default defineConfig({
   plugins: [react(), cfAsyncFalse],
   resolve: {
     alias: {
-      'heatmap.js': path.resolve(__dirname, 'src/lib/heatmap-patched.js')
-    }
+      'heatmap.js': path.resolve(__dirname, 'src/lib/heatmap-patched.js'),
+    },
   },
   server: {
     proxy: {
       '/api': 'http://localhost:3001',
-      '/uploads': 'http://localhost:3001'
-    }
+      '/uploads': 'http://localhost:3001',
+    },
   },
   build: {
     outDir: 'dist',
@@ -38,10 +38,10 @@ export default defineConfig({
       // (proper default export, no undefined top-level `this`) instead of being
       // treated as ESM — which crashed on `this.h337` and left leaflet-heatmap's
       // `require('heatmap.js')` empty. Mirrors how dev's optimizeDeps handles it.
-      include: [/heatmap-patched\.js$/, /node_modules/]
-    }
+      include: [/heatmap-patched\.js$/, /node_modules/],
+    },
   },
   optimizeDeps: {
-    include: ['leaflet.markercluster', 'leaflet-heatmap', 'heatmap.js']
-  }
-})
+    include: ['leaflet.markercluster', 'leaflet-heatmap', 'heatmap.js'],
+  },
+});

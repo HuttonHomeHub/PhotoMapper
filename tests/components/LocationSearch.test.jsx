@@ -18,9 +18,10 @@ describe('LocationSearch', () => {
   // FE-05: the component now calls the server proxy /api/geocode/search, which
   // returns { lat:number, lon:number, displayName:string }.
   it('queries the server proxy and flies to the single matching result', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue({ ok: true, json: async () => [{ lat: 51.5, lon: -0.12, displayName: 'London, UK' }] });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [{ lat: 51.5, lon: -0.12, displayName: 'London, UK' }],
+    });
     vi.stubGlobal('fetch', fetchMock);
     const onFlyTo = vi.fn();
     render(<LocationSearch onFlyTo={onFlyTo} />);
@@ -55,7 +56,10 @@ describe('LocationSearch', () => {
   });
 
   it('shows an error when the proxy request fails', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 502, json: async () => ({}) }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 502, json: async () => ({}) })
+    );
     render(<LocationSearch onFlyTo={vi.fn()} />);
     search('Boom');
     expect(await screen.findByText(/Location search failed/i)).toBeInTheDocument();
