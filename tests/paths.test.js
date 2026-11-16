@@ -10,7 +10,7 @@ let saved;
 let tmpDir;
 
 async function loadPaths(env) {
-  for (const n of NAMES) delete process.env[n];
+  for (const n of NAMES) Reflect.deleteProperty(process.env, n);
   Object.assign(process.env, env);
   vi.resetModules();
   return import('../server/paths.ts');
@@ -23,7 +23,7 @@ beforeEach(() => {
 
 afterEach(() => {
   for (const n of NAMES) {
-    if (saved[n] === undefined) delete process.env[n];
+    if (saved[n] === undefined) Reflect.deleteProperty(process.env, n);
     else process.env[n] = saved[n];
   }
   rmSync(tmpDir, { recursive: true, force: true });

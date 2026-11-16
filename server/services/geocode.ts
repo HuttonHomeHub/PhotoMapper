@@ -1,3 +1,7 @@
+import type { Place } from '../../shared/api.ts';
+
+export type { Place };
+
 const NOMINATIM_TIMEOUT_MS = 5000;
 const USER_AGENT = 'PhotoMapper/1.0';
 
@@ -13,11 +17,6 @@ export function geoKey(lat: number, lng: number): string {
 // so this avoids a DB migration. Throws on upstream failure/timeout so the route
 // can return a distinct 502 (vs. an empty-but-successful result).
 const SEARCH_CACHE_MAX = 200;
-export interface Place {
-  lat: number;
-  lon: number;
-  displayName: string;
-}
 
 const searchCache = new Map<string, Place[]>();
 

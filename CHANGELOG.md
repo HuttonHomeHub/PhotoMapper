@@ -26,6 +26,10 @@ that section as the GitHub Release notes.
 
 ### Changed
 
+- **Front end in TypeScript.** Everything under `src/` is strictly typed, with the API's shapes
+  defined once in `shared/api.ts` for both server and browser. Every API call now goes through a hook
+  (location search, the share page, uploads and reset included). React's stricter hook rules apply
+  throughout. No visible change.
 - **Database:** opened in WAL mode by the shared kit. New schema changes are numbered SQL files run by
   the kit (from `007`); the original migrations 1–6 are frozen and stay recorded where v1.2.0 expects
   them, so rolling back to v1.2.0 still works.

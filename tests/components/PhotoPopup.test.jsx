@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
-import { PhotoPopup } from '../../src/components/PhotoPopup.jsx';
+import { PhotoPopup } from '../../src/components/PhotoPopup.tsx';
 
 afterEach(cleanup);
 

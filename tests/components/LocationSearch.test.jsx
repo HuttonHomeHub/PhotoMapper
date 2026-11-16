@@ -2,12 +2,18 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
-import { LocationSearch } from '../../src/components/LocationSearch.jsx';
+import { LocationSearch } from '../../src/components/LocationSearch.tsx';
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
+
+// A real Response each call, as fetch returns.
+const reply =
+  (body, status = 200) =>
+  () =>
+    Promise.resolve(new Response(JSON.stringify(body), { status }));
 
 function search(value) {
   fireEvent.change(screen.getByLabelText('Search for a location'), { target: { value } });
@@ -18,10 +24,9 @@ describe('LocationSearch', () => {
   // FE-05: the component now calls the server proxy /api/geocode/search, which
   // returns { lat:number, lon:number, displayName:string }.
   it('queries the server proxy and flies to the single matching result', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => [{ lat: 51.5, lon: -0.12, displayName: 'London, UK' }],
-    });
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(reply([{ lat: 51.5, lon: -0.12, displayName: 'London, UK' }]));
     vi.stubGlobal('fetch', fetchMock);
     const onFlyTo = vi.fn();
     render(<LocationSearch onFlyTo={onFlyTo} />);
@@ -34,13 +39,12 @@ describe('LocationSearch', () => {
   it('lists multiple results', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => [
+      vi.fn().mockImplementation(
+        reply([
           { lat: 1, lon: 1, displayName: 'Alpha, X' },
           { lat: 2, lon: 2, displayName: 'Beta, Y' },
-        ],
-      })
+        ])
+      )
     );
     render(<LocationSearch onFlyTo={vi.fn()} />);
     search('Multi');
@@ -49,7 +53,7 @@ describe('LocationSearch', () => {
   });
 
   it('shows an error when there are no results', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => [] }));
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(reply([])));
     render(<LocationSearch onFlyTo={vi.fn()} />);
     search('Nowhere');
     expect(await screen.findByText(/No locations found/i)).toBeInTheDocument();
@@ -58,7 +62,7 @@ describe('LocationSearch', () => {
   it('shows an error when the proxy request fails', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({ ok: false, status: 502, json: async () => ({}) })
+      vi.fn().mockImplementation(reply({ error: 'Location search failed' }, 502))
     );
     render(<LocationSearch onFlyTo={vi.fn()} />);
     search('Boom');

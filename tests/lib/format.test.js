@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatDate } from '../../src/lib/format.js';
+import { formatDate } from '../../src/lib/format.ts';
 
 describe('formatDate', () => {
   it('returns null for empty input', () => {

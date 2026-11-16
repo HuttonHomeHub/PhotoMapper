@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, cleanup } from '@testing-library/react';
-import { ErrorBoundary } from '../../src/components/ErrorBoundary.jsx';
+import { ErrorBoundary } from '../../src/components/ErrorBoundary.tsx';
 
 // TEST-03: jsdom component harness. Also lands FE-01's full render coverage.
 
