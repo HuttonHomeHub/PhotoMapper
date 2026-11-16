@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '@hhh/ui';
 
 // ARCH-06: photo state + operations. Split out of the former 25-return
 // kitchen-sink hook (see useClients.js / useProjects.js for the rest).
@@ -10,9 +11,7 @@ export function usePhotos() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/photos');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setPhotos(await res.json());
+      setPhotos(await apiFetch('/api/photos'));
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -26,53 +25,29 @@ export function usePhotos() {
   }, [refresh]);
 
   const deletePhoto = useCallback(async (id) => {
-    const res = await fetch(`/api/photos/${id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || `HTTP ${res.status}`);
-    }
+    await apiFetch(`/api/photos/${id}`, { method: 'DELETE' });
     setPhotos((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
   const updatePhoto = useCallback(async (id, fields) => {
-    const res = await fetch(`/api/photos/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(fields),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || `HTTP ${res.status}`);
-    }
-    const updated = await res.json();
+    const updated = await apiFetch(`/api/photos/${id}`, { method: 'PATCH', body: fields });
     setPhotos((prev) => prev.map((p) => (p.id === id ? updated : p)));
     return updated;
   }, []);
 
   // FEAT: manually place (or reposition) a photo's pin on the map.
   const setPhotoLocation = useCallback(async (id, lat, lng) => {
-    const res = await fetch(`/api/photos/${id}/location`, {
+    const updated = await apiFetch(`/api/photos/${id}/location`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lat, lng }),
+      body: { lat, lng },
     });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || `HTTP ${res.status}`);
-    }
-    const updated = await res.json();
     setPhotos((prev) => prev.map((p) => (p.id === id ? updated : p)));
     return updated;
   }, []);
 
   // FEAT: remove a hand-placed pin, returning the photo to "No GPS".
   const clearPhotoLocation = useCallback(async (id) => {
-    const res = await fetch(`/api/photos/${id}/location`, { method: 'DELETE' });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || `HTTP ${res.status}`);
-    }
-    const updated = await res.json();
+    const updated = await apiFetch(`/api/photos/${id}/location`, { method: 'DELETE' });
     setPhotos((prev) => prev.map((p) => (p.id === id ? updated : p)));
     return updated;
   }, []);
@@ -95,15 +70,10 @@ export function usePhotos() {
 
   const batchUpdate = useCallback(
     async (ids, { tags, description, mergeTags }) => {
-      const res = await fetch('/api/photos/batch', {
+      await apiFetch('/api/photos/batch', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids, tags, description, mergeTags }),
+        body: { ids, tags, description, mergeTags },
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `HTTP ${res.status}`);
-      }
       await refresh();
     },
     [refresh]
@@ -111,7 +81,10 @@ export function usePhotos() {
 
   const batchDelete = useCallback(
     async (ids) => {
-      await Promise.all(ids.map((id) => fetch(`/api/photos/${id}`, { method: 'DELETE' })));
+      // Callers don't wait for the result: whatever failed, the refresh shows what's left.
+      await Promise.allSettled(
+        ids.map((id) => apiFetch(`/api/photos/${id}`, { method: 'DELETE' }))
+      );
       await refresh();
     },
     [refresh]

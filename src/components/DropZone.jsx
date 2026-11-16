@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { ApiError, apiFetch } from '@hhh/ui';
 
 function AssignModal({ fileCount, clients, projects, onConfirm, onSkip }) {
   const defaultMode = clients.length > 0 ? 'existing' : 'new';
@@ -32,28 +33,22 @@ function AssignModal({ fileCount, clients, projects, onConfirm, onSkip }) {
     // mode === 'new'
     setCreating(true);
     try {
-      const clientRes = await fetch('/api/clients', {
+      const client = await apiFetch('/api/clients', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newClientName.trim() }),
+        body: { name: newClientName.trim() },
       });
-      if (!clientRes.ok) throw new Error('Failed to create client');
-      const client = await clientRes.json();
 
       let finalProjectId = null;
       if (newProjectName.trim()) {
-        const projRes = await fetch('/api/projects', {
+        const proj = await apiFetch('/api/projects', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+          body: {
             name: newProjectName.trim(),
             clientId: client.id,
             status: 'active',
             color: '#3a86ff',
-          }),
+          },
         });
-        if (!projRes.ok) throw new Error('Failed to create project');
-        const proj = await projRes.json();
         finalProjectId = proj.id;
       }
 
@@ -204,17 +199,16 @@ export function DropZone({
     formData.append('photo', file);
     if (projectId) formData.append('projectId', projectId);
 
-    const res = await fetch('/api/photos', { method: 'POST', body: formData });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      if (res.status === 409) {
-        const err = new Error('Already uploaded');
-        err.isDuplicate = true;
-        throw err;
+    try {
+      return await apiFetch('/api/photos', { method: 'POST', body: formData });
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        const dup = new Error('Already uploaded');
+        dup.isDuplicate = true;
+        throw dup;
       }
-      throw new Error(body.error || `HTTP ${res.status}`);
+      throw err;
     }
-    return res.json();
   }
 
   async function processFiles(fileList, projectId) {

@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
 import React from 'react';
+import { apiFetch } from '@hhh/ui';
 import { useFocusTrap } from './hooks/useFocusTrap.js';
 
 function SidebarSection({ title, defaultOpen = true, badge = null, children }) {
@@ -968,11 +969,7 @@ export function App() {
                       className="shortcuts-reset-confirm"
                       onClick={async () => {
                         try {
-                          const res = await fetch('/api/reset', { method: 'DELETE' });
-                          if (!res.ok) {
-                            const body = await res.json().catch(() => ({}));
-                            throw new Error(body.error || `HTTP ${res.status}`);
-                          }
+                          await apiFetch('/api/reset', { method: 'DELETE' });
                           setResetConfirm(false);
                           setShortcutsOpen(false);
                           await refreshAll();

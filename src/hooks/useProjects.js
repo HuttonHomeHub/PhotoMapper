@@ -1,17 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '@hhh/ui';
 
-async function postJson(url, method, data) {
-  const res = await fetch(url, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
+const postJson = (url, method, body) => apiFetch(url, { method, body });
 
 // ARCH-06: project state + operations (split out of the old usePhotos).
 // Project mutations that also change photos (delete, (re)assign) call
@@ -25,9 +15,7 @@ export function useProjects({ onPhotosChanged } = {}) {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/projects');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setProjects(await res.json());
+      setProjects(await apiFetch('/api/projects'));
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -53,12 +41,17 @@ export function useProjects({ onPhotosChanged } = {}) {
 
   const deleteProject = useCallback(
     async (id) => {
-      await fetch(`/api/projects/${id}`, { method: 'DELETE' });
-      setProjects((prev) => prev.filter((p) => p.id !== id));
+      // Callers don't wait for the result: if the delete failed, re-read the list.
+      try {
+        await apiFetch(`/api/projects/${id}`, { method: 'DELETE' });
+        setProjects((prev) => prev.filter((p) => p.id !== id));
+      } catch {
+        await refresh();
+      }
       // photos' project_id was set NULL by the ON DELETE SET NULL FK
       await onPhotosChanged?.();
     },
-    [onPhotosChanged]
+    [onPhotosChanged, refresh]
   );
 
   const assignToProject = useCallback(
@@ -79,11 +72,7 @@ export function useProjects({ onPhotosChanged } = {}) {
 
   // FEAT: revoke the share link (the old URL stops working immediately).
   const disableShare = useCallback(async (id) => {
-    const res = await fetch(`/api/projects/${id}/share`, { method: 'DELETE' });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.error || `HTTP ${res.status}`);
-    }
+    await apiFetch(`/api/projects/${id}/share`, { method: 'DELETE' });
     setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, shareToken: null } : p)));
   }, []);
 

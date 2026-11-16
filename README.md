@@ -26,9 +26,9 @@ tools for organising them into clients, projects and survey dates.
 ## Tech stack
 
 - **Frontend:** React 18 + Vite 6, Leaflet (+ markercluster, heatmap)
-- **Backend:** Express 4, better-sqlite3 (SQLite), `sharp` (thumbnails),
-  `exifr` (EXIF), `zod` (validation), `helmet`/`compression`/`express-rate-limit`,
-  `pino` (structured logging)
+- **Backend:** Express 5 on the shared `@hhh/server` kit (security headers and CSP,
+  CSRF, rate limits, logging, settings), better-sqlite3 (SQLite), `sharp` (thumbnails),
+  `exifr` (EXIF), `zod` (validation)
 - **Tests:** Vitest (Node + jsdom), Testing Library, supertest
 
 ## Quick start
@@ -64,26 +64,26 @@ All runtime config is validated on startup (`server/config.ts`). Copy
 
 Shared with every HuttonHomeHub app (same name and meaning everywhere):
 
-| Var             | Default                                            | Purpose                                                                                                                                                                        |
-| --------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `PUID` / `PGID` | `1000`                                             | User and group the app runs as in the image; data directories are chowned to them                                                                                              |
-| `TZ`            | UTC                                                | Time zone, e.g. `Europe/London`                                                                                                                                                |
-| `TRUST_PROXY`   | _(off)_                                            | Number of reverse-proxy hops in front whose `X-Forwarded-*` headers are trusted (`1` when nginx restores the real client IP). Also accepts `true`/`false` or an IP/subnet list |
-| `LOG_LEVEL`     | `info`                                             | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` (`silent` under test; `warn` drops per-request logs)                                                              |
-| `DATA_DIR`      | `/config` in the image                             | Where all state lives; the next two default inside it                                                                                                                          |
-| `DB_PATH`       | `$DATA_DIR/photos.db` (locally `server/photos.db`) | SQLite file. Replaces `PHOTOS_DB_PATH`, which still works and logs a deprecation warning                                                                                       |
-| `UPLOADS_DIR`   | `$DATA_DIR/uploads` (locally `server/uploads`)     | Uploaded-image + thumbnail directory                                                                                                                                           |
-| `APP_VERSION`   | `dev`                                              | Release version, set from the image tag at build time; reported at `/health` and `/version`                                                                                    |
+| Var             | Default                                            | Purpose                                                                                                                                                                           |
+| --------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PUID` / `PGID` | `1000`                                             | User and group the app runs as in the image; data directories are chowned to them                                                                                                 |
+| `TZ`            | UTC                                                | Time zone, e.g. `Europe/London`                                                                                                                                                   |
+| `TRUST_PROXY`   | _(off)_                                            | Number of reverse-proxy hops in front whose `X-Forwarded-*` headers are trusted (`1` when nginx restores the real client IP). `true` means 1; anything but a number stops startup |
+| `LOG_LEVEL`     | `info`                                             | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` (`silent` under test; `warn` drops per-request logs)                                                                 |
+| `DATA_DIR`      | `/config` in the image                             | Where all state lives; the next two default inside it                                                                                                                             |
+| `DB_PATH`       | `$DATA_DIR/photos.db` (locally `server/photos.db`) | SQLite file. Replaces `PHOTOS_DB_PATH`, which still works and logs a deprecation warning                                                                                          |
+| `UPLOADS_DIR`   | `$DATA_DIR/uploads` (locally `server/uploads`)     | Uploaded-image + thumbnail directory                                                                                                                                              |
+| `APP_VERSION`   | `dev`                                              | Release version, set from the image tag at build time; reported at `/health` and `/version`                                                                                       |
 
 PhotoMapper only:
 
-| Var                                       | Default            | Purpose                                                               |
-| ----------------------------------------- | ------------------ | --------------------------------------------------------------------- |
-| `PORT`                                    | `3001`             | API port inside the container (keep behind the reverse proxy in prod) |
-| `ALLOWED_ORIGINS`                         | _(empty)_          | Comma-separated CORS allowlist; empty = same-origin                   |
-| `ALLOW_RESET`                             | `false`            | Enables the destructive `DELETE /api/reset`                           |
-| `UPLOAD_MAX_BYTES`                        | `62914560` (60 MB) | Upload size cap                                                       |
-| `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` | `900000` / `1000`  | Per-IP API rate limit                                                 |
+| Var                | Default               | Purpose                                                                                                                                                        |
+| ------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`             | `3001`                | API port inside the container (keep behind the reverse proxy in prod)                                                                                          |
+| `ALLOWED_ORIGINS`  | _(empty)_             | Comma-separated CORS allowlist; empty = same-origin                                                                                                            |
+| `ALLOW_RESET`      | `false`               | Enables the destructive `DELETE /api/reset`                                                                                                                    |
+| `UPLOAD_MAX_BYTES` | `62914560` (60 MB)    | Upload size cap                                                                                                                                                |
+| `API_RATE`         | `1000 per 15 minutes` | Per-IP rate limit over all of `/api`, e.g. `60 per minute`. Replaces `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`, which still work and log a deprecation warning |
 
 A deployment in the standard layout is in [deploy/compose.example.yml](deploy/compose.example.yml).
 

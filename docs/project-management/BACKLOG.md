@@ -599,7 +599,8 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 
 ### DEP-03 — Express 4 → 5
 
-- **Category:** Dependencies · **Severity:** Low · **Priority:** P3 · **Effort:** M · **Risk:** Medium · **Status:** Not Started
+- **Category:** Dependencies · **Severity:** Low · **Priority:** P3 · **Effort:** M · **Risk:** Medium · **Status:** Done
+- **Resolution:** Express 5, with the hhh-platform server kit (phase 3); `express-async-errors` removed.
 - **Description:** Express 5 natively handles async errors (would subsume BE-01's shim).
 - **Recommended solution:** Evaluate migration after tests exist; may replace `express-async-errors`.
 - **Files affected:** `server/index.js`, `package.json`.

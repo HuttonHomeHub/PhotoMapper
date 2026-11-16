@@ -1,34 +1,30 @@
 import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { mkdirSync } from 'fs';
+import { resolveDataPaths } from '@hhh/server';
+import { config } from './config.ts';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const serverDir = dirname(fileURLToPath(import.meta.url));
 
-// Data locations, named to the shared container standard (~/projects/CLAUDE.md).
-// DATA_DIR holds all state; the image sets it to /config. DB_PATH and UPLOADS_DIR
-// default to photos.db and uploads/ inside it. Outside a container (no DATA_DIR)
-// they default to server/photos.db and server/uploads, as before.
-const dataDir = process.env.DATA_DIR ? resolve(process.env.DATA_DIR) : __dirname;
-
-// Old setting names still in use, as [old, new] pairs; index.ts logs a warning each.
-export const deprecatedSettings: [string, string][] = [];
-
-function setting(name: string, legacyName?: string): string | undefined {
-  if (process.env[name]) return process.env[name];
-  if (legacyName && process.env[legacyName]) {
-    deprecatedSettings.push([legacyName, name]);
-    return process.env[legacyName];
+// Data locations, to the shared container standard. DATA_DIR holds all state; the image
+// sets it to /config. DB_PATH and UPLOADS_DIR default to photos.db and uploads/ inside
+// it. Outside a container (no DATA_DIR) they default to server/photos.db and
+// server/uploads, as before.
+const paths = resolveDataPaths(
+  { DATA_DIR: config.dataDir, DB_PATH: config.dbPath, UPLOADS_DIR: config.uploadsDir },
+  {
+    dbFile: 'photos.db',
+    fallbackDir: serverDir,
+    join,
   }
-  return undefined;
-}
+);
 
-const dbSetting = setting('DB_PATH', 'PHOTOS_DB_PATH');
-export const dbPath = dbSetting ? resolve(dbSetting) : join(dataDir, 'photos.db');
+export const dataDir = resolve(paths.dataDir);
+export const dbPath = resolve(paths.dbPath);
+export const uploadsDir = resolve(paths.uploadsDir);
+export const distDir = join(serverDir, '..', 'dist');
 
-// OPS-02: uploads location is overridable so a container can point it at a
-// mounted data volume.
-const uploadsSetting = setting('UPLOADS_DIR');
-export const uploadsDir = uploadsSetting ? resolve(uploadsSetting) : join(dataDir, 'uploads');
-export const distDir = join(__dirname, '..', 'dist');
+// Kept here so the paths tests can check old names alongside the paths they set.
+export { deprecatedSettings } from './config.ts';
 
 mkdirSync(uploadsDir, { recursive: true });

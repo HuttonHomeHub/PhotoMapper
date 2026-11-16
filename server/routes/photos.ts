@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { HttpError } from '@hhh/server';
 import multer from 'multer';
 import sharp from 'sharp';
 import { join } from 'path';
@@ -55,7 +56,7 @@ const upload = multer({
   storage,
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_TYPES.has(file.mimetype)) cb(null, true);
-    else cb(new Error(`Unsupported file type: ${file.mimetype}`));
+    else cb(new HttpError(400, `Unsupported file type: ${file.mimetype}`));
   },
   limits: { fileSize: config.uploadMaxBytes }, // SEC-07: configurable, default 60 MB
 });

@@ -14,8 +14,12 @@ the app assumes every request that reaches it is already authenticated.
   and mapped at the boundary.
 - **Errors:** `{ "error": "message" }`. Validation failures return
   `400 { "error": "Invalid request", "details": [{ "field": "...", "message": "..." }] }`.
+  An unknown `/api` path is `404 { "error": "Not found" }`.
+- **CSRF:** every `POST`, `PUT`, `PATCH` and `DELETE` must send the `hhh_csrf` cookie's
+  value in an `X-CSRF-Token` header (the cookie is set on the first page load; the
+  front end's `apiFetch` does this). Otherwise `403`.
 - **Rate limiting:** every `/api` route is rate-limited per IP (default 1000
-  requests / 15 min; `RateLimit-*` headers are returned; `429` when exceeded).
+  requests / 15 min, set by `API_RATE`; `RateLimit` headers are returned; `429` when exceeded).
 - **Security headers:** helmet + a strict CSP are applied to all responses.
 
 ## Object shapes
@@ -93,7 +97,7 @@ Upload a photo. `multipart/form-data`:
 - **400** `{ "error": "No file uploaded" }` — no file part.
 - **409** `{ "error": "duplicate", "message": "...", "photo": { … } }` — the file's
   content hash matches an existing photo (server-side de-duplication).
-- Oversize files or unsupported types are rejected with an error response.
+- **400** `{ "error": "Unsupported file type: …" }` and **413** `{ "error": "File is too large" }`.
 
 ### `GET /api/photos`
 

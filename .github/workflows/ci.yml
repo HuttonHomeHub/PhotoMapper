@@ -25,20 +25,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
-
-      # CQ-07: fail if code isn't Prettier-formatted (src/ + server/ normalized).
-      - name: Format check
-        run: npm run format:check
-
-      - name: Test (with coverage thresholds)
-        run: npm run test:coverage
-
-      - name: Build
-        run: npm run build
-
-      # Blocking as of DEP-05 (tree is clean at high severity). A newly
-      # disclosed high/critical advisory will fail CI until triaged.
-      - name: Audit dependencies
-        run: npm audit --audit-level=high
+      # Exactly what `npm run check` runs locally: the vendored-platform check, typecheck,
+      # lint, format check, tests with coverage thresholds, build, and npm audit (high).
+      - name: Run checks
+        run: npm run check

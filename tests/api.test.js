@@ -24,6 +24,43 @@ afterAll(() => {
   rmSync(tmpDir, { recursive: true, force: true });
 });
 
+// Writes carry the CSRF cookie and the same token in the header, as apiFetch sends them.
+const CSRF_TOKEN = 'test-csrf-token';
+function write(method, url) {
+  const req = request(app);
+  return req[method](url).set('Cookie', `hhh_csrf=${CSRF_TOKEN}`).set('X-CSRF-Token', CSRF_TOKEN);
+}
+
+describe('CSRF protection', () => {
+  it('issues the token cookie on a page load', async () => {
+    const res = await request(app).get('/api/photos');
+    expect(String(res.headers['set-cookie'])).toMatch(/hhh_csrf=/);
+  });
+
+  it('rejects a write without the token', async () => {
+    const res = await request(app).post('/api/clients').send({ name: 'No token' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/CSRF/);
+  });
+});
+
+describe('errors and unknown paths', () => {
+  it('answers an unknown /api path with a JSON 404', async () => {
+    const res = await request(app).get('/api/nothing-here');
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: 'Not found' });
+  });
+
+  it('rejects an upload of an unsupported type with 400', async () => {
+    const res = await write('post', '/api/photos').attach('photo', Buffer.from('hello'), {
+      filename: 'notes.txt',
+      contentType: 'text/plain',
+    });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'Unsupported file type: text/plain' });
+  });
+});
+
 describe('photos API', () => {
   it('GET /api/photos returns an array', async () => {
     const res = await request(app).get('/api/photos');
@@ -41,7 +78,7 @@ describe('photos API', () => {
   });
 
   it('POST /api/photos with no file returns 400', async () => {
-    const res = await request(app).post('/api/photos');
+    const res = await write('post', '/api/photos');
     expect(res.status).toBe(400);
     expect(res.body).toHaveProperty('error');
   });
@@ -55,33 +92,33 @@ describe('photos API', () => {
       .jpeg()
       .toBuffer();
 
-    const up = await request(app).post('/api/photos').attach('photo', jpeg, 'sample.jpg');
+    const up = await write('post', '/api/photos').attach('photo', jpeg, 'sample.jpg');
     expect(up.status).toBe(201);
     expect(up.body.hasGps).toBe(false);
     expect(up.body.id).toBeTruthy();
     expect(up.body.originalName).toBe('sample.jpg');
 
     // Same bytes → same content hash → duplicate rejected.
-    const dup = await request(app).post('/api/photos').attach('photo', jpeg, 'sample.jpg');
+    const dup = await write('post', '/api/photos').attach('photo', jpeg, 'sample.jpg');
     expect(dup.status).toBe(409);
     expect(dup.body.error).toBe('duplicate');
 
     // It shows up in the listing and can be deleted.
     const list = await request(app).get('/api/photos');
     expect(list.body.some((p) => p.id === up.body.id)).toBe(true);
-    const del = await request(app).delete(`/api/photos/${up.body.id}`);
+    const del = await write('delete', `/api/photos/${up.body.id}`);
     expect(del.status).toBe(200);
   });
 
   it('SEC-06: rejects a non-image sent with an image extension (400)', async () => {
     const notAnImage = Buffer.from('this is definitely not an image');
-    const res = await request(app).post('/api/photos').attach('photo', notAnImage, 'evil.jpg');
+    const res = await write('post', '/api/photos').attach('photo', notAnImage, 'evil.jpg');
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/not a supported image/i);
   });
 
   it('PATCH /api/photos/:id for an unknown id returns 404', async () => {
-    const res = await request(app).patch('/api/photos/does-not-exist').send({ description: 'x' });
+    const res = await write('patch', '/api/photos/does-not-exist').send({ description: 'x' });
     expect(res.status).toBe(404);
   });
 
@@ -117,21 +154,21 @@ describe('clients & projects API', () => {
   });
 
   it('POST /api/clients requires a name (400)', async () => {
-    const res = await request(app).post('/api/clients').send({});
+    const res = await write('post', '/api/clients').send({});
     expect(res.status).toBe(400);
   });
 
   it('POST /api/clients creates a client, then rejects a duplicate (409)', async () => {
-    const first = await request(app).post('/api/clients').send({ name: 'Acme Co' });
+    const first = await write('post', '/api/clients').send({ name: 'Acme Co' });
     expect(first.status).toBe(201);
     expect(first.body.name).toBe('Acme Co');
 
-    const dup = await request(app).post('/api/clients').send({ name: 'Acme Co' });
+    const dup = await write('post', '/api/clients').send({ name: 'Acme Co' });
     expect(dup.status).toBe(409);
   });
 
   it('POST /api/projects requires a name (400)', async () => {
-    const res = await request(app).post('/api/projects').send({});
+    const res = await write('post', '/api/projects').send({});
     expect(res.status).toBe(400);
   });
 });
@@ -141,81 +178,82 @@ describe('BE-03/BE-04: update semantics', () => {
   let projectId;
 
   it('sets up a client and a project', async () => {
-    const c = await request(app).post('/api/clients').send({ name: 'Update Co' });
+    const c = await write('post', '/api/clients').send({ name: 'Update Co' });
     clientId = c.body.id;
-    const p = await request(app).post('/api/projects').send({ name: 'Proj A', clientId });
+    const p = await write('post', '/api/projects').send({ name: 'Proj A', clientId });
     projectId = p.body.id;
     expect(p.status).toBe(201);
     expect(p.body.clientId).toBe(clientId);
   });
 
   it('BE-03: an explicit clientId:null unassigns the client', async () => {
-    const res = await request(app).patch(`/api/projects/${projectId}`).send({ clientId: null });
+    const res = await write('patch', `/api/projects/${projectId}`).send({ clientId: null });
     expect(res.status).toBe(200);
     expect(res.body.clientId).toBeNull();
   });
 
   it('BE-03: a partial update leaves other fields intact', async () => {
-    const res = await request(app).patch(`/api/projects/${projectId}`).send({ status: 'archived' });
+    const res = await write('patch', `/api/projects/${projectId}`).send({ status: 'archived' });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('archived');
     expect(res.body.name).toBe('Proj A');
   });
 
   it('BE-03: unknown project returns 404', async () => {
-    const res = await request(app).patch('/api/projects/nope').send({ status: 'active' });
+    const res = await write('patch', '/api/projects/nope').send({ status: 'active' });
     expect(res.status).toBe(404);
   });
 
   it('BE-03: a blank name returns 400', async () => {
-    const res = await request(app).patch(`/api/projects/${projectId}`).send({ name: '   ' });
+    const res = await write('patch', `/api/projects/${projectId}`).send({ name: '   ' });
     expect(res.status).toBe(400);
   });
 
   it('BE-04: unknown client returns 404', async () => {
-    const res = await request(app).patch('/api/clients/nope').send({ name: 'X' });
+    const res = await write('patch', '/api/clients/nope').send({ name: 'X' });
     expect(res.status).toBe(404);
   });
 
   it('BE-04: a blank name returns 400', async () => {
-    const res = await request(app).patch(`/api/clients/${clientId}`).send({ name: '' });
+    const res = await write('patch', `/api/clients/${clientId}`).send({ name: '' });
     expect(res.status).toBe(400);
   });
 
   it('BE-04: renaming to an existing client name returns 409', async () => {
-    await request(app).post('/api/clients').send({ name: 'Existing Co' });
-    const res = await request(app).patch(`/api/clients/${clientId}`).send({ name: 'Existing Co' });
+    await write('post', '/api/clients').send({ name: 'Existing Co' });
+    const res = await write('patch', `/api/clients/${clientId}`).send({ name: 'Existing Co' });
     expect(res.status).toBe(409);
   });
 });
 
 describe('BE-02: request validation', () => {
   it('rejects a batch update with no ids (400)', async () => {
-    const res = await request(app).patch('/api/photos/batch').send({ ids: [] });
+    const res = await write('patch', '/api/photos/batch').send({ ids: [] });
     expect(res.status).toBe(400);
     expect(res.body).toHaveProperty('details');
   });
 
   it('accepts a well-formed batch update (200)', async () => {
-    const res = await request(app)
-      .patch('/api/photos/batch')
-      .send({ ids: ['no-such-photo'], tags: ['x'] });
+    const res = await write('patch', '/api/photos/batch').send({
+      ids: ['no-such-photo'],
+      tags: ['x'],
+    });
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('updated');
   });
 
   it('rejects an invalid surveyDate before the 404 check (400)', async () => {
-    const res = await request(app).patch('/api/photos/any-id').send({ surveyDate: 'not-a-date' });
+    const res = await write('patch', '/api/photos/any-id').send({ surveyDate: 'not-a-date' });
     expect(res.status).toBe(400);
   });
 
   it('rejects a non-array tags field (400)', async () => {
-    const res = await request(app).patch('/api/photos/any-id').send({ tags: 'nope' });
+    const res = await write('patch', '/api/photos/any-id').send({ tags: 'nope' });
     expect(res.status).toBe(400);
   });
 
   it('rejects project photo assignment with no photoIds (400)', async () => {
-    const res = await request(app).patch('/api/projects/any-id/photos').send({ photoIds: [] });
+    const res = await write('patch', '/api/projects/any-id/photos').send({ photoIds: [] });
     expect(res.status).toBe(400);
   });
 });
@@ -265,7 +303,7 @@ describe('SEC-09/SEC-07: security middleware', () => {
 
 describe('SEC-02: reset endpoint is gated', () => {
   it('DELETE /api/reset returns 403 when ALLOW_RESET is not set', async () => {
-    const res = await request(app).delete('/api/reset');
+    const res = await write('delete', '/api/reset');
     expect(res.status).toBe(403);
     expect(res.body).toHaveProperty('error');
   });
@@ -288,16 +326,17 @@ describe('FEAT: manual GPS placement', () => {
     })
       .jpeg()
       .toBuffer();
-    const up = await request(app).post('/api/photos').attach('photo', jpeg, 'place-me.jpg');
+    const up = await write('post', '/api/photos').attach('photo', jpeg, 'place-me.jpg');
     expect(up.status).toBe(201);
     expect(up.body.hasGps).toBe(false);
     photoId = up.body.id;
   });
 
   it('PUT /:id/location places the photo and flags it manual', async () => {
-    const res = await request(app)
-      .put(`/api/photos/${photoId}/location`)
-      .send({ lat: 51.5, lng: -0.12 });
+    const res = await write('put', `/api/photos/${photoId}/location`).send({
+      lat: 51.5,
+      lng: -0.12,
+    });
     expect(res.status).toBe(200);
     expect(res.body.hasGps).toBe(true);
     expect(res.body.manualGps).toBe(true);
@@ -306,19 +345,17 @@ describe('FEAT: manual GPS placement', () => {
   });
 
   it('rejects out-of-range coordinates (400)', async () => {
-    const res = await request(app)
-      .put(`/api/photos/${photoId}/location`)
-      .send({ lat: 200, lng: 0 });
+    const res = await write('put', `/api/photos/${photoId}/location`).send({ lat: 200, lng: 0 });
     expect(res.status).toBe(400);
   });
 
   it('PUT /:id/location for an unknown photo returns 404', async () => {
-    const res = await request(app).put('/api/photos/nope/location').send({ lat: 1, lng: 1 });
+    const res = await write('put', '/api/photos/nope/location').send({ lat: 1, lng: 1 });
     expect(res.status).toBe(404);
   });
 
   it('DELETE /:id/location clears the manual pin back to no-GPS', async () => {
-    const res = await request(app).delete(`/api/photos/${photoId}/location`);
+    const res = await write('delete', `/api/photos/${photoId}/location`);
     expect(res.status).toBe(200);
     expect(res.body.hasGps).toBe(false);
     expect(res.body.manualGps).toBe(false);
@@ -326,7 +363,7 @@ describe('FEAT: manual GPS placement', () => {
   });
 
   it('DELETE /:id/location on a photo with no manual pin returns 409', async () => {
-    const res = await request(app).delete(`/api/photos/${photoId}/location`);
+    const res = await write('delete', `/api/photos/${photoId}/location`);
     expect(res.status).toBe(409);
   });
 });
@@ -337,7 +374,7 @@ describe('FEAT: project share links', () => {
   let token;
 
   it('sets up a project with one placed photo', async () => {
-    const p = await request(app).post('/api/projects').send({ name: 'Shared Job' });
+    const p = await write('post', '/api/projects').send({ name: 'Shared Job' });
     projectId = p.body.id;
     expect(p.body.shareToken).toBeNull();
 
@@ -346,10 +383,10 @@ describe('FEAT: project share links', () => {
     })
       .jpeg()
       .toBuffer();
-    const up = await request(app).post('/api/photos').attach('photo', jpeg, 'shared.jpg');
+    const up = await write('post', '/api/photos').attach('photo', jpeg, 'shared.jpg');
     sharedPhotoId = up.body.id;
-    await request(app).patch(`/api/photos/${sharedPhotoId}`).send({ projectId });
-    await request(app).put(`/api/photos/${sharedPhotoId}/location`).send({ lat: 40.4, lng: -3.7 });
+    await write('patch', `/api/photos/${sharedPhotoId}`).send({ projectId });
+    await write('put', `/api/photos/${sharedPhotoId}/location`).send({ lat: 40.4, lng: -3.7 });
   });
 
   it('an un-shared project 404s on the public endpoint even with a guessed token', async () => {
@@ -358,12 +395,12 @@ describe('FEAT: project share links', () => {
   });
 
   it('POST /:id/share mints a token; repeat calls are idempotent', async () => {
-    const res = await request(app).post(`/api/projects/${projectId}/share`);
+    const res = await write('post', `/api/projects/${projectId}/share`);
     expect(res.status).toBe(200);
     expect(res.body.shareToken).toBeTruthy();
     token = res.body.shareToken;
 
-    const again = await request(app).post(`/api/projects/${projectId}/share`);
+    const again = await write('post', `/api/projects/${projectId}/share`);
     expect(again.body.shareToken).toBe(token);
   });
 
@@ -380,7 +417,7 @@ describe('FEAT: project share links', () => {
   });
 
   it('DELETE /:id/share revokes access — the old link 404s', async () => {
-    const del = await request(app).delete(`/api/projects/${projectId}/share`);
+    const del = await write('delete', `/api/projects/${projectId}/share`);
     expect(del.status).toBe(200);
     expect(del.body.shareToken).toBeNull();
 

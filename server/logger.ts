@@ -1,7 +1,7 @@
-import pino from 'pino';
+import { createLogger } from '@hhh/server';
 import { config } from './config.ts';
 
-// CQ-05/OPS-06: single structured logger. Level comes from config (silent under
-// test). Request logging is wired via pino-http in app.ts, which attaches
-// `req.log` with a per-request id.
-export const logger = pino({ level: config.logLevel });
+// CQ-05/OPS-06: the one structured logger, from the shared kit (silent under test).
+// Request logs come from the kit's httpLogger in createBaseApp: one small line per
+// request, with no headers or cookies.
+export const logger = createLogger({ level: config.logLevel, name: 'photomapper' });
