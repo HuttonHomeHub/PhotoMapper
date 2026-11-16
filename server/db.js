@@ -1,11 +1,8 @@
 import Database from 'better-sqlite3';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import { runMigrations } from './migrate.js';
+import { dbPath } from './paths.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-// DB path is injectable so tests can run against a throwaway file (PHOTOS_DB_PATH).
-const dbPath = process.env.PHOTOS_DB_PATH || join(__dirname, 'photos.db');
+// DB path is injectable so tests can run against a throwaway file (DB_PATH).
 const db = new Database(dbPath);
 
 db.pragma('foreign_keys = ON');

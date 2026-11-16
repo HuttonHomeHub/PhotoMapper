@@ -154,15 +154,15 @@ docker compose down               # stop (waits up to stop_grace_period for drai
 Key points:
 
 - **Data persistence** — a named volume `photomapper-config` is mounted at `/config`
-  (matching the common self-hosted convention); the image sets
-  `PHOTOS_DB_PATH=/config/photos.db` and `UPLOADS_DIR=/config/uploads` so both the
-  database and uploads live there and survive rebuilds. Both are overridable if you
-  want a different layout. **Back this volume up** — see Backups (OPS-03) below.
+  (the shared container standard); the image sets `DATA_DIR=/config`, so the
+  database (`/config/photos.db`) and uploads (`/config/uploads`) live there and
+  survive rebuilds. `DB_PATH` and `UPLOADS_DIR` override them if you want a
+  different layout. **Back this volume up** — see Backups (OPS-03) below.
 - **Loopback only** — compose publishes `127.0.0.1:3001:3001`, so the Node port is
   never exposed to the internet directly. Point your reverse proxy (above) at
   `127.0.0.1:3001`. If the proxy runs in its own container, put both on a shared
   Docker network and drop the published port entirely.
-- **Non-root + PUID/PGID** — the entrypoint starts as root only to `chown /config`
+- **Non-root + PUID/PGID** — the entrypoint starts as root only to `chown` the data directories
   to `PUID:PGID` (default `1000:1000`), then drops privileges via `gosu` and runs
   the app as that user. So a bare bind mount works without a manual chown, and you
   can set `PUID`/`PGID` like the rest of a typical stack.
@@ -229,8 +229,10 @@ Notes:
 | Var | Default | Purpose |
 |---|---|---|
 | `PORT` | `3001` | App listen port (keep behind the proxy). |
-| `PHOTOS_DB_PATH` | `server/photos.db` | SQLite file location (point at a persistent volume — OPS-03). |
-| `UPLOADS_DIR` | `server/uploads` | Uploaded-image + thumbnail directory (point at the same persistent volume). |
+| `DATA_DIR` | `/config` in the image | Where all state lives (shared container standard). |
+| `DB_PATH` | `$DATA_DIR/photos.db` | SQLite file location (OPS-03). Replaces `PHOTOS_DB_PATH`, which still works and logs a deprecation warning. |
+| `UPLOADS_DIR` | `$DATA_DIR/uploads` | Uploaded-image + thumbnail directory. |
+| `APP_VERSION` | `dev` | Release version, set at build time; reported at `/health` and `/version`. |
 | `ALLOW_RESET` | _unset_ | Set to `true` only if you want `DELETE /api/reset` enabled. |
 | `NODE_ENV` | _unset_ | `production` in prod; `test` is used by the test suite. |
 | `TRUST_PROXY` | _(off)_ | Express `trust proxy` for reverse-proxy deploys. A hop count (`1` when nginx restores the real client IP, see "Behind Cloudflare"), `true`/`false`, or an IP/subnet list. Makes `req.ip`, rate-limiting and protocol use the real client. Prefer a hop count over `true` (the rate limiter rejects fully-permissive trust). |
@@ -249,7 +251,7 @@ Until OPS-03 is delivered, run a manual off-box backup, e.g.:
 
 ```bash
 # DB: use SQLite's online backup (safe while the app is running)
-docker compose exec app node -e "new (require('better-sqlite3'))(process.env.PHOTOS_DB_PATH).backup('/config/backup-'+Date.now()+'.db')"
+docker compose exec app node -e "new (require('better-sqlite3'))('/config/photos.db').backup('/config/backup-'+Date.now()+'.db')"
 # then copy /config (DB backup + uploads) OFF the host — to another server or object storage
 ```
 

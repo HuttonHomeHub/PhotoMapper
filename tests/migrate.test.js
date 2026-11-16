@@ -75,7 +75,7 @@ describe('legacy upgrade path (db.js baseline)', () => {
     legacy.close();
 
     // Import db.js against it → the baseline migration runs.
-    process.env.PHOTOS_DB_PATH = dbPath;
+    process.env.DB_PATH = dbPath;
     const dbmod = await import('../server/db.js');
 
     const all = dbmod.getAllPhotos();

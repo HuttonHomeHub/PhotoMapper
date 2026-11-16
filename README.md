@@ -62,16 +62,30 @@ URL it prints (or the Codespaces forwarded port).
 All runtime config is validated on startup (`server/config.js`). Copy
 `.env.example` to `.env` for local overrides. Key variables:
 
+Shared with every HuttonHomeHub app (same name and meaning everywhere):
+
 | Var | Default | Purpose |
 |---|---|---|
-| `PORT` | `3001` | API port (keep behind the reverse proxy in prod) |
-| `PHOTOS_DB_PATH` | `server/photos.db` | SQLite file (point at a persistent volume) |
+| `PUID` / `PGID` | `1000` | User and group the app runs as in the image; data directories are chowned to them |
+| `TZ` | UTC | Time zone, e.g. `Europe/London` |
+| `TRUST_PROXY` | _(off)_ | Number of reverse-proxy hops in front whose `X-Forwarded-*` headers are trusted (`1` when nginx restores the real client IP). Also accepts `true`/`false` or an IP/subnet list |
+| `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` (`silent` under test; `warn` drops per-request logs) |
+| `DATA_DIR` | `/config` in the image | Where all state lives; the next two default inside it |
+| `DB_PATH` | `$DATA_DIR/photos.db` (locally `server/photos.db`) | SQLite file. Replaces `PHOTOS_DB_PATH`, which still works and logs a deprecation warning |
+| `UPLOADS_DIR` | `$DATA_DIR/uploads` (locally `server/uploads`) | Uploaded-image + thumbnail directory |
+| `APP_VERSION` | `dev` | Release version, set from the image tag at build time; reported at `/health` and `/version` |
+
+PhotoMapper only:
+
+| Var | Default | Purpose |
+|---|---|---|
+| `PORT` | `3001` | API port inside the container (keep behind the reverse proxy in prod) |
 | `ALLOWED_ORIGINS` | _(empty)_ | Comma-separated CORS allowlist; empty = same-origin |
 | `ALLOW_RESET` | `false` | Enables the destructive `DELETE /api/reset` |
 | `UPLOAD_MAX_BYTES` | `62914560` (60 MB) | Upload size cap |
 | `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` | `900000` / `1000` | Per-IP API rate limit |
-| `TRUST_PROXY` | _(off)_ | Express `trust proxy` for reverse-proxy deploys (hop count / `true` / IP list) |
-| `LOG_LEVEL` | `info` | pino level (`silent` under test; `warn` drops per-request logs) |
+
+A deployment in the standard layout is in [deploy/compose.example.yml](deploy/compose.example.yml).
 
 ## Architecture
 

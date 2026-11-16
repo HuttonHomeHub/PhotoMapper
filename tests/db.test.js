@@ -13,7 +13,7 @@ let tmpDir;
 
 beforeAll(async () => {
   tmpDir = mkdtempSync(join(tmpdir(), 'photomapper-db-'));
-  process.env.PHOTOS_DB_PATH = join(tmpDir, 'test.db');
+  process.env.DB_PATH = join(tmpDir, 'test.db');
   // db.js opens the database at import time, so the env var must be set first.
   dbmod = await import('../server/db.js');
 });
@@ -207,7 +207,7 @@ describe('PERF-01: queryPhotos / countPhotos', () => {
 
 describe('PERF-03: performance indexes', () => {
   it('creates indexes on the hot photo columns', () => {
-    const raw = new Database(process.env.PHOTOS_DB_PATH, { readonly: true });
+    const raw = new Database(process.env.DB_PATH, { readonly: true });
     const names = raw
       .prepare("SELECT name FROM sqlite_master WHERE type='index'")
       .all()

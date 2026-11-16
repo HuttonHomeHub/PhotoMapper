@@ -13,7 +13,7 @@ let tmpDir;
 
 beforeAll(async () => {
   tmpDir = mkdtempSync(join(tmpdir(), 'photomapper-geo-'));
-  process.env.PHOTOS_DB_PATH = join(tmpDir, 'geo.db');
+  process.env.DB_PATH = join(tmpDir, 'geo.db');
   db = await import('../server/db.js');
   queue = await import('../server/services/geocodeQueue.js');
 });

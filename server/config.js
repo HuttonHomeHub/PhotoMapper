@@ -32,6 +32,8 @@ const schema = z.object({
   // instead of the proxy. Off by default. Accepts a hop count (e.g. "1" when nginx
   // restores the real client IP), "true"/"false", or a comma-separated IP/subnet list.
   TRUST_PROXY: z.string().default(''),
+  // Release version, passed in by publish-image.yml as a build arg; 'dev' locally.
+  APP_VERSION: z.string().default('dev'),
 });
 
 // Parse TRUST_PROXY into a value Express accepts: false (off), true, a hop count,
@@ -66,4 +68,5 @@ export const config = {
   rateLimit: { windowMs: env.RATE_LIMIT_WINDOW_MS, max: env.RATE_LIMIT_MAX },
   logLevel: env.NODE_ENV === 'test' ? 'silent' : env.LOG_LEVEL,
   trustProxy: parseTrustProxy(env.TRUST_PROXY),
+  appVersion: env.APP_VERSION,
 };

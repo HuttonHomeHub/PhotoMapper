@@ -1,0 +1,30 @@
+# Reference deployment for PhotoMapper, in the shared container standard used by every
+# HuttonHomeHub app (see README "Configuration"):
+#   - all state under /config (photos.db and uploads/), so only one volume
+#   - shared settings with the same name in every app: PUID, PGID, TZ, TRUST_PROXY, LOG_LEVEL
+#
+# The app has no built-in authentication. It must sit behind an authenticating reverse
+# proxy (here nginx + tinyauth). The published port should only be reachable by that
+# proxy (bind it to the proxy's network, or firewall it to the proxy's IP).
+# For local builds from source, use the root docker-compose.yml instead.
+services:
+  photomapper:
+    container_name: photomapper
+    image: ghcr.io/huttonhomehub/photomapper:latest   # or pin a version, e.g. :1.2.0
+    ports:
+      - 3001:3001
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+      # Proxy hops in front of the app. 1 = nginx, which restores the real client IP
+      # from Cloudflare (see docs/DEPLOYMENT-SECURITY.md "Behind Cloudflare").
+      - TRUST_PROXY=1
+      # - LOG_LEVEL=info            # fatal | error | warn | info | debug
+      # App-only settings (defaults shown):
+      # - ALLOW_RESET=false         # true enables DELETE /api/reset (wipes everything)
+      # - UPLOAD_MAX_BYTES=62914560
+    volumes:
+      - /apps/photomapper/config:/config
+    restart: unless-stopped
+    stop_grace_period: 15s          # lets the graceful shutdown drain requests
