@@ -29,8 +29,8 @@ const schema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   // Express `trust proxy` setting for deployments behind a reverse proxy, so
   // req.ip / rate-limiting / protocol reflect the real client (X-Forwarded-For)
-  // instead of the proxy. Off by default. Accepts a hop count (e.g. "2" for
-  // Cloudflare→nginx→app), "true"/"false", or a comma-separated IP/subnet list.
+  // instead of the proxy. Off by default. Accepts a hop count (e.g. "1" when nginx
+  // restores the real client IP), "true"/"false", or a comma-separated IP/subnet list.
   TRUST_PROXY: z.string().default(''),
 });
 
