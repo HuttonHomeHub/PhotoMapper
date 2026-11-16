@@ -10,6 +10,20 @@ that section as the GitHub Release notes.
 
 ## Unreleased
 
+## v1.2.0 — shared container standard: DATA_DIR, DB_PATH, version at /health
+
+### Added
+- **The running version is reported** at `GET /health` (`{"status":"ok","version":"X.Y.Z"}`)
+  and `GET /version`, from `APP_VERSION`, which the publish workflow sets from the release.
+- **`deploy/compose.example.yml`** in the live layout (published port, one `/config` mount,
+  shared settings).
+
+### Changed
+- **Settings follow the shared container standard**, the same as Crane Charts. The image sets
+  `DATA_DIR=/config`, and `DB_PATH` / `UPLOADS_DIR` default inside it. `PHOTOS_DB_PATH` is
+  renamed `DB_PATH`; **the old name still works** and logs a one-line warning naming the
+  replacement.
+
 ## v1.1.1 — real client IP behind Cloudflare (docs)
 
 ### Changed

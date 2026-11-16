@@ -81,7 +81,8 @@ export function createApp() {
   // registered before the routers so a probe never touches application state.
   // /health is a pure liveness check (process is up); /ready also confirms the
   // database is reachable and returns 503 if it is not.
-  app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+  app.get('/health', (_req, res) => res.json({ status: 'ok', version: config.appVersion }));
+  app.get('/version', (_req, res) => res.json({ version: config.appVersion }));
   app.get('/ready', (_req, res) => {
     try {
       pingDb();
