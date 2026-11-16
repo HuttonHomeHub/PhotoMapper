@@ -17,7 +17,7 @@ beforeAll(async () => {
   process.env.DB_PATH = join(tmpDir, 'test.db');
   process.env.UPLOADS_DIR = join(tmpDir, 'uploads');
   process.env.NODE_ENV = 'test';
-  ({ app } = await import('../server/index.js'));
+  ({ app } = await import('../server/index.ts'));
 });
 
 afterAll(() => {

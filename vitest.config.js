@@ -2,9 +2,9 @@ import react from '@vitejs/plugin-react';
 import { defineConfig, mergeConfig } from 'vitest/config';
 import { hhhVitest } from '@hhh/config/vitest';
 
-// Coverage gate: the standard is 80% of lines. PhotoMapper starts phase 3 at the
-// level measured on 2026-11-16 (35.2%) and every phase 3 PR must raise it; phase 3 ends at 80%.
-const LINES_FLOOR = 35;
+// Coverage gate: the standard is 80% of lines. PhotoMapper started phase 3 at 35.2%
+// (2026-11-16); each phase 3 PR raises this to the level it measures, ending at 80%.
+const LINES_FLOOR = 35.8;
 
 export default mergeConfig(
   hhhVitest({

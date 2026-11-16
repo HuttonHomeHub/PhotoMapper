@@ -58,7 +58,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3001)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 # Entrypoint runs as root, chowns /config to PUID:PGID (default 1000:1000), then
-# drops privileges via gosu and runs the CMD. server/index.js handles SIGTERM
+# drops privileges via gosu and runs the CMD. server/index.ts handles SIGTERM
 # for graceful shutdown (OPS-05).
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["node", "server/index.js"]
+CMD ["node", "server/index.ts"]

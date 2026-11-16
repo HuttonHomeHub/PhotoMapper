@@ -1,16 +1,170 @@
 import Database from 'better-sqlite3';
-import { runMigrations } from './migrate.js';
-import { dbPath } from './paths.js';
+import { runMigrations, type Migration } from './migrate.ts';
+import { dbPath } from './paths.ts';
+
+type Db = Database.Database;
+
+// ─── Row and API shapes ──────────────────────────────────────────────────────
+
+interface PhotoRow {
+  id: string;
+  filename: string;
+  thumbnail_filename: string | null;
+  original_name: string;
+  uploaded_at: string;
+  has_gps: number;
+  manual_gps: number;
+  lat: number | null;
+  lng: number | null;
+  altitude: number | null;
+  img_direction: number | null;
+  date_taken: string | null;
+  survey_date: string | null;
+  camera_make: string | null;
+  camera_model: string | null;
+  focal_length: number | null;
+  focal_length_in_35mm: number | null;
+  pano_hfov: number | null;
+  f_number: number | null;
+  iso: number | null;
+  exposure_time: string | null;
+  location_name: string | null;
+  description: string | null;
+  tags: string | null;
+  project_id: string | null;
+}
+
+/** A photo as the API returns it. */
+export interface Photo {
+  id: string;
+  filename: string;
+  thumbnailFilename: string | null;
+  originalName: string;
+  uploadedAt: string;
+  hasGps: boolean;
+  manualGps: boolean;
+  lat: number | null;
+  lng: number | null;
+  altitude: number | null;
+  imgDirection: number | null;
+  dateTaken: string | null;
+  surveyDate: string | null;
+  cameraMake: string | null;
+  cameraModel: string | null;
+  focalLength: number | null;
+  focalLengthIn35mm: number | null;
+  panoHFov: number | null;
+  fNumber: number | null;
+  iso: number | null;
+  exposureTime: string | null;
+  locationName: string | null;
+  description: string | null;
+  tags: string[];
+  projectId: string | null;
+}
+
+/** The fields written when a photo is uploaded. */
+export interface NewPhoto {
+  id: string;
+  filename: string;
+  thumbnailFilename: string | null;
+  originalName: string;
+  uploadedAt: string;
+  hasGps: 0 | 1;
+  lat: number | null;
+  lng: number | null;
+  altitude: number | null;
+  imgDirection: number | null;
+  dateTaken: string | null;
+  surveyDate: string | null;
+  cameraMake: string | null;
+  cameraModel: string | null;
+  focalLength: number | null;
+  fNumber: number | null;
+  iso: number | null;
+  exposureTime: string | null;
+  fileHash: string;
+  locationName: string | null;
+  projectId: string | null;
+  focalLengthIn35mm: number | null;
+  panoHFov: number | null;
+}
+
+interface ProjectRow {
+  id: string;
+  name: string;
+  client_id: string | null;
+  client_name: string | null;
+  status: string;
+  color: string;
+  share_token: string | null;
+  created_at: string;
+  updated_at: string;
+  photo_count: number;
+}
+
+/** A project as the API returns it. */
+export interface Project {
+  id: string;
+  name: string;
+  clientId: string | null;
+  clientName: string | null;
+  status: string;
+  color: string;
+  shareToken: string | null;
+  createdAt: string;
+  updatedAt: string;
+  photoCount: number;
+}
+
+interface ClientRow {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+  project_count: number;
+}
+
+/** A client as the API returns it. */
+export interface Client {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  projectCount: number;
+}
+
+/**
+ * Filters for queryPhotos/countPhotos. A key that is present with `null` means
+ * "unassigned"; an absent key means "any".
+ */
+export interface PhotoQuery {
+  projectId?: string | null;
+  clientId?: string | null;
+  surveyDate?: string | null;
+  hasGps?: boolean;
+  tag?: string;
+  search?: string;
+  from?: string;
+  to?: string;
+  bbox?: { south: number; west: number; north: number; east: number };
+  limit?: number;
+  offset?: number;
+}
 
 // DB path is injectable so tests can run against a throwaway file (DB_PATH).
-const db = new Database(dbPath);
+const db: Db = new Database(dbPath);
 
 db.pragma('foreign_keys = ON');
 
+interface NameRow {
+  name: string;
+}
+
 // ARCH-03: idempotent column-add that surfaces genuine errors instead of the
 // previous blanket `try { ALTER } catch {}` (which hid every failure).
-function addColumnIfMissing(db, table, columnName, columnDef) {
-  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+function addColumnIfMissing(db: Db, table: string, columnName: string, columnDef: string): void {
+  const cols = db.prepare<[], NameRow>(`PRAGMA table_info(${table})`).all();
   if (!cols.some((c) => c.name === columnName)) {
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`);
   }
@@ -20,11 +174,11 @@ function addColumnIfMissing(db, table, columnName, columnDef) {
 // migration (version 1). Every step is idempotent, so it is safe to run once
 // against a legacy DB that predates the migration runner. New schema changes
 // should be added as further entries (version 2, 3, …) rather than edited in here.
-const migrations = [
+const migrations: Migration[] = [
   {
     version: 1,
     name: 'baseline-schema',
-    up(db) {
+    up(db: Db) {
       db.exec(`
   CREATE TABLE IF NOT EXISTS photos (
     id                 TEXT PRIMARY KEY,
@@ -123,7 +277,7 @@ const migrations = [
 
       // Migrate: add project_id FK to collections (requires table recreation to drop global UNIQUE on name)
       {
-        const collsCols = db.prepare('PRAGMA table_info(collections)').all();
+        const collsCols = db.prepare<[], NameRow>('PRAGMA table_info(collections)').all();
         const hasProjectId = collsCols.some((c) => c.name === 'project_id');
         if (!hasProjectId) {
           db.exec(`
@@ -150,12 +304,12 @@ const migrations = [
 
       // Migrate: promote existing project.client TEXT values into the clients table
       {
-        const projCols = db.prepare('PRAGMA table_info(projects)').all();
+        const projCols = db.prepare<[], NameRow>('PRAGMA table_info(projects)').all();
         const hasClientCol = projCols.some((c) => c.name === 'client');
 
         const unmigrated = hasClientCol
           ? db
-              .prepare(
+              .prepare<[], { id: string; client: string }>(
                 `SELECT id, client FROM projects WHERE client IS NOT NULL AND client_id IS NULL`
               )
               .all()
@@ -171,7 +325,7 @@ const migrations = [
           );
           const migrate = db.transaction(() => {
             const now = new Date().toISOString();
-            const seen = new Set();
+            const seen = new Set<string>();
             for (const row of unmigrated) {
               const name = row.client.trim();
               if (!seen.has(name)) {
@@ -194,7 +348,7 @@ const migrations = [
 
       // Migrate: fix projects.name uniqueness from global to per-client
       {
-        const indexes = db.prepare('PRAGMA index_list(projects)').all();
+        const indexes = db.prepare<[], NameRow>('PRAGMA index_list(projects)').all();
         const hasGlobalUnique = indexes.some((i) => i.name === 'sqlite_autoindex_projects_1');
         if (hasGlobalUnique) {
           db.exec(`
@@ -225,7 +379,7 @@ const migrations = [
     // survey_date; without these SQLite full-scans photos on those queries.
     version: 2,
     name: 'performance-indexes',
-    up(db) {
+    up(db: Db) {
       db.exec('CREATE INDEX IF NOT EXISTS idx_photos_project_id ON photos(project_id)');
       db.exec('CREATE INDEX IF NOT EXISTS idx_photos_uploaded_at ON photos(uploaded_at)');
       db.exec('CREATE INDEX IF NOT EXISTS idx_photos_survey_date ON photos(survey_date)');
@@ -236,7 +390,7 @@ const migrations = [
     // repeated/nearby coordinates don't re-hit Nominatim (survives restarts).
     version: 3,
     name: 'geocode-cache',
-    up(db) {
+    up(db: Db) {
       db.exec(`
         CREATE TABLE IF NOT EXISTS geocode_cache (
           key           TEXT PRIMARY KEY,
@@ -254,7 +408,7 @@ const migrations = [
     // dropped automatically with the tables.
     version: 4,
     name: 'drop-unused-collections',
-    up(db) {
+    up(db: Db) {
       db.exec('DROP TABLE IF EXISTS photo_collections');
       db.exec('DROP TABLE IF EXISTS collections');
     },
@@ -266,7 +420,7 @@ const migrations = [
     // pin never touches genuine EXIF coordinates.
     version: 5,
     name: 'photo-manual-gps',
-    up(db) {
+    up(db: Db) {
       addColumnIfMissing(db, 'photos', 'manual_gps', 'manual_gps INTEGER NOT NULL DEFAULT 0');
     },
   },
@@ -277,7 +431,7 @@ const migrations = [
     // it (SQLite UNIQUE indexes skip NULLs, so un-shared projects don't collide).
     version: 6,
     name: 'project-share-token',
-    up(db) {
+    up(db: Db) {
       addColumnIfMissing(db, 'projects', 'share_token', 'share_token TEXT');
       db.exec(
         'CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_share_token ON projects(share_token)'
@@ -287,12 +441,12 @@ const migrations = [
 ];
 
 // Applies any pending migrations (records versions, backs up existing data first,
-// fails loudly on error). See server/migrate.js.
+// fails loudly on error). See server/migrate.ts.
 runMigrations(db, migrations);
 
 // ─── Prepared statements ────────────────────────────────────────────────────
 
-const insertStmt = db.prepare(`
+const insertStmt = db.prepare<[NewPhoto]>(`
   INSERT INTO photos (
     id, filename, thumbnail_filename, original_name, uploaded_at, has_gps,
     lat, lng, altitude, img_direction,
@@ -308,13 +462,13 @@ const insertStmt = db.prepare(`
   )
 `);
 
-const selectAllStmt = db.prepare(`
+const selectAllStmt = db.prepare<[], PhotoRow>(`
   SELECT p.*
   FROM photos p
   ORDER BY p.uploaded_at DESC
 `);
 
-const selectAllProjectsStmt = db.prepare(`
+const selectAllProjectsStmt = db.prepare<[], ProjectRow>(`
   SELECT pr.*, COUNT(p.id) as photo_count, cl.name as client_name
   FROM projects pr
   LEFT JOIN photos p ON p.project_id = pr.id
@@ -324,7 +478,7 @@ const selectAllProjectsStmt = db.prepare(`
 `);
 
 // PERF-02: single-project read-after-write, same aggregate shape as the list query.
-const selectProjectByIdStmt = db.prepare(`
+const selectProjectByIdStmt = db.prepare<[string], ProjectRow>(`
   SELECT pr.*, COUNT(p.id) as photo_count, cl.name as client_name
   FROM projects pr
   LEFT JOIN photos p ON p.project_id = pr.id
@@ -338,7 +492,7 @@ const insertProjectStmt = db.prepare(`
   VALUES (@id, @name, @clientId, @status, @color, @createdAt, @updatedAt)
 `);
 
-const deleteProjectStmt = db.prepare('DELETE FROM projects WHERE id = ?');
+const deleteProjectStmt = db.prepare<[string]>('DELETE FROM projects WHERE id = ?');
 
 // Per-project share token (FEAT). A non-null token exposes the project via the
 // public /share/:token capability URL; clearing it revokes access immediately.
@@ -348,19 +502,22 @@ const setShareTokenStmt = db.prepare(
 const clearShareTokenStmt = db.prepare(
   'UPDATE projects SET share_token = NULL, updated_at = @updatedAt WHERE id = @id'
 );
-const selectProjectByShareTokenStmt = db.prepare('SELECT * FROM projects WHERE share_token = ?');
+const selectProjectByShareTokenStmt = db.prepare<[string], ProjectRow>(
+  'SELECT * FROM projects WHERE share_token = ?'
+);
 
 const assignPhotosToProjectStmt = db.prepare(
   'UPDATE photos SET project_id = @projectId WHERE id = @id'
 );
-const selectByIdStmt = db.prepare(
-  'SELECT id, filename, thumbnail_filename FROM photos WHERE id = ?'
-);
-const selectByHashStmt = db.prepare('SELECT * FROM photos WHERE file_hash = ?');
+const selectByIdStmt = db.prepare<
+  [string],
+  Pick<PhotoRow, 'id' | 'filename' | 'thumbnail_filename'>
+>('SELECT id, filename, thumbnail_filename FROM photos WHERE id = ?');
+const selectByHashStmt = db.prepare<[string], PhotoRow>('SELECT * FROM photos WHERE file_hash = ?');
 // PERF-02: fetch a single fully-mapped photo by id (read-after-write) instead of
 // scanning every row with getAllPhotos().find().
-const selectPhotoByIdFullStmt = db.prepare('SELECT * FROM photos WHERE id = ?');
-const deleteStmt = db.prepare('DELETE FROM photos WHERE id = ?');
+const selectPhotoByIdFullStmt = db.prepare<[string], PhotoRow>('SELECT * FROM photos WHERE id = ?');
+const deleteStmt = db.prepare<[string]>('DELETE FROM photos WHERE id = ?');
 const updateStmt = db.prepare(`
   UPDATE photos
   SET description = COALESCE(@description, description),
@@ -385,7 +542,9 @@ const clearManualLocationStmt = db.prepare(
   'UPDATE photos SET lat = NULL, lng = NULL, has_gps = 0, manual_gps = 0 WHERE id = @id AND manual_gps = 1'
 );
 
-const selectGeocodeStmt = db.prepare('SELECT location_name FROM geocode_cache WHERE key = ?');
+const selectGeocodeStmt = db.prepare<[string], { location_name: string | null }>(
+  'SELECT location_name FROM geocode_cache WHERE key = ?'
+);
 const upsertGeocodeStmt = db.prepare(`
   INSERT INTO geocode_cache (key, location_name, cached_at)
   VALUES (@key, @locationName, @cachedAt)
@@ -397,7 +556,7 @@ const insertClientStmt = db.prepare(`
   VALUES (@id, @name, @createdAt, @updatedAt)
 `);
 
-const selectAllClientsStmt = db.prepare(`
+const selectAllClientsStmt = db.prepare<[], ClientRow>(`
   SELECT cl.*, COUNT(DISTINCT pr.id) as project_count
   FROM clients cl
   LEFT JOIN projects pr ON pr.client_id = cl.id
@@ -406,7 +565,7 @@ const selectAllClientsStmt = db.prepare(`
 `);
 
 // PERF-02: single-client read-after-write, same aggregate shape as the list query.
-const selectClientByIdStmt = db.prepare(`
+const selectClientByIdStmt = db.prepare<[string], ClientRow>(`
   SELECT cl.*, COUNT(DISTINCT pr.id) as project_count
   FROM clients cl
   LEFT JOIN projects pr ON pr.client_id = cl.id
@@ -418,27 +577,26 @@ const updateClientStmt = db.prepare(`
   UPDATE clients SET name = @name, updated_at = @updatedAt WHERE id = @id
 `);
 
-const deleteClientStmt = db.prepare('DELETE FROM clients WHERE id = ?');
+const deleteClientStmt = db.prepare<[string]>('DELETE FROM clients WHERE id = ?');
 
 // ─── Exported functions ──────────────────────────────────────────────────────
 
-export function insertPhoto(record) {
+export function insertPhoto(record: NewPhoto): void {
   insertStmt.run(record);
 }
 
 // Shared snake_case row → camelCase DTO mappers, so the list, by-hash and by-id
 // queries can never drift out of sync (PERF-02 added the by-id readers).
-function parseTags(raw) {
+function parseTags(raw: string | null): string[] {
   if (!raw) return [];
   try {
-    return JSON.parse(raw);
+    return JSON.parse(raw) as string[];
   } catch {
     return [];
   }
 }
 
-function mapPhotoRow(row) {
-  if (!row) return null;
+function mapPhotoRow(row: PhotoRow): Photo {
   return {
     id: row.id,
     filename: row.filename,
@@ -468,8 +626,7 @@ function mapPhotoRow(row) {
   };
 }
 
-function mapProjectRow(row) {
-  if (!row) return null;
+function mapProjectRow(row: ProjectRow): Project {
   return {
     id: row.id,
     name: row.name,
@@ -484,8 +641,7 @@ function mapProjectRow(row) {
   };
 }
 
-function mapClientRow(row) {
-  if (!row) return null;
+function mapClientRow(row: ClientRow): Client {
   return {
     id: row.id,
     name: row.name,
@@ -495,17 +651,28 @@ function mapClientRow(row) {
   };
 }
 
-export function getPhotoByHash(hash) {
-  return mapPhotoRow(selectByHashStmt.get(hash));
+export function getPhotoByHash(hash: string): Photo | null {
+  const row = selectByHashStmt.get(hash);
+  return row ? mapPhotoRow(row) : null;
 }
 
 // PERF-02: return only the affected photo after a write, instead of
 // getAllPhotos().find() scanning the whole table.
-export function getPhotoFullById(id) {
-  return mapPhotoRow(selectPhotoByIdFullStmt.get(id));
+export function getPhotoFullById(id: string): Photo | null {
+  const row = selectPhotoByIdFullStmt.get(id);
+  return row ? mapPhotoRow(row) : null;
 }
 
-export function updatePhoto(id, { description, tags, locationName } = {}) {
+export interface PhotoChanges {
+  description?: string | null | undefined;
+  tags?: string[] | null | undefined;
+  locationName?: string | null | undefined;
+}
+
+export function updatePhoto(
+  id: string,
+  { description, tags, locationName }: PhotoChanges = {}
+): void {
   updateStmt.run({
     id,
     description: description ?? null,
@@ -514,7 +681,9 @@ export function updatePhoto(id, { description, tags, locationName } = {}) {
   });
 }
 
-export function getPhotoById(id) {
+export function getPhotoById(
+  id: string
+): { id: string; filename: string; thumbnailFilename: string | null } | null {
   const row = selectByIdStmt.get(id);
   if (!row) return null;
   return {
@@ -524,11 +693,11 @@ export function getPhotoById(id) {
   };
 }
 
-export function deletePhoto(id) {
+export function deletePhoto(id: string): number {
   return deleteStmt.run(id).changes;
 }
 
-export function batchUpdatePhotos(updates) {
+export function batchUpdatePhotos(updates: ({ id: string } & PhotoChanges)[]): void {
   const run = db.transaction(() => {
     for (const u of updates) {
       updatePhoto(u.id, { description: u.description, tags: u.tags });
@@ -537,35 +706,35 @@ export function batchUpdatePhotos(updates) {
   run();
 }
 
-export function updatePhotoSurveyDate(id, surveyDate) {
+export function updatePhotoSurveyDate(id: string, surveyDate: string | null | undefined): void {
   updateSurveyDateStmt.run({ id, surveyDate: surveyDate ?? null });
 }
 
-export function updatePhotoProject(id, projectId) {
+export function updatePhotoProject(id: string, projectId: string | null | undefined): void {
   updatePhotoProjectStmt.run({ id, projectId: projectId ?? null });
 }
 
 // FEAT: set a hand-placed location on a photo (marks it manual_gps = 1).
-export function setPhotoLocation(id, lat, lng) {
+export function setPhotoLocation(id: string, lat: number, lng: number): void {
   setPhotoLocationStmt.run({ id, lat, lng });
 }
 
 // FEAT: remove a hand-placed location. Only affects manually-placed pins, so a
 // real EXIF fix is never cleared. Returns the number of rows changed (0 = the
 // photo had no manual location to clear).
-export function clearManualLocation(id) {
+export function clearManualLocation(id: string): number {
   return clearManualLocationStmt.run({ id }).changes;
 }
 
 // BE-07/SEC-05 reverse-geocode cache. Returns `undefined` on a cache miss and the
 // stored value (a string or null) on a hit, so callers can tell "never looked up"
 // from "looked up, no result".
-export function getGeocodeCache(key) {
+export function getGeocodeCache(key: string): string | null | undefined {
   const row = selectGeocodeStmt.get(key);
   return row ? row.location_name : undefined;
 }
 
-export function setGeocodeCache(key, locationName) {
+export function setGeocodeCache(key: string, locationName: string | null | undefined): void {
   upsertGeocodeStmt.run({
     key,
     locationName: locationName ?? null,
@@ -573,7 +742,7 @@ export function setGeocodeCache(key, locationName) {
   });
 }
 
-export function getAllPhotos() {
+export function getAllPhotos(): Photo[] {
   return selectAllStmt.all().map(mapPhotoRow);
 }
 
@@ -582,9 +751,13 @@ export function getAllPhotos() {
 // (project/client/surveyDate). Returns whether a projects join is needed (client
 // filter). Draw-region polygon filtering is not expressible here — callers apply
 // it client-side over a bbox-loaded set.
-function buildPhotoWhere(opts) {
-  const where = [];
-  const params = {};
+function buildPhotoWhere(opts: PhotoQuery): {
+  clause: string;
+  join: string;
+  params: Record<string, string | number | undefined>;
+} {
+  const where: string[] = [];
+  const params: Record<string, string | number | undefined> = {};
   const needsProjectsJoin = 'clientId' in opts;
 
   if ('projectId' in opts) {
@@ -652,7 +825,7 @@ function buildPhotoWhere(opts) {
 
 // PERF-01: filtered + paginated photo query. With no `limit` it returns all
 // matching rows (ordered newest-first), matching the legacy behaviour.
-export function queryPhotos(opts = {}) {
+export function queryPhotos(opts: PhotoQuery = {}): Photo[] {
   const { clause, join, params } = buildPhotoWhere(opts);
   let sql = `SELECT p.* FROM photos p ${join} ${clause} ORDER BY p.uploaded_at DESC`;
   if (opts.limit != null) {
@@ -660,25 +833,47 @@ export function queryPhotos(opts = {}) {
     params.limit = opts.limit;
     params.offset = opts.offset ?? 0;
   }
-  return db.prepare(sql).all(params).map(mapPhotoRow);
+  return db.prepare<[typeof params], PhotoRow>(sql).all(params).map(mapPhotoRow);
 }
 
 // PERF-01: total number of rows matching the same filters (for pagination).
-export function countPhotos(opts = {}) {
+export function countPhotos(opts: PhotoQuery = {}): number {
   const { clause, join, params } = buildPhotoWhere(opts);
-  return db.prepare(`SELECT COUNT(*) AS n FROM photos p ${join} ${clause}`).get(params).n;
+  const row = db
+    .prepare<[typeof params], { n: number }>(`SELECT COUNT(*) AS n FROM photos p ${join} ${clause}`)
+    .get(params);
+  return row?.n ?? 0;
 }
 
-export function getAllProjects() {
+export function getAllProjects(): Project[] {
   return selectAllProjectsStmt.all().map(mapProjectRow);
 }
 
 // PERF-02: return only the affected project after a write.
-export function getProjectById(id) {
-  return mapProjectRow(selectProjectByIdStmt.get(id));
+export function getProjectById(id: string): Project | null {
+  const row = selectProjectByIdStmt.get(id);
+  return row ? mapProjectRow(row) : null;
 }
 
-export function createProject({ id, name, clientId, status, color, createdAt, updatedAt }) {
+export interface NewProject {
+  id: string;
+  name: string;
+  clientId?: string | null | undefined;
+  status: string;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function createProject({
+  id,
+  name,
+  clientId,
+  status,
+  color,
+  createdAt,
+  updatedAt,
+}: NewProject): void {
   insertProjectStmt.run({
     id,
     name,
@@ -693,9 +888,20 @@ export function createProject({ id, name, clientId, status, color, createdAt, up
 // BE-03: build the SET clause only from the keys actually provided, so an
 // explicit `clientId: null` unassigns the client (was impossible under COALESCE,
 // which could not tell "not provided" from "set to null").
-export function updateProject(id, changes = {}) {
-  const sets = [];
-  const params = { id, updatedAt: changes.updatedAt ?? new Date().toISOString() };
+export interface ProjectChanges {
+  name?: string | undefined;
+  clientId?: string | null | undefined;
+  status?: string | undefined;
+  color?: string | undefined;
+  updatedAt?: string | undefined;
+}
+
+export function updateProject(id: string, changes: ProjectChanges = {}): number {
+  const sets: string[] = [];
+  const params: Record<string, string | null | undefined> = {
+    id,
+    updatedAt: changes.updatedAt ?? new Date().toISOString(),
+  };
   if ('name' in changes) {
     sets.push('name = @name');
     params.name = changes.name;
@@ -717,29 +923,31 @@ export function updateProject(id, changes = {}) {
   return db.prepare(`UPDATE projects SET ${sets.join(', ')} WHERE id = @id`).run(params).changes;
 }
 
-export function deleteProject(id) {
+export function deleteProject(id: string): number {
   return deleteProjectStmt.run(id).changes;
 }
 
 // FEAT: set/replace a project's share token (enables the public share link).
-export function setProjectShareToken(id, token) {
+export function setProjectShareToken(id: string, token: string): number {
   return setShareTokenStmt.run({ id, token, updatedAt: new Date().toISOString() }).changes;
 }
 
 // FEAT: revoke a project's share link.
-export function clearProjectShareToken(id) {
+export function clearProjectShareToken(id: string): number {
   return clearShareTokenStmt.run({ id, updatedAt: new Date().toISOString() }).changes;
 }
 
 // FEAT: resolve a share token to its project. Returns only the minimal fields the
 // public share view needs — never client data or the token itself downstream.
-export function getProjectByShareToken(token) {
+export function getProjectByShareToken(
+  token: string
+): { id: string; name: string; color: string } | null {
   const row = selectProjectByShareTokenStmt.get(token);
   if (!row) return null;
   return { id: row.id, name: row.name, color: row.color };
 }
 
-export function assignPhotosToProject(projectId, photoIds) {
+export function assignPhotosToProject(projectId: string | null, photoIds: string[]): void {
   const run = db.transaction(() => {
     for (const id of photoIds) {
       assignPhotosToProjectStmt.run({ projectId: projectId ?? null, id });
@@ -748,28 +956,42 @@ export function assignPhotosToProject(projectId, photoIds) {
   run();
 }
 
-export function createClient({ id, name, createdAt, updatedAt }) {
+export function createClient({
+  id,
+  name,
+  createdAt,
+  updatedAt,
+}: {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}): void {
   insertClientStmt.run({ id, name, createdAt, updatedAt });
 }
 
-export function getAllClients() {
+export function getAllClients(): Client[] {
   return selectAllClientsStmt.all().map(mapClientRow);
 }
 
 // PERF-02: return only the affected client after a write.
-export function getClientById(id) {
-  return mapClientRow(selectClientByIdStmt.get(id));
+export function getClientById(id: string): Client | null {
+  const row = selectClientByIdStmt.get(id);
+  return row ? mapClientRow(row) : null;
 }
 
-export function updateClient(id, { name, updatedAt }) {
+export function updateClient(
+  id: string,
+  { name, updatedAt }: { name: string; updatedAt: string }
+): number {
   return updateClientStmt.run({ id, name, updatedAt }).changes;
 }
 
-export function deleteClient(id) {
+export function deleteClient(id: string): number {
   return deleteClientStmt.run(id).changes;
 }
 
-export function resetAll() {
+export function resetAll(): void {
   db.pragma('foreign_keys = OFF');
   db.exec(
     'DELETE FROM photos; DELETE FROM projects; DELETE FROM clients; DELETE FROM geocode_cache;'
@@ -778,11 +1000,11 @@ export function resetAll() {
 }
 
 // OPS-04: cheap readiness probe — throws if the database is unreachable.
-export function pingDb() {
+export function pingDb(): void {
   db.prepare('SELECT 1').get();
 }
 
 // OPS-05: flush and release the SQLite handle during graceful shutdown.
-export function closeDb() {
+export function closeDb(): void {
   db.close();
 }

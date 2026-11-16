@@ -15,7 +15,7 @@ beforeAll(async () => {
   tmpDir = mkdtempSync(join(tmpdir(), 'photomapper-db-'));
   process.env.DB_PATH = join(tmpDir, 'test.db');
   // db.js opens the database at import time, so the env var must be set first.
-  dbmod = await import('../server/db.js');
+  dbmod = await import('../server/db.ts');
 });
 
 afterAll(() => {

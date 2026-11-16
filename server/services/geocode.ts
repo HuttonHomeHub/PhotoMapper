@@ -2,7 +2,7 @@ const NOMINATIM_TIMEOUT_MS = 5000;
 const USER_AGENT = 'PhotoMapper/1.0';
 
 // Cache key for a coordinate, rounded to ~111m so nearby points share an entry.
-export function geoKey(lat, lng) {
+export function geoKey(lat: number, lng: number): string {
   return `${lat.toFixed(3)},${lng.toFixed(3)}`;
 }
 
@@ -13,12 +13,18 @@ export function geoKey(lat, lng) {
 // so this avoids a DB migration. Throws on upstream failure/timeout so the route
 // can return a distinct 502 (vs. an empty-but-successful result).
 const SEARCH_CACHE_MAX = 200;
-const searchCache = new Map();
+export interface Place {
+  lat: number;
+  lon: number;
+  displayName: string;
+}
 
-export async function searchPlaces(query) {
+const searchCache = new Map<string, Place[]>();
+
+export async function searchPlaces(query: string): Promise<Place[]> {
   const key = query.trim().toLowerCase();
-  if (searchCache.has(key)) {
-    const cached = searchCache.get(key);
+  const cached = searchCache.get(key);
+  if (cached) {
     searchCache.delete(key); // re-insert to mark most-recently-used
     searchCache.set(key, cached);
     return cached;
@@ -32,7 +38,7 @@ export async function searchPlaces(query) {
       { headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'en' }, signal: controller.signal }
     );
     if (!res.ok) throw new Error(`Nominatim ${res.status}`);
-    const data = await res.json();
+    const data = (await res.json()) as { lat: string; lon: string; display_name: string }[];
     const results = data.map((r) => ({
       lat: parseFloat(r.lat),
       lon: parseFloat(r.lon),
@@ -40,7 +46,8 @@ export async function searchPlaces(query) {
     }));
     searchCache.set(key, results);
     if (searchCache.size > SEARCH_CACHE_MAX) {
-      searchCache.delete(searchCache.keys().next().value); // evict oldest
+      const oldest = searchCache.keys().next().value;
+      if (oldest !== undefined) searchCache.delete(oldest); // evict oldest
     }
     return results;
   } finally {
@@ -49,15 +56,15 @@ export async function searchPlaces(query) {
 }
 
 // Test seam: clear the in-memory search cache between cases.
-export function _clearSearchCache() {
+export function _clearSearchCache(): void {
   searchCache.clear();
 }
 
 // Reverse-geocode a coordinate to a short place label via Nominatim, with a
 // request timeout. Non-fatal: returns null on any failure/timeout.
-// Called only from the rate-limited background queue (geocodeQueue.js) so we
+// Called only from the rate-limited background queue (geocodeQueue.ts) so we
 // respect Nominatim's usage policy and never block the upload response.
-export async function reverseGeocode(lat, lng) {
+export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), NOMINATIM_TIMEOUT_MS);
   try {
@@ -66,7 +73,10 @@ export async function reverseGeocode(lat, lng) {
       { headers: { 'User-Agent': USER_AGENT }, signal: controller.signal }
     );
     if (!res.ok) return null;
-    const data = await res.json();
+    const data = (await res.json()) as {
+      address?: Record<string, string | undefined>;
+      display_name?: string;
+    };
     const addr = data.address || {};
     const parts = [
       addr.city || addr.town || addr.village || addr.county,

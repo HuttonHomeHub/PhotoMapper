@@ -19,6 +19,9 @@ that section as the GitHub Release notes.
   measured level (35%), rising with each change to the standard's 80%.
 - Removed unused code: an uncalled `clearSelection`, unused props in the photo list and comparison
   panel, and an unattached focus trap in the photo list (its confirm dialog already traps focus).
+- **Server in TypeScript.** Everything under `server/` is now strictly typed TypeScript, run
+  directly by Node 22 (no build step); the image starts `node server/index.ts`. Routers use named
+  exports. No change to the API, settings or data.
 
 ## v1.2.0 — shared container standard: DATA_DIR, DB_PATH, version at /health
 

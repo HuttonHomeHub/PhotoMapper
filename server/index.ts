@@ -1,8 +1,8 @@
-import { app } from './app.js';
-import { config } from './config.js';
-import { logger } from './logger.js';
-import { closeDb } from './db.js';
-import { deprecatedSettings } from './paths.js';
+import { app } from './app.ts';
+import { config } from './config.ts';
+import { logger } from './logger.ts';
+import { closeDb } from './db.ts';
+import { deprecatedSettings } from './paths.ts';
 
 for (const [oldName, newName] of deprecatedSettings) {
   logger.warn(`setting ${oldName} is deprecated; use ${newName}`);
@@ -18,7 +18,7 @@ if (!config.isTest) {
   // let in-flight requests drain, close the database, then exit. A hard timeout
   // guards against a stuck connection holding the process open forever.
   let shuttingDown = false;
-  function shutdown(signal) {
+  function shutdown(signal: NodeJS.Signals): void {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info(`${signal} received — shutting down`);

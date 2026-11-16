@@ -2,7 +2,7 @@ import { describe, it, expect, afterAll } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { hashFile } from '../server/services/hash.js';
+import { hashFile } from '../server/services/hash.ts';
 
 // TEST-02: content hashing underpins upload de-duplication (SEC/PERF-07), so it
 // gets a direct, deterministic test.

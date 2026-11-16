@@ -10,11 +10,24 @@
 //   - gives future migrations a clean home (they no longer need to be written
 //     defensively to tolerate re-running).
 //
-// Each migration is `{ version:number, name:string, up(db) }`. `up` manages its
+// Each migration is `{ version, name, up(db) }`. `up` manages its
 // own atomicity (some legacy steps recreate tables with their own transactions),
 // and is only recorded if it completes without throwing.
 
-export function runMigrations(db, migrations) {
+import type Database from 'better-sqlite3';
+
+type Db = Database.Database;
+
+export interface Migration {
+  version: number;
+  name: string;
+  up(db: Db): void;
+}
+
+export function runMigrations(
+  db: Db,
+  migrations: Migration[]
+): { applied: number[]; backup: string | null } {
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       version    INTEGER PRIMARY KEY,
@@ -25,7 +38,7 @@ export function runMigrations(db, migrations) {
 
   const applied = new Set(
     db
-      .prepare('SELECT version FROM schema_migrations')
+      .prepare<[], { version: number }>('SELECT version FROM schema_migrations')
       .all()
       .map((r) => r.version)
   );
@@ -37,10 +50,10 @@ export function runMigrations(db, migrations) {
 
   const backup = maybeBackup(db);
 
-  const record = db.prepare(
+  const record = db.prepare<[number, string, string]>(
     'INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)'
   );
-  const done = [];
+  const done: number[] = [];
   for (const m of pending) {
     m.up(db);
     record.run(m.version, m.name, new Date().toISOString());
@@ -51,19 +64,19 @@ export function runMigrations(db, migrations) {
 
 // Snapshot the DB to a timestamped file before mutating it — but only when it
 // already contains data worth protecting (skip brand-new and in-memory DBs).
-function maybeBackup(db) {
+function maybeBackup(db: Db): string | null {
   const path = db.name;
   if (!path || path === ':memory:') return null;
 
   const userTables = db
-    .prepare(
+    .prepare<[], { c: number }>(
       `
     SELECT count(*) AS c FROM sqlite_master
     WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != 'schema_migrations'
   `
     )
-    .get().c;
-  if (userTables === 0) return null;
+    .get()?.c;
+  if (!userTables) return null;
 
   const backupPath = `${path}.backup-${new Date().toISOString().replace(/[:.]/g, '-')}`;
   db.exec(`VACUUM INTO '${backupPath.replace(/'/g, "''")}'`);

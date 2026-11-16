@@ -13,7 +13,7 @@ async function loadPaths(env) {
   for (const n of NAMES) delete process.env[n];
   Object.assign(process.env, env);
   vi.resetModules();
-  return import('../server/paths.js');
+  return import('../server/paths.ts');
 }
 
 beforeEach(() => {
