@@ -63,6 +63,53 @@ server {
 }
 ```
 
+### Behind Cloudflare: restore the real client IP in nginx
+
+With Cloudflare in front of nginx, the request reaches nginx from a Cloudflare server, so
+`$remote_addr` (and the last `X-Forwarded-For` entry) is Cloudflare's IP, not the visitor's.
+Restore the visitor's IP once, in nginx, and pass only that on. The app then trusts exactly
+one hop (`TRUST_PROXY=1`). Crane Charts runs behind the same proxy and is set up the same way.
+
+```nginx
+# /etc/nginx/conf.d/cloudflare-realip.conf (http context, shared by every site)
+# Cloudflare's ranges: https://www.cloudflare.com/ips-v4 and /ips-v6. Refresh when they change.
+set_real_ip_from 173.245.48.0/20;
+set_real_ip_from 103.21.244.0/22;
+set_real_ip_from 103.22.200.0/22;
+set_real_ip_from 103.31.4.0/22;
+set_real_ip_from 141.101.64.0/18;
+set_real_ip_from 108.162.192.0/18;
+set_real_ip_from 190.93.240.0/20;
+set_real_ip_from 188.114.96.0/20;
+set_real_ip_from 197.234.240.0/22;
+set_real_ip_from 198.41.128.0/17;
+set_real_ip_from 162.158.0.0/15;
+set_real_ip_from 104.16.0.0/13;
+set_real_ip_from 104.24.0.0/14;
+set_real_ip_from 172.64.0.0/13;
+set_real_ip_from 131.0.72.0/22;
+set_real_ip_from 2400:cb00::/32;
+set_real_ip_from 2606:4700::/32;
+set_real_ip_from 2803:f800::/32;
+set_real_ip_from 2405:b500::/32;
+set_real_ip_from 2405:8100::/32;
+set_real_ip_from 2a06:98c0::/29;
+set_real_ip_from 2c0f:f248::/32;
+real_ip_header CF-Connecting-IP;
+```
+
+In each app's `location`, send the restored address as the only forwarded hop. Use
+`$remote_addr`, not `$proxy_add_x_forwarded_for`, so a client can't prepend fake entries:
+
+```nginx
+proxy_set_header X-Real-IP       $remote_addr;
+proxy_set_header X-Forwarded-For $remote_addr;
+proxy_set_header X-Forwarded-Proto $scheme;
+```
+
+`CF-Connecting-IP` is only trusted from the listed Cloudflare ranges. A request that reaches
+nginx directly (for example from the LAN) keeps its own address.
+
 ### Example: Caddy (auto-TLS)
 
 ```
@@ -153,7 +200,7 @@ photomapper:
     - PGID=1000
     - TZ=Europe/London
     - NODE_ENV=production
-    - TRUST_PROXY=2       # Cloudflare→nginx→app: use the real client IP, not the proxy
+    - TRUST_PROXY=1       # one hop: nginx (which restores the real client IP from Cloudflare)
     - LOG_LEVEL=warn      # quieter logs (drop the per-request info lines)
     # - ALLOWED_ORIGINS=https://photos.example.com
     # - ALLOW_RESET=false
@@ -186,7 +233,7 @@ Notes:
 | `UPLOADS_DIR` | `server/uploads` | Uploaded-image + thumbnail directory (point at the same persistent volume). |
 | `ALLOW_RESET` | _unset_ | Set to `true` only if you want `DELETE /api/reset` enabled. |
 | `NODE_ENV` | _unset_ | `production` in prod; `test` is used by the test suite. |
-| `TRUST_PROXY` | _(off)_ | Express `trust proxy` for reverse-proxy deploys. A hop count (`2` = Cloudflare→nginx→app), `true`/`false`, or an IP/subnet list. Makes `req.ip`, rate-limiting and protocol use the real client. Prefer a hop count over `true` (the rate limiter rejects fully-permissive trust). |
+| `TRUST_PROXY` | _(off)_ | Express `trust proxy` for reverse-proxy deploys. A hop count (`1` when nginx restores the real client IP, see "Behind Cloudflare"), `true`/`false`, or an IP/subnet list. Makes `req.ip`, rate-limiting and protocol use the real client. Prefer a hop count over `true` (the rate limiter rejects fully-permissive trust). |
 | `LOG_LEVEL` | `info` | pino level; set `warn` to drop per-request access logs. |
 
 > Full config reference is in `.env.example` and validated in `server/config.js` (OPS-07).

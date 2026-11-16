@@ -10,6 +10,13 @@ that section as the GitHub Release notes.
 
 ## Unreleased
 
+## v1.1.1 — real client IP behind Cloudflare (docs)
+
+### Changed
+- **Deployment docs: real client IP behind Cloudflare.** nginx restores the visitor's IP from
+  Cloudflare's `CF-Connecting-IP` header, and PhotoMapper trusts one hop (`TRUST_PROXY=1`,
+  previously documented as `2`). Same setup as Crane Charts.
+
 ## v1.1.0 — versioned releases, React 19 and dependency updates
 
 ### Added
