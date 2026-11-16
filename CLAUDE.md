@@ -19,14 +19,15 @@ Stack and scripts are in `package.json`. Backend listens on port `3001` (overrid
 
 ## Shared platform (phase 3 of the HuttonHomeHub App Standard)
 
-- `vendor/hhh-platform/` is a vendored hhh-platform release (version in its `VERSION`). Never edit it: `npm run vendor:check` fails CI if it differs from the release. Upgrade with `node vendor/hhh-platform/scripts/vendor.ts X.Y.Z` in its own PR. The Dockerfile copies `vendor/` before `npm ci`.
+- `vendor/hhh-platform/` is a vendored hhh-platform release (version in its `VERSION`). Never edit it: `npm run vendor:check` fails CI if it differs from the release. Upgrade with `node vendor/hhh-platform/scripts/vendor.ts X.Y.Z` in its own PR. The Dockerfile copies `vendor/` before `npm ci`, and into the runtime image (`@hhh/server` runs from it).
 - TypeScript, ESLint, Prettier and Vitest come from `@hhh/config`. Two TypeScript projects: `tsconfig.json` (server, tests) and `tsconfig.app.json` (browser, JSX). The server is TypeScript, run by Node directly (imports name the `.ts` file). The front end and tests are still JavaScript, allowed but not type-checked until they're converted.
 - Transition overrides live at the end of `eslint.config.js`, each with when to remove it.
 - Coverage gate: `LINES_FLOOR` in `vitest.config.js` is the measured level and only goes up; every phase 3 PR raises it, ending at the standard's 80%.
 
 ## Settings
 
-- Named to the shared container standard in `~/projects/CLAUDE.md`. Data paths are resolved in `server/paths.ts`: `DATA_DIR` (the image sets `/config`), then `DB_PATH` (old name `PHOTOS_DB_PATH` still works and is collected in `deprecatedSettings`, which `server/index.ts` logs at startup) and `UPLOADS_DIR`. Everything else is validated in `server/config.ts`, including `APP_VERSION` (reported at `/health` and `/version`).
+- Named to the shared container standard in `~/projects/CLAUDE.md` and read once in `server/config.ts` with the kit's `loadSettings` (shared settings plus PhotoMapper's own). Old names (`PHOTOS_DB_PATH`, `RATE_LIMIT_WINDOW_MS`/`RATE_LIMIT_MAX`) still work and are collected in `deprecatedSettings`, which `server/index.ts` logs at startup. `server/paths.ts` resolves `DATA_DIR`, `DB_PATH` and `UPLOADS_DIR`.
+- The Express app is built on `@hhh/server` (`createBaseApp` … `finishApp` in `server/app.ts`): every write needs the CSRF header, so browser code calls the API with `apiFetch` from `@hhh/ui`, never bare `fetch`, and API tests send writes through their `write()` helper.
 - `deploy/compose.example.yml` is the live layout; the root `docker-compose.yml` builds from source for local use.
 
 ## Release
@@ -43,7 +44,7 @@ Stack and scripts are in `package.json`. Backend listens on port `3001` (overrid
 src/
   main.jsx              App entry point
   App.jsx               Root layout: sidebar + map
-  hooks/usePhotos.js    ALL photo API calls live here — do not fetch elsewhere
+  hooks/use*.js         Photo, project and client API calls (via apiFetch)
   components/
     DropZone.jsx        Drag-and-drop upload with per-file status + client-side duplicate detection
     PhotoList.jsx       Sidebar list with thumbnails + delete

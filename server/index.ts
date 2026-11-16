@@ -1,8 +1,8 @@
+import { gracefulShutdown } from '@hhh/server';
 import { app } from './app.ts';
-import { config } from './config.ts';
+import { config, deprecatedSettings } from './config.ts';
 import { logger } from './logger.ts';
 import { closeDb } from './db.ts';
-import { deprecatedSettings } from './paths.ts';
 
 for (const [oldName, newName] of deprecatedSettings) {
   logger.warn(`setting ${oldName} is deprecated; use ${newName}`);
@@ -14,38 +14,9 @@ if (!config.isTest) {
     logger.info(`Server running on http://localhost:${config.port}`);
   });
 
-  // OPS-05: graceful shutdown. On SIGTERM/SIGINT stop accepting new connections,
-  // let in-flight requests drain, close the database, then exit. A hard timeout
-  // guards against a stuck connection holding the process open forever.
-  let shuttingDown = false;
-  function shutdown(signal: NodeJS.Signals): void {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    logger.info(`${signal} received — shutting down`);
-
-    const forceExit = setTimeout(() => {
-      logger.error('Shutdown timed out — forcing exit');
-      process.exit(1);
-    }, 10000).unref();
-
-    server.close((err) => {
-      clearTimeout(forceExit);
-      if (err) {
-        logger.error({ err }, 'Error during server close');
-        process.exit(1);
-      }
-      try {
-        closeDb();
-      } catch (dbErr) {
-        logger.error({ err: dbErr }, 'Error closing database');
-      }
-      logger.info('Shutdown complete');
-      process.exit(0);
-    });
-  }
-
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
-  process.on('SIGINT', () => shutdown('SIGINT'));
+  // OPS-05: on SIGTERM/SIGINT stop accepting connections, let in-flight requests
+  // finish, close the database, then exit (forced after 10 s).
+  gracefulShutdown(server, { logger, onClose: closeDb });
 }
 
 export { app };

@@ -12,6 +12,18 @@ that section as the GitHub Release notes.
 
 ### Changed
 
+- **Server on the shared kit (`@hhh/server`, hhh-platform 0.2.0) and Express 5.** The same security
+  headers, request logs (one small line per request, no headers or cookies), health routes,
+  shutdown and error replies as every HuttonHomeHub app. The page's script policy now also carries a
+  per-request nonce.
+- **CSRF protection:** every write must send the `hhh_csrf` cookie's token in an `X-CSRF-Token`
+  header; the front end does this through `apiFetch` from `@hhh/ui`. A browser tab left open across
+  the upgrade needs one reload before its changes save.
+- **Settings:** the API rate limit is now one setting, `API_RATE` (default `1000 per 15 minutes`);
+  `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` still work and log a deprecation warning. `TRUST_PROXY`
+  is a hop count, as in every app (`1` live); an IP list now stops startup with a clear message.
+  Server errors are never shown to the browser, in development too.
+
 - **Shared tooling from hhh-platform.** The hhh-platform v0.1.0 release is vendored in
   `vendor/hhh-platform/` (checked in CI against the release); TypeScript 6, ESLint, Prettier and
   Vitest 5 settings now come from `@hhh/config`, with every tool pinned exactly. Lint, format and
@@ -22,6 +34,12 @@ that section as the GitHub Release notes.
 - **Server in TypeScript.** Everything under `server/` is now strictly typed TypeScript, run
   directly by Node 22 (no build step); the image starts `node server/index.ts`. Routers use named
   exports. No change to the API, settings or data.
+
+### Fixed
+
+- An unknown `/api` path returns a JSON 404 instead of the app's page; an unsupported upload type is
+  a 400 and an oversize upload a 413, instead of a 500.
+- A failed client, project or batch photo delete no longer leaves the list showing it as gone.
 
 ## v1.2.0 — shared container standard: DATA_DIR, DB_PATH, version at /health
 

@@ -46,6 +46,8 @@ ENV APP_VERSION=$APP_VERSION
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server ./server
+# @hhh/server is a runtime dependency, installed as a link into the vendored platform.
+COPY --from=build /app/vendor ./vendor
 COPY --from=build /app/package.json ./package.json
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

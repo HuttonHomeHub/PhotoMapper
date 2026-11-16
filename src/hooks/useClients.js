@@ -1,17 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '@hhh/ui';
 
-async function postJson(url, method, data) {
-  const res = await fetch(url, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
+const postJson = (url, method, body) => apiFetch(url, { method, body });
 
 // ARCH-06: client state + operations (split out of the old usePhotos).
 export function useClients() {
@@ -24,9 +14,7 @@ export function useClients() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/clients');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setClients(await res.json());
+      setClients(await apiFetch('/api/clients'));
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -50,10 +38,18 @@ export function useClients() {
     setClients((prev) => prev.map((c) => (c.id === id ? updated : c)));
   }, []);
 
-  const deleteClient = useCallback(async (id) => {
-    await fetch(`/api/clients/${id}`, { method: 'DELETE' });
-    setClients((prev) => prev.filter((c) => c.id !== id));
-  }, []);
+  // Callers don't wait for the result: if the delete failed, re-read the list.
+  const deleteClient = useCallback(
+    async (id) => {
+      try {
+        await apiFetch(`/api/clients/${id}`, { method: 'DELETE' });
+        setClients((prev) => prev.filter((c) => c.id !== id));
+      } catch {
+        await refresh();
+      }
+    },
+    [refresh]
+  );
 
   return { clients, loading, error, refresh, createClient, updateClient, deleteClient };
 }

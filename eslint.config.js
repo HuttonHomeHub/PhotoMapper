@@ -22,7 +22,4 @@ export default [
       'react-hooks/set-state-in-effect': 'off',
     },
   },
-  // `x == null` (null or undefined) is a deliberate idiom. The shared rule allows it from
-  // hhh-platform's next release; remove this block when PhotoMapper vendors that release.
-  { rules: { eqeqeq: ['error', 'always', { null: 'ignore' }] } },
 ];

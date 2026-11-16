@@ -1,6 +1,6 @@
 {
   "name": "@hhh/server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "HuttonHomeHub server kit: settings, logging, errors, security, CSRF, rate limits, health routes, shutdown, database, migrations, write lock, backups and restore",
   "type": "module",
   "exports": {

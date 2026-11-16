@@ -11,7 +11,8 @@ afterEach(() => vi.unstubAllGlobals());
 function mockFetch(routes) {
   return vi.fn((url, opts = {}) => {
     const r = routes(url, opts);
-    return Promise.resolve({ ok: r.ok ?? true, status: r.status ?? 200, json: async () => r.body });
+    const status = r.status ?? 200;
+    return Promise.resolve(new Response(JSON.stringify(r.body ?? null), { status }));
   });
 }
 const isGet = (opts) => !opts.method || opts.method === 'GET';
