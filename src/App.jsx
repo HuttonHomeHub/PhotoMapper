@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
 import React from 'react';
-import { apiFetch } from '@hhh/ui';
+import { AppBar, apiFetch } from '@hhh/ui';
+import { MapPinned } from 'lucide-react';
 import { useFocusTrap } from './hooks/useFocusTrap.js';
 
 function SidebarSection({ title, defaultOpen = true, badge = null, children }) {
@@ -46,6 +47,9 @@ import { useTimeline } from './hooks/useTimeline.js';
 import { filterPhotos } from './lib/filterPhotos.js';
 import PhotoComparison from './components/PhotoComparison.jsx';
 import { useToast } from './components/Toast.jsx';
+import { SettingsDialog } from './components/SettingsDialog.jsx';
+import { useAppVersion } from './hooks/useSettings.js';
+import { useMediaQuery } from './hooks/useMediaQuery.js';
 
 const TODAY = new Date().toISOString().slice(0, 10);
 const dateToMs = (d) => new Date(d + 'T12:00:00Z').getTime();
@@ -122,6 +126,10 @@ export function App() {
   const mapRef = useRef(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const version = useAppVersion();
+  // Below this width the sidebar is a drawer opened from the app bar's menu button.
+  const narrow = useMediaQuery('(max-width: 599px)');
   const [resetConfirm, setResetConfirm] = React.useState(false);
   const shortcutsTrapRef = useFocusTrap(shortcutsOpen);
 
@@ -288,614 +296,378 @@ export function App() {
 
   return (
     <div className="app">
-      <button
-        className="mobile-sidebar-toggle"
-        onClick={() => setMobileSidebarOpen((v) => !v)}
-        aria-label="Toggle sidebar"
-      >
-        ☰
-      </button>
+      <AppBar
+        appName="PhotoMapper"
+        version={version || 'dev'}
+        icon={<MapPinned size={22} aria-hidden />}
+        {...(narrow
+          ? { onMenu: () => setMobileSidebarOpen((v) => !v), menuOpen: mobileSidebarOpen }
+          : {})}
+        onShortcuts={() => setShortcutsOpen(true)}
+        onSettings={() => setSettingsOpen(true)}
+      />
+      <div className="app-body">
+        {mobileSidebarOpen && (
+          <div className="sidebar-backdrop" onClick={() => setMobileSidebarOpen(false)} />
+        )}
 
-      {mobileSidebarOpen && (
-        <div className="sidebar-backdrop" onClick={() => setMobileSidebarOpen(false)} />
-      )}
+        <aside className={`sidebar${mobileSidebarOpen ? ' mobile-open' : ''}`}>
+          {error && <div className="error-banner">Failed to load photos. Please refresh.</div>}
 
-      <aside className={`sidebar${mobileSidebarOpen ? ' mobile-open' : ''}`}>
-        <div className="sidebar-header">
-          <div className="sidebar-header-top">
-            <svg
-              className="brand-logo"
-              viewBox="0 0 48 48"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <defs>
-                <linearGradient id="panelMid" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#2a4a80" />
-                  <stop offset="100%" stopColor="#162d60" />
-                </linearGradient>
-                <linearGradient id="panelLeft" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#0e1c3a" />
-                  <stop offset="100%" stopColor="#1a3060" />
-                </linearGradient>
-                <linearGradient id="panelRight" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#1a3060" />
-                  <stop offset="100%" stopColor="#0e1c3a" />
-                </linearGradient>
-                <linearGradient id="pinGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#ffb060" />
-                  <stop offset="100%" stopColor="#c85a10" />
-                </linearGradient>
-                <filter id="pinGlow" x="-60%" y="-60%" width="220%" height="220%">
-                  <feGaussianBlur stdDeviation="1.2" result="blur" />
-                  <feMerge>
-                    <feMergeNode in="blur" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-                <filter id="mapShadow">
-                  <feDropShadow
-                    dx="0"
-                    dy="2"
-                    stdDeviation="2"
-                    floodColor="#000"
-                    floodOpacity="0.55"
-                  />
-                </filter>
-              </defs>
-
-              {/* ── Folded paper map — 3 panels ── */}
-              <g filter="url(#mapShadow)">
-                {/* Left panel — angled back, darker */}
-                <polygon
-                  points="2,10 16,6 16,38 2,34"
-                  fill="url(#panelLeft)"
-                  stroke="#3a5c94"
-                  strokeWidth="0.8"
-                  strokeLinejoin="round"
+          {photos.length === 0 && !loading ? (
+            <>
+              <div className="sidebar-empty-state">
+                <DropZone
+                  onUploadComplete={refreshAll}
+                  setResults={setResults}
+                  openDrawer={() => setDrawerOpen(true)}
+                  clients={clients}
+                  projects={projects}
+                  activeProjectId={activeProjectId}
                 />
-                {/* Centre panel — faces viewer, brightest */}
-                <polygon
-                  points="16,6 32,6 32,38 16,38"
-                  fill="url(#panelMid)"
-                  stroke="#3a5c94"
-                  strokeWidth="0.8"
-                  strokeLinejoin="round"
-                />
-                {/* Right panel — angled back, darker */}
-                <polygon
-                  points="32,6 46,10 46,34 32,38"
-                  fill="url(#panelRight)"
-                  stroke="#3a5c94"
-                  strokeWidth="0.8"
-                  strokeLinejoin="round"
-                />
-              </g>
-
-              {/* Centre panel detail — horizontal map lines */}
-              <line
-                x1="16"
-                y1="14"
-                x2="32"
-                y2="14"
-                stroke="#4a72b0"
-                strokeWidth="0.5"
-                strokeOpacity="0.6"
-              />
-              <line
-                x1="16"
-                y1="22"
-                x2="32"
-                y2="22"
-                stroke="#4a72b0"
-                strokeWidth="0.5"
-                strokeOpacity="0.6"
-              />
-              <line
-                x1="16"
-                y1="30"
-                x2="32"
-                y2="30"
-                stroke="#4a72b0"
-                strokeWidth="0.5"
-                strokeOpacity="0.6"
-              />
-              {/* Centre panel — vertical divider */}
-              <line
-                x1="24"
-                y1="6"
-                x2="24"
-                y2="38"
-                stroke="#4a72b0"
-                strokeWidth="0.4"
-                strokeOpacity="0.35"
-              />
-
-              {/* Left panel detail — perspective lines */}
-              <line
-                x1="2"
-                y1="16"
-                x2="16"
-                y2="14"
-                stroke="#3a5c94"
-                strokeWidth="0.4"
-                strokeOpacity="0.5"
-              />
-              <line
-                x1="2"
-                y1="24"
-                x2="16"
-                y2="22"
-                stroke="#3a5c94"
-                strokeWidth="0.4"
-                strokeOpacity="0.5"
-              />
-              <line
-                x1="2"
-                y1="30"
-                x2="16"
-                y2="30"
-                stroke="#3a5c94"
-                strokeWidth="0.4"
-                strokeOpacity="0.4"
-              />
-
-              {/* Right panel detail — perspective lines */}
-              <line
-                x1="32"
-                y1="14"
-                x2="46"
-                y2="16"
-                stroke="#3a5c94"
-                strokeWidth="0.4"
-                strokeOpacity="0.5"
-              />
-              <line
-                x1="32"
-                y1="22"
-                x2="46"
-                y2="24"
-                stroke="#3a5c94"
-                strokeWidth="0.4"
-                strokeOpacity="0.5"
-              />
-              <line
-                x1="32"
-                y1="30"
-                x2="46"
-                y2="30"
-                stroke="#3a5c94"
-                strokeWidth="0.4"
-                strokeOpacity="0.4"
-              />
-
-              {/* Route squiggle on centre panel */}
-              <path
-                d="M17 33 Q20 28 23 30 Q25 31 27 28 Q29 25 31 27"
-                stroke="#e97b25"
-                strokeWidth="0.9"
-                strokeOpacity="0.5"
-                strokeLinecap="round"
-                fill="none"
-              />
-
-              {/* ── Pin ── */}
-              <ellipse cx="24" cy="34" rx="3" ry="1.2" fill="#e97b25" fillOpacity="0.2" />
-              <path
-                d="M24 9 C21.2 9 19 11.2 19 14.2 C19 18.2 24 25 24 25 C24 25 29 18.2 29 14.2 C29 11.2 26.8 9 24 9 Z"
-                fill="url(#pinGrad)"
-                filter="url(#pinGlow)"
-              />
-              <path
-                d="M21.5 11.2 C20.4 12.4 19.8 13.7 19.8 14.8"
-                stroke="white"
-                strokeWidth="0.9"
-                strokeOpacity="0.4"
-                strokeLinecap="round"
-              />
-              <circle cx="24" cy="14.2" r="3.2" fill="#1a1a2e" stroke="#ffb060" strokeWidth="0.7" />
-              <circle cx="24" cy="14.2" r="1.8" fill="#0a0f22" />
-              <circle cx="23.1" cy="13.3" r="0.65" fill="white" fillOpacity="0.6" />
-            </svg>
-            <div className="sidebar-header-text">
-              <h1>
-                Photo<span className="brand-accent">Mapper</span>
-              </h1>
-              <p>Upload photos and explore them on an interactive map</p>
-            </div>
-          </div>
-        </div>
-
-        {error && <div className="error-banner">Failed to load photos. Please refresh.</div>}
-
-        {photos.length === 0 && !loading ? (
-          <>
-            <div className="sidebar-empty-state">
-              <DropZone
-                onUploadComplete={refreshAll}
-                setResults={setResults}
-                openDrawer={() => setDrawerOpen(true)}
-                clients={clients}
-                projects={projects}
-                activeProjectId={activeProjectId}
-              />
-            </div>
-            <div className="sidebar-footer">
-              <div className="sidebar-footer-row">
-                <button
-                  className={`footer-btn footer-btn--log${drawerOpen ? ' active' : ''}`}
-                  onClick={() => setDrawerOpen((o) => !o)}
-                  title="Upload log"
-                  aria-label="Toggle upload log"
-                >
-                  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <rect x="2" y="3" width="12" height="2" rx="1" fill="currentColor" />
-                    <rect x="2" y="7" width="8" height="2" rx="1" fill="currentColor" />
-                    <rect x="2" y="11" width="10" height="2" rx="1" fill="currentColor" />
-                  </svg>
-                  Log
-                  {results.length > 0 && !drawerOpen && <span className="log-toggle-dot" />}
-                </button>
-                <button
-                  className="footer-btn footer-btn--help"
-                  onClick={() => setShortcutsOpen(true)}
-                  title="Keyboard shortcuts"
-                  aria-label="Show keyboard shortcuts"
-                >
-                  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" />
-                    <path
-                      d="M6 6.2C6 5 6.9 4.2 8 4.2s2 .8 2 1.8c0 1.2-2 1.8-2 3"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    />
-                    <circle cx="8" cy="11.5" r="0.75" fill="currentColor" />
-                  </svg>
-                </button>
               </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="sidebar-tab-panel sidebar-tab-panel--browse">
-              <SidebarSection title="Navigation tree">
-                <ClientPanel
-                  clients={clients}
-                  projects={projects}
-                  photos={photos}
-                  loading={clientsLoading || projectsLoading}
-                  error={clientsError || projectsError}
-                  onRetry={() => {
-                    refreshClients();
-                    refreshProjects();
-                  }}
-                  activeClientId={activeClientId}
-                  activeProjectId={activeProjectId}
-                  activeSurveyDate={activeSurveyDate}
-                  onSelectClient={(id) => {
-                    setActiveClientId(id);
-                    setActiveProjectId(null);
-                    setActiveSurveyDate(null);
-                  }}
-                  onSelectProject={(id) => {
-                    setActiveProjectId(id);
-                    setActiveSurveyDate(null);
-                  }}
-                  onSelectSurveyDate={setActiveSurveyDate}
-                  onUpdateClient={updateClient}
-                  onDeleteClient={deleteClient}
-                  onUpdateProject={updateProject}
-                  onDeleteProject={deleteProject}
-                  onEnableShare={enableShare}
-                  onDisableShare={disableShare}
-                  toast={toast}
-                />
-              </SidebarSection>
-              <SidebarSection
-                title="Photos"
-                badge={
-                  displayPhotos.length > 0 ? (
-                    <span
-                      title={
-                        displayGpsCount === displayPhotos.length
-                          ? `${displayPhotos.length} photos · all have GPS`
-                          : `${displayPhotos.length} photos · ${displayGpsCount} mapped · ${displayPhotos.length - displayGpsCount} missing GPS`
-                      }
-                      style={
-                        displayGpsCount < displayPhotos.length
-                          ? { color: 'var(--color-warning)' }
-                          : {}
-                      }
-                    >
-                      {displayGpsCount < displayPhotos.length
-                        ? `📍 ${displayGpsCount}/${displayPhotos.length}`
-                        : `📍 ${displayPhotos.length}`}
-                    </span>
-                  ) : null
-                }
-              >
-                <FilterChips
-                  isFiltered={isFiltered}
-                  activeTag={activeTag}
-                  regionPolygon={regionPolygon}
-                  activeClientId={activeClientId}
-                  activeProjectId={activeProjectId}
-                  activeSurveyDate={activeSurveyDate}
-                  clients={clients}
-                  projects={projects}
-                  onClearDate={() => setUserTouchedFilter(false)}
-                  onClearTag={() => setActiveTag(null)}
-                  onClearRegion={() => setRegionPolygon(null)}
-                  onClearClient={() => {
-                    setActiveClientId(null);
-                    setActiveProjectId(null);
-                    setActiveSurveyDate(null);
-                  }}
-                  onClearProject={() => {
-                    setActiveProjectId(null);
-                    setActiveSurveyDate(null);
-                  }}
-                  onClearSurvey={() => setActiveSurveyDate(null)}
-                  onClearAll={clearAllFilters}
-                />
-
-                <PhotoList
-                  photos={displayPhotos}
-                  totalCount={photos.length}
-                  loading={loading}
-                  onDelete={deletePhoto}
-                  onView={(photo) => {
-                    setViewingPhoto(photo);
-                    setMobileSidebarOpen(false);
-                  }}
-                  activeTag={activeTag}
-                  onTagClick={(tag) => setActiveTag((prev) => (prev === tag ? null : tag))}
-                  selectionMode={selectionMode}
-                  selectedPhotoIds={selectedPhotoIds}
-                  onToggleSelection={togglePhotoSelection}
-                  onToggleSelectionMode={() => {
-                    setSelectionMode((v) => !v);
-                    setSelectedPhotoIds(new Set());
-                  }}
-                  onBatchUpdate={batchUpdate}
-                  onBatchDelete={batchDelete}
-                  comparingPhotoId={comparingPhotoId}
-                  onCompareClick={handleCompareClick}
-                  onPlacePhoto={startPlacingPhoto}
-                  onClearLocation={handleClearPhotoLocation}
-                  placingPhotoId={placingPhoto?.id ?? null}
-                  toast={toast}
-                  hasActiveFilters={
-                    !!(
-                      isFiltered ||
-                      activeTag ||
-                      regionPolygon ||
-                      activeClientId ||
-                      activeSurveyDate ||
-                      activeProjectId
-                    )
-                  }
-                  timelinePhotoId={timeline.active ? timeline.currentPhoto?.id : null}
-                  onClearAllFilters={clearAllFilters}
-                />
-              </SidebarSection>
-              <SidebarSection title="Search" defaultOpen={!activeSurveyDate}>
-                <div className="date-filter">
-                  {minDate && sliderRange > 0 ? (
-                    <>
-                      <div className="date-range-display">
-                        <span>{dateFrom || minDate || 'earliest'}</span>
-                        <span className="date-range-sep">→</span>
-                        <span>{dateTo || TODAY || 'latest'}</span>
-                      </div>
-                      <div className="date-slider-wrap">
-                        <div
-                          className="date-slider-track"
-                          style={{
-                            background: `linear-gradient(to right, #0f3460 ${fromPct}%, #e97b25 ${fromPct}%, #e97b25 ${toPct}%, #0f3460 ${toPct}%)`,
-                          }}
-                        >
-                          <input
-                            type="range"
-                            className="date-range-input"
-                            min={minTs}
-                            max={maxTs}
-                            value={fromTs}
-                            style={{ zIndex: fromTs >= toTs ? 3 : 1 }}
-                            aria-label="Filter start date"
-                            aria-valuetext={dateFrom || minDate || 'earliest'}
-                            onChange={(e) => {
-                              const v = Number(e.target.value);
-                              if (v <= toTs) {
-                                setDateFrom(msToDate(v));
-                                setUserTouchedFilter(true);
-                              }
-                            }}
-                          />
-                          <input
-                            type="range"
-                            className="date-range-input"
-                            min={minTs}
-                            max={maxTs}
-                            value={toTs}
-                            style={{ zIndex: toTs <= fromTs ? 3 : 1 }}
-                            aria-label="Filter end date"
-                            aria-valuetext={dateTo || TODAY || 'latest'}
-                            onChange={(e) => {
-                              const v = Number(e.target.value);
-                              if (v >= fromTs) {
-                                setDateTo(msToDate(v));
-                                setUserTouchedFilter(true);
-                              }
-                            }}
-                          />
-                        </div>
-                      </div>
-                      {isFiltered && (
-                        <button
-                          className="date-filter-clear"
-                          onClick={() => setUserTouchedFilter(false)}
-                        >
-                          Reset range
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      {isFiltered && (
-                        <button
-                          className="date-filter-clear"
-                          onClick={() => setUserTouchedFilter(false)}
-                        >
-                          Reset range
-                        </button>
-                      )}
-                    </>
-                  )}
+              <div className="sidebar-footer">
+                <div className="sidebar-footer-row">
+                  <button
+                    className={`footer-btn footer-btn--log${drawerOpen ? ' active' : ''}`}
+                    onClick={() => setDrawerOpen((o) => !o)}
+                    title="Upload log"
+                    aria-label="Toggle upload log"
+                  >
+                    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <rect x="2" y="3" width="12" height="2" rx="1" fill="currentColor" />
+                      <rect x="2" y="7" width="8" height="2" rx="1" fill="currentColor" />
+                      <rect x="2" y="11" width="10" height="2" rx="1" fill="currentColor" />
+                    </svg>
+                    Log
+                    {results.length > 0 && !drawerOpen && <span className="log-toggle-dot" />}
+                  </button>
                 </div>
-
-                <LocationSearch
-                  onFlyTo={(lat, lng, zoom) => mapRef.current?.flyTo(lat, lng, zoom)}
-                />
-              </SidebarSection>
-
-              {/* Timeline Player */}
-              <SidebarSection title="Timeline" defaultOpen={false}>
-                <TimelinePanel timeline={timeline} photoCount={photos.length} />
-              </SidebarSection>
-            </div>
-            <div className="sidebar-footer">
-              {uploadOpen && (
-                <div className="sidebar-upload-tray">
-                  <DropZone
-                    onUploadComplete={refreshAll}
-                    setResults={setResults}
-                    openDrawer={() => setDrawerOpen(true)}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="sidebar-tab-panel sidebar-tab-panel--browse">
+                <SidebarSection title="Navigation tree">
+                  <ClientPanel
                     clients={clients}
                     projects={projects}
+                    photos={photos}
+                    loading={clientsLoading || projectsLoading}
+                    error={clientsError || projectsError}
+                    onRetry={() => {
+                      refreshClients();
+                      refreshProjects();
+                    }}
+                    activeClientId={activeClientId}
                     activeProjectId={activeProjectId}
+                    activeSurveyDate={activeSurveyDate}
+                    onSelectClient={(id) => {
+                      setActiveClientId(id);
+                      setActiveProjectId(null);
+                      setActiveSurveyDate(null);
+                    }}
+                    onSelectProject={(id) => {
+                      setActiveProjectId(id);
+                      setActiveSurveyDate(null);
+                    }}
+                    onSelectSurveyDate={setActiveSurveyDate}
+                    onUpdateClient={updateClient}
+                    onDeleteClient={deleteClient}
+                    onUpdateProject={updateProject}
+                    onDeleteProject={deleteProject}
+                    onEnableShare={enableShare}
+                    onDisableShare={disableShare}
+                    toast={toast}
                   />
-                </div>
-              )}
-              <div className="sidebar-footer-row">
-                <button
-                  className={`footer-btn footer-btn--upload${uploadOpen ? ' active' : ''}`}
-                  onClick={() => setUploadOpen((o) => !o)}
-                  title={uploadOpen ? 'Close upload' : 'Upload photos'}
+                </SidebarSection>
+                <SidebarSection
+                  title="Photos"
+                  badge={
+                    displayPhotos.length > 0 ? (
+                      <span
+                        title={
+                          displayGpsCount === displayPhotos.length
+                            ? `${displayPhotos.length} photos · all have GPS`
+                            : `${displayPhotos.length} photos · ${displayGpsCount} mapped · ${displayPhotos.length - displayGpsCount} missing GPS`
+                        }
+                        style={
+                          displayGpsCount < displayPhotos.length
+                            ? { color: 'var(--color-warning)' }
+                            : {}
+                        }
+                      >
+                        {displayGpsCount < displayPhotos.length
+                          ? `📍 ${displayGpsCount}/${displayPhotos.length}`
+                          : `📍 ${displayPhotos.length}`}
+                      </span>
+                    ) : null
+                  }
                 >
-                  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    {uploadOpen ? (
-                      <path
-                        d="M3 8h10"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                      />
+                  <FilterChips
+                    isFiltered={isFiltered}
+                    activeTag={activeTag}
+                    regionPolygon={regionPolygon}
+                    activeClientId={activeClientId}
+                    activeProjectId={activeProjectId}
+                    activeSurveyDate={activeSurveyDate}
+                    clients={clients}
+                    projects={projects}
+                    onClearDate={() => setUserTouchedFilter(false)}
+                    onClearTag={() => setActiveTag(null)}
+                    onClearRegion={() => setRegionPolygon(null)}
+                    onClearClient={() => {
+                      setActiveClientId(null);
+                      setActiveProjectId(null);
+                      setActiveSurveyDate(null);
+                    }}
+                    onClearProject={() => {
+                      setActiveProjectId(null);
+                      setActiveSurveyDate(null);
+                    }}
+                    onClearSurvey={() => setActiveSurveyDate(null)}
+                    onClearAll={clearAllFilters}
+                  />
+
+                  <PhotoList
+                    photos={displayPhotos}
+                    totalCount={photos.length}
+                    loading={loading}
+                    onDelete={deletePhoto}
+                    onView={(photo) => {
+                      setViewingPhoto(photo);
+                      setMobileSidebarOpen(false);
+                    }}
+                    activeTag={activeTag}
+                    onTagClick={(tag) => setActiveTag((prev) => (prev === tag ? null : tag))}
+                    selectionMode={selectionMode}
+                    selectedPhotoIds={selectedPhotoIds}
+                    onToggleSelection={togglePhotoSelection}
+                    onToggleSelectionMode={() => {
+                      setSelectionMode((v) => !v);
+                      setSelectedPhotoIds(new Set());
+                    }}
+                    onBatchUpdate={batchUpdate}
+                    onBatchDelete={batchDelete}
+                    comparingPhotoId={comparingPhotoId}
+                    onCompareClick={handleCompareClick}
+                    onPlacePhoto={startPlacingPhoto}
+                    onClearLocation={handleClearPhotoLocation}
+                    placingPhotoId={placingPhoto?.id ?? null}
+                    toast={toast}
+                    hasActiveFilters={
+                      !!(
+                        isFiltered ||
+                        activeTag ||
+                        regionPolygon ||
+                        activeClientId ||
+                        activeSurveyDate ||
+                        activeProjectId
+                      )
+                    }
+                    timelinePhotoId={timeline.active ? timeline.currentPhoto?.id : null}
+                    onClearAllFilters={clearAllFilters}
+                  />
+                </SidebarSection>
+                <SidebarSection title="Search" defaultOpen={!activeSurveyDate}>
+                  <div className="date-filter">
+                    {minDate && sliderRange > 0 ? (
+                      <>
+                        <div className="date-range-display">
+                          <span>{dateFrom || minDate || 'earliest'}</span>
+                          <span className="date-range-sep">→</span>
+                          <span>{dateTo || TODAY || 'latest'}</span>
+                        </div>
+                        <div className="date-slider-wrap">
+                          <div
+                            className="date-slider-track"
+                            style={{
+                              background: `linear-gradient(to right, #0f3460 ${fromPct}%, #e97b25 ${fromPct}%, #e97b25 ${toPct}%, #0f3460 ${toPct}%)`,
+                            }}
+                          >
+                            <input
+                              type="range"
+                              className="date-range-input"
+                              min={minTs}
+                              max={maxTs}
+                              value={fromTs}
+                              style={{ zIndex: fromTs >= toTs ? 3 : 1 }}
+                              aria-label="Filter start date"
+                              aria-valuetext={dateFrom || minDate || 'earliest'}
+                              onChange={(e) => {
+                                const v = Number(e.target.value);
+                                if (v <= toTs) {
+                                  setDateFrom(msToDate(v));
+                                  setUserTouchedFilter(true);
+                                }
+                              }}
+                            />
+                            <input
+                              type="range"
+                              className="date-range-input"
+                              min={minTs}
+                              max={maxTs}
+                              value={toTs}
+                              style={{ zIndex: toTs <= fromTs ? 3 : 1 }}
+                              aria-label="Filter end date"
+                              aria-valuetext={dateTo || TODAY || 'latest'}
+                              onChange={(e) => {
+                                const v = Number(e.target.value);
+                                if (v >= fromTs) {
+                                  setDateTo(msToDate(v));
+                                  setUserTouchedFilter(true);
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                        {isFiltered && (
+                          <button
+                            className="date-filter-clear"
+                            onClick={() => setUserTouchedFilter(false)}
+                          >
+                            Reset range
+                          </button>
+                        )}
+                      </>
                     ) : (
                       <>
-                        <path
-                          d="M8 3v10M8 3L5 6M8 3l3 3"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M3 12h10"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                        />
+                        {isFiltered && (
+                          <button
+                            className="date-filter-clear"
+                            onClick={() => setUserTouchedFilter(false)}
+                          >
+                            Reset range
+                          </button>
+                        )}
                       </>
                     )}
-                  </svg>
-                  Upload Photos
-                </button>
-                <button
-                  className={`footer-btn footer-btn--log${drawerOpen ? ' active' : ''}`}
-                  onClick={() => setDrawerOpen((o) => !o)}
-                  title="Upload log"
-                  aria-label="Toggle upload log"
-                >
-                  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <rect x="2" y="3" width="12" height="2" rx="1" fill="currentColor" />
-                    <rect x="2" y="7" width="8" height="2" rx="1" fill="currentColor" />
-                    <rect x="2" y="11" width="10" height="2" rx="1" fill="currentColor" />
-                  </svg>
-                  Log
-                  {results.length > 0 && !drawerOpen && <span className="log-toggle-dot" />}
-                </button>
-                <button
-                  className="footer-btn footer-btn--help"
-                  onClick={() => setShortcutsOpen(true)}
-                  title="Keyboard shortcuts"
-                  aria-label="Show keyboard shortcuts"
-                >
-                  <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5" />
-                    <path
-                      d="M6 6.2C6 5 6.9 4.2 8 4.2s2 .8 2 1.8c0 1.2-2 1.8-2 3"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    />
-                    <circle cx="8" cy="11.5" r="0.75" fill="currentColor" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-      </aside>
+                  </div>
 
-      <div className="map-panel">
-        {placingPhoto && (
-          <div className="placement-banner" role="status">
-            <img
-              className="placement-banner-thumb"
-              src={`/uploads/${placingPhoto.thumbnailFilename ?? placingPhoto.filename}`}
-              alt=""
-            />
-            <span className="placement-banner-text">
-              Click the map to place <strong>{placingPhoto.originalName}</strong>
-            </span>
-            <button className="placement-banner-cancel" onClick={() => setPlacingPhoto(null)}>
-              Cancel
-            </button>
-          </div>
-        )}
-        <PhotoMap
-          ref={mapRef}
-          photos={displayPhotos}
-          onDelete={deletePhoto}
-          onView={setViewingPhoto}
-          hoveredPhotoId={hoveredPhotoId}
-          onPhotoHover={setHoveredPhotoId}
-          onRegionChange={setRegionPolygon}
-          onBoundsChange={setMapBounds}
-          exportPhotos={exportPhotos}
-          hasGps={photos.some((p) => p.hasGps)}
-          placingPhoto={placingPhoto}
-          onPlacePhoto={handlePlacePhoto}
-          onRepositionPhoto={handleRepositionPhoto}
-        />
-        {elevationOpen && (
-          <ElevationProfile
+                  <LocationSearch
+                    onFlyTo={(lat, lng, zoom) => mapRef.current?.flyTo(lat, lng, zoom)}
+                  />
+                </SidebarSection>
+
+                {/* Timeline Player */}
+                <SidebarSection title="Timeline" defaultOpen={false}>
+                  <TimelinePanel timeline={timeline} photoCount={photos.length} />
+                </SidebarSection>
+              </div>
+              <div className="sidebar-footer">
+                {uploadOpen && (
+                  <div className="sidebar-upload-tray">
+                    <DropZone
+                      onUploadComplete={refreshAll}
+                      setResults={setResults}
+                      openDrawer={() => setDrawerOpen(true)}
+                      clients={clients}
+                      projects={projects}
+                      activeProjectId={activeProjectId}
+                    />
+                  </div>
+                )}
+                <div className="sidebar-footer-row">
+                  <button
+                    className={`footer-btn footer-btn--upload${uploadOpen ? ' active' : ''}`}
+                    onClick={() => setUploadOpen((o) => !o)}
+                    title={uploadOpen ? 'Close upload' : 'Upload photos'}
+                  >
+                    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      {uploadOpen ? (
+                        <path
+                          d="M3 8h10"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                        />
+                      ) : (
+                        <>
+                          <path
+                            d="M8 3v10M8 3L5 6M8 3l3 3"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M3 12h10"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                          />
+                        </>
+                      )}
+                    </svg>
+                    Upload Photos
+                  </button>
+                  <button
+                    className={`footer-btn footer-btn--log${drawerOpen ? ' active' : ''}`}
+                    onClick={() => setDrawerOpen((o) => !o)}
+                    title="Upload log"
+                    aria-label="Toggle upload log"
+                  >
+                    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <rect x="2" y="3" width="12" height="2" rx="1" fill="currentColor" />
+                      <rect x="2" y="7" width="8" height="2" rx="1" fill="currentColor" />
+                      <rect x="2" y="11" width="10" height="2" rx="1" fill="currentColor" />
+                    </svg>
+                    Log
+                    {results.length > 0 && !drawerOpen && <span className="log-toggle-dot" />}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </aside>
+
+        <div className="map-panel">
+          {placingPhoto && (
+            <div className="placement-banner" role="status">
+              <img
+                className="placement-banner-thumb"
+                src={`/uploads/${placingPhoto.thumbnailFilename ?? placingPhoto.filename}`}
+                alt=""
+              />
+              <span className="placement-banner-text">
+                Click the map to place <strong>{placingPhoto.originalName}</strong>
+              </span>
+              <button className="placement-banner-cancel" onClick={() => setPlacingPhoto(null)}>
+                Cancel
+              </button>
+            </div>
+          )}
+          <PhotoMap
+            ref={mapRef}
             photos={displayPhotos}
+            onDelete={deletePhoto}
+            onView={setViewingPhoto}
             hoveredPhotoId={hoveredPhotoId}
-            onHover={setHoveredPhotoId}
+            onPhotoHover={setHoveredPhotoId}
+            onRegionChange={setRegionPolygon}
+            onBoundsChange={setMapBounds}
+            exportPhotos={exportPhotos}
+            hasGps={photos.some((p) => p.hasGps)}
+            placingPhoto={placingPhoto}
+            onPlacePhoto={handlePlacePhoto}
+            onRepositionPhoto={handleRepositionPhoto}
           />
-        )}
-        {displayPhotos.filter((p) => p.hasGps && p.altitude != null).length >= 2 && (
-          <button
-            className={`elevation-toggle-btn${elevationOpen ? ' active' : ''}`}
-            onClick={() => setElevationOpen((o) => !o)}
-          >
-            {elevationOpen ? '▾ Hide Elevation' : '▴ Elevation Profile'}
-          </button>
-        )}
+          {elevationOpen && (
+            <ElevationProfile
+              photos={displayPhotos}
+              hoveredPhotoId={hoveredPhotoId}
+              onHover={setHoveredPhotoId}
+            />
+          )}
+          {displayPhotos.filter((p) => p.hasGps && p.altitude != null).length >= 2 && (
+            <button
+              className={`elevation-toggle-btn${elevationOpen ? ' active' : ''}`}
+              onClick={() => setElevationOpen((o) => !o)}
+            >
+              {elevationOpen ? '▾ Hide Elevation' : '▴ Elevation Profile'}
+            </button>
+          )}
+        </div>
       </div>
 
       <UploadDrawer
@@ -925,6 +697,15 @@ export function App() {
           onChangeRight={(id) => setComparisonPair(([l]) => [l, id])}
         />
       )}
+
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onRestored={async () => {
+          await refreshAll();
+          toast('Backup restored', 'success');
+        }}
+      />
 
       {shortcutsOpen && (
         <div className="shortcuts-overlay" onClick={() => setShortcutsOpen(false)}>

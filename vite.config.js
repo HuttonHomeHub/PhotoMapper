@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { readFileSync } from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -17,8 +18,29 @@ const cfAsyncFalse = {
   },
 };
 
+// The design system's theme-init.js must run before first paint, as a plain same-origin
+// script (the CSP allows no inline script). Serve it at /theme-init.js in dev and emit
+// it beside index.html in the build, straight from the vendored @hhh/ui.
+const themeInitPath = path.resolve(__dirname, 'node_modules/@hhh/ui/theme-init.js');
+const themeInit = {
+  name: 'hhh-theme-init',
+  configureServer(server) {
+    server.middlewares.use('/theme-init.js', (_req, res) => {
+      res.setHeader('Content-Type', 'text/javascript');
+      res.end(readFileSync(themeInitPath));
+    });
+  },
+  generateBundle() {
+    this.emitFile({
+      type: 'asset',
+      fileName: 'theme-init.js',
+      source: readFileSync(themeInitPath, 'utf8'),
+    });
+  },
+};
+
 export default defineConfig({
-  plugins: [react(), cfAsyncFalse],
+  plugins: [react(), cfAsyncFalse, themeInit],
   resolve: {
     alias: {
       'heatmap.js': path.resolve(__dirname, 'src/lib/heatmap-patched.js'),

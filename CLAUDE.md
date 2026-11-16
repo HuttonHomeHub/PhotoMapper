@@ -45,14 +45,15 @@ Stack and scripts are in `package.json`. Backend listens on port `3001` (overrid
 src/
   main.jsx              App entry point
   App.jsx               Root layout: sidebar + map
-  hooks/use*.js         Photo, project and client API calls (via apiFetch)
+  hooks/use*.js         API calls via apiFetch: photos, projects, clients, settings
   components/
     DropZone.jsx        Drag-and-drop upload with per-file status + client-side duplicate detection
     PhotoList.jsx       Sidebar list with thumbnails + delete
     PhotoMap.jsx        Leaflet map — all refs and effects stay in this file; forwardRef exposes flyTo/getBounds to App.jsx
     UploadDrawer.jsx    Slide-in drawer showing per-file upload results
     PhotoLightbox.jsx   Full-screen image viewer with EXIF panel and keyboard nav
-  styles/index.css      Global styles (dark theme)
+    SettingsDialog.jsx  The app bar's gear: instance info and backups (kit cards)
+  styles/index.css      PhotoMapper's styles, on the @hhh/ui tokens (light and dark)
 server/
   index.ts              Entry point: listens, graceful shutdown
   app.ts                Express app: middleware, probes, routers, error handler
@@ -72,7 +73,8 @@ server/
 - **camelCase ↔ snake_case** — DB columns are `snake_case`; `db.js:getAllPhotos` maps them to `camelCase` for the API
 - **UUID filenames** — uploaded files get UUID names on disk; original name stored in `original_name` DB column
 - **Non-fatal EXIF** — photos without GPS still upload successfully; `has_gps = 0`
-- **Dark theme palette** — `#1a1a2e` bg, `#16213e` sidebar, `#e97b25` accent — match this in new UI
+- **Look** — the shell is the kit's `AppBar` (brand and version, shortcuts, theme toggle, Settings). Colours, type and spacing are `@hhh/ui` tokens (`tokens.css`, then `base.css` and `components.css`, imported in `main.jsx`); `index.css` maps its older `--color-*`/`--font-*` names onto them. Never hard-code a colour or font size. Accent or status text never sits on `--bg-surface-sunken`.
+- `index.html` loads `/theme-init.js` (the kit's, served and emitted by a plugin in `vite.config.js`) so a saved theme applies before first paint.
 - Vite dev server proxies `/api` and `/uploads` to `:3001`
 - Tests live under `tests/` (Vitest). Run `npm run lint`, `npm run format:check` and `npm run test:coverage` before handing work back, because CI enforces them.
 

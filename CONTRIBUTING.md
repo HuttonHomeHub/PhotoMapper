@@ -46,7 +46,7 @@ See the architecture tree in [`README.md`](README.md). In short:
   `server/db.ts`). **Never edit an applied migration.**
 - **Validation** — declare a zod schema in `server/validation.ts` and attach it
   with `validate(...)`; don't hand-roll body checks in handlers.
-- **Dark theme palette** — `#1a1a2e` bg, `#16213e` sidebar, `#e97b25` accent.
+- **Colours and type come from the design system** (`@hhh/ui` tokens): light and dark themes follow the system or the app bar's toggle. Use `var(--bg-surface)`, `var(--fg-primary)`, `var(--accent)` and the rest; never a hard-coded colour or font size.
 - **Code style** — Prettier + ESLint. The whole tree follows `.prettierrc`
   (`semi: true`, single quotes, 100 cols). Run `npm run format` before committing;
   CI runs `npm run format:check` and fails on drift. `src/lib/heatmap-patched.js`
