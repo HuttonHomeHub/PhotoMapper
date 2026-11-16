@@ -19,6 +19,10 @@ that section as the GitHub Release notes.
 ### Changed
 - **React 19.** `react` and `react-dom` move from 18.3 to 19.3 together. No app code changes
   were needed.
+- **Dependency updates** (Dependabot): express-rate-limit 8.7, helmet 8.3, pino 10.4, prettier
+  3.10, supertest 7.3 and testing-library patches (#43); better-sqlite3 13 with SQLite 3.54.1
+  (#45); globals 17 (#46); GitHub Actions checkout 7, setup-node 7 and the Docker login,
+  metadata, Buildx and build-push actions to their latest majors (#37–#42).
 - **Publishing only happens on a release** (a merge of `dev` into `main`). The version comes
   from `package.json`; a release whose version already exists fails instead of overwriting an
   image. Pushing a `v*` tag and running the workflow by hand no longer publish.
