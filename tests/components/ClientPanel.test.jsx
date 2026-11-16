@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
-import ClientPanel from '../../src/components/ClientPanel.jsx';
+import { ClientPanel } from '../../src/components/ClientPanel.tsx';
 
 afterEach(cleanup);
 

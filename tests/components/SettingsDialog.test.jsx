@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi, beforeAll } from 'vitest';
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
-import { SettingsDialog } from '../../src/components/SettingsDialog.jsx';
+import { SettingsDialog } from '../../src/components/SettingsDialog.tsx';
 
 beforeAll(() => {
   // jsdom has no native <dialog> methods.

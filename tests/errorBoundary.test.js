@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ErrorBoundary } from '../src/components/ErrorBoundary.jsx';
+import { ErrorBoundary } from '../src/components/ErrorBoundary.tsx';
 
 // FE-01: state-logic coverage without a DOM. Full render behaviour is covered
 // once the jsdom component harness lands (TEST-03).

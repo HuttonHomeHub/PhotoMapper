@@ -25,8 +25,8 @@ See the architecture tree in [`README.md`](README.md). In short:
 
 - `src/` — React 18 + Vite frontend. All photo API calls go through
   `src/hooks/` (`usePhotos`/`useClients`/`useProjects`); all Leaflet code stays in
-  `src/components/PhotoMap.jsx`.
-- `server/` — Express API. Entry `index.js` → `app.js` (middleware/routers) →
+  `src/components/PhotoMap.tsx`. API types are shared with the server in `shared/api.ts`.
+- `server/` — Express API. Entry `index.ts` → `app.ts` (middleware/routers) →
   `routes/*` → `db.ts` (repository), on the shared `@hhh/server` kit. Migrations are
   numbered SQL files in `server/migrations/`.
 - `docs/` — [`API.md`](docs/API.md) (endpoint reference),
@@ -37,7 +37,7 @@ See the architecture tree in [`README.md`](README.md). In short:
 ## Conventions
 
 - **ES modules only** — the package is `"type": "module"`; never use `require()`.
-- **camelCase ↔ snake_case** — DB columns are `snake_case`; `db.js` maps them to
+- **camelCase ↔ snake_case** — DB columns are `snake_case`; `db.ts` maps them to
   `camelCase` at the boundary. Keep new columns consistent and map them there.
 - **Add API calls in the hooks**, not in components. New routes go in
   `server/routes/*`; new DB access in `server/db.ts`.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { photoMarkerSignature } from '../../src/lib/markerSig.js';
+import { photoMarkerSignature } from '../../src/lib/markerSig.ts';
 
 // PERF-06: the incremental map sync uses this signature to decide whether an
 // existing marker can be left untouched.

@@ -6,6 +6,7 @@
     "checkJs": false
   },
   "include": [
+    "shared/**/*.ts",
     "server/**/*.ts",
     "server/**/*.js",
     "tests/**/*.ts",

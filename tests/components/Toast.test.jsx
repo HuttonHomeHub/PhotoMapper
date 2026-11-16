@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
-import { ToastProvider, useToast } from '../../src/components/Toast.jsx';
+import { ToastProvider, useToast } from '../../src/components/Toast.tsx';
 
 afterEach(cleanup);
 

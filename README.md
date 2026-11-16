@@ -111,16 +111,20 @@ server/
   routes/          photos, clients, projects, geocode, public, backups (Express routers)
   services/        hash, exif, geocode, geocodeQueue, thumbnail, exportPhotos, backups
 src/
-  main.jsx         entry (ErrorBoundary + ToastProvider + App)
-  App.jsx          root layout: sidebar + map
+  main.tsx         entry (ErrorBoundary + ToastProvider + App)
+  App.tsx          root layout: app bar, sidebar + map
   components/      PhotoMap, PhotoList, PhotoLightbox, DropZone, FilterChips,
                    TimelinePanel, LocationSearch, PhotoPopup, Toast, …
-  hooks/           usePhotos, useClients, useProjects, useTimeline, useFocusTrap
+  hooks/           every API call (usePhotos, useClients, useProjects, useUpload, useSettings,
+                   useShare, useGeocode, useReset) plus useTimeline, useFocusTrap, useMediaQuery
+  types/           types for libraries that ship none
+shared/
+  api.ts           the API's types, used by server and browser
   lib/             filterPhotos, geo, format, heatmap-patched
 ```
 
 Conventions: ES modules only; DB columns are `snake_case` and mapped to
-`camelCase` in `db.js`; uploaded files get UUID names on disk (original name
+`camelCase` in `db.ts` (the shapes are in `shared/api.ts`); uploaded files get UUID names on disk (original name
 stored in the DB).
 
 ## Database & migrations

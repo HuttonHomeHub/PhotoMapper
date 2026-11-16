@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
-import { FilterChips } from '../../src/components/FilterChips.jsx';
+import { FilterChips } from '../../src/components/FilterChips.tsx';
 
 afterEach(cleanup);
 

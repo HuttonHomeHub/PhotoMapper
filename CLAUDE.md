@@ -20,8 +20,8 @@ Stack and scripts are in `package.json`. Backend listens on port `3001` (overrid
 ## Shared platform (phase 3 of the HuttonHomeHub App Standard)
 
 - `vendor/hhh-platform/` is a vendored hhh-platform release (version in its `VERSION`). Never edit it: `npm run vendor:check` fails CI if it differs from the release. Upgrade with `node vendor/hhh-platform/scripts/vendor.ts X.Y.Z` in its own PR. The Dockerfile copies `vendor/` before `npm ci`, and into the runtime image (`@hhh/server` runs from it).
-- TypeScript, ESLint, Prettier and Vitest come from `@hhh/config`. Two TypeScript projects: `tsconfig.json` (server, tests) and `tsconfig.app.json` (browser, JSX). The server is TypeScript, run by Node directly (imports name the `.ts` file). The front end and tests are still JavaScript, allowed but not type-checked until they're converted.
-- Transition overrides live at the end of `eslint.config.js`, each with when to remove it.
+- TypeScript, ESLint, Prettier and Vitest come from `@hhh/config`. Two TypeScript projects: `tsconfig.json` (server, tests) and `tsconfig.app.json` (browser, JSX). The server and front end are TypeScript (imports name the `.ts`/`.tsx` file): Node runs the server directly, Vite bundles `src/` (`moduleResolution: bundler`). The API's shapes live once in `shared/api.ts`, used by both; never redeclare them. Types for untyped libraries go in `src/types/`. The tests are still JavaScript (converted with the end-to-end tests in PR 5).
+- `eslint.config.js` is the shared config with no overrides; keep it that way (the React rules cover `src/**/*.ts` hooks too).
 - Coverage gate: `LINES_FLOOR` in `vitest.config.js` is the measured level and only goes up; every phase 3 PR raises it, ending at the standard's 80%.
 
 ## Settings
@@ -43,17 +43,19 @@ Stack and scripts are in `package.json`. Backend listens on port `3001` (overrid
 
 ```
 src/
-  main.jsx              App entry point
-  App.jsx               Root layout: sidebar + map
-  hooks/use*.js         API calls via apiFetch: photos, projects, clients, settings
+  main.tsx              App entry point
+  App.tsx               Root layout: app bar, sidebar + map
+  hooks/use*.ts         Every API call (via apiFetch): photos, projects, clients, upload, settings, share, geocode, reset
   components/
-    DropZone.jsx        Drag-and-drop upload with per-file status + client-side duplicate detection
-    PhotoList.jsx       Sidebar list with thumbnails + delete
-    PhotoMap.jsx        Leaflet map — all refs and effects stay in this file; forwardRef exposes flyTo/getBounds to App.jsx
-    UploadDrawer.jsx    Slide-in drawer showing per-file upload results
-    PhotoLightbox.jsx   Full-screen image viewer with EXIF panel and keyboard nav
-    SettingsDialog.jsx  The app bar's gear: instance info and backups (kit cards)
+    DropZone.tsx        Drag-and-drop upload with per-file status
+    PhotoList.tsx       Sidebar list with thumbnails + delete
+    PhotoMap.tsx        Leaflet map — all refs and effects stay in this file; its handle exposes flyTo/getBounds/fitToBounds to App.tsx
+    UploadDrawer.tsx    Slide-in drawer showing per-file upload results
+    PhotoLightbox.tsx   Full-screen image viewer with EXIF panel and keyboard nav
+    SettingsDialog.tsx  The app bar's gear: instance info and backups (kit cards)
   styles/index.css      PhotoMapper's styles, on the @hhh/ui tokens (light and dark)
+shared/
+  api.ts                The API's request/response types, for server and browser
 server/
   index.ts              Entry point: listens, graceful shutdown
   app.ts                Express app: middleware, probes, routers, error handler
@@ -70,10 +72,10 @@ server/
 ## Non-obvious Conventions
 
 - **ES modules only** — `"type": "module"` in package.json; never use `require()`
-- **camelCase ↔ snake_case** — DB columns are `snake_case`; `db.js:getAllPhotos` maps them to `camelCase` for the API
+- **camelCase ↔ snake_case** — DB columns are `snake_case`; `db.ts` maps them to `camelCase` for the API
 - **UUID filenames** — uploaded files get UUID names on disk; original name stored in `original_name` DB column
 - **Non-fatal EXIF** — photos without GPS still upload successfully; `has_gps = 0`
-- **Look** — the shell is the kit's `AppBar` (brand and version, shortcuts, theme toggle, Settings). Colours, type and spacing are `@hhh/ui` tokens (`tokens.css`, then `base.css` and `components.css`, imported in `main.jsx`); `index.css` maps its older `--color-*`/`--font-*` names onto them. Never hard-code a colour or font size. Accent or status text never sits on `--bg-surface-sunken`.
+- **Look** — the shell is the kit's `AppBar` (brand and version, shortcuts, theme toggle, Settings). Colours, type and spacing are `@hhh/ui` tokens (`tokens.css`, then `base.css` and `components.css`, imported in `main.tsx`); `index.css` maps its older `--color-*`/`--font-*` names onto them. Never hard-code a colour or font size. Accent or status text never sits on `--bg-surface-sunken`.
 - `index.html` loads `/theme-init.js` (the kit's, served and emitted by a plugin in `vite.config.js`) so a saved theme applies before first paint.
 - Vite dev server proxies `/api` and `/uploads` to `:3001`
 - Tests live under `tests/` (Vitest). Run `npm run lint`, `npm run format:check` and `npm run test:coverage` before handing work back, because CI enforces them.
@@ -94,7 +96,8 @@ Use these for focused work to avoid loading irrelevant context:
 **Do:**
 
 - Read relevant files before making changes
-- Extend `usePhotos.js` for new API interactions; keep Leaflet logic inside `PhotoMap.jsx`
+- Put new API calls in a hook under `src/hooks/` (components never call `fetch` or `apiFetch`); keep Leaflet logic inside `PhotoMap.tsx`
+- React rules are strict: no `setState` directly in an effect (derive the value, or adjust state when a prop changes during render), no dynamic `delete` (use a `Map`), named exports only
 - New routes → `server/routes/`; new DB ops → `server/db.ts`
 
 **Don't:**

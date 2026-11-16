@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { pointInPolygon } from '../../src/lib/geo.js';
-import { filterPhotos } from '../../src/lib/filterPhotos.js';
+import { pointInPolygon } from '../../src/lib/geo.ts';
+import { filterPhotos } from '../../src/lib/filterPhotos.ts';
 
 const square = [
   { lat: 0, lng: 0 },

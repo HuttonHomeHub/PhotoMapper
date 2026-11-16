@@ -2,8 +2,8 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, cleanup, renderHook, act } from '@testing-library/react';
-import { TimelinePanel } from '../../src/components/TimelinePanel.jsx';
-import { useTimeline } from '../../src/hooks/useTimeline.js';
+import { TimelinePanel } from '../../src/components/TimelinePanel.tsx';
+import { useTimeline } from '../../src/hooks/useTimeline.ts';
 
 afterEach(cleanup);
 

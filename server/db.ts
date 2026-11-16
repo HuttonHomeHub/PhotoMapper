@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import type { Client, Photo, Project } from '../shared/api.ts';
 import { openDatabase, runMigrations } from '@hhh/server';
 import { logger } from './logger.ts';
 import { runLegacyMigrations, type LegacyMigration } from './migrate.ts';
@@ -7,6 +8,8 @@ import { backupDir, dbPath, migrationsDir } from './paths.ts';
 type Db = Database.Database;
 
 // ─── Row and API shapes ──────────────────────────────────────────────────────
+// The API's shapes live in shared/api.ts (the browser uses them too).
+export type { Client, Photo, Project };
 
 interface PhotoRow {
   id: string;
@@ -34,35 +37,6 @@ interface PhotoRow {
   description: string | null;
   tags: string | null;
   project_id: string | null;
-}
-
-/** A photo as the API returns it. */
-export interface Photo {
-  id: string;
-  filename: string;
-  thumbnailFilename: string | null;
-  originalName: string;
-  uploadedAt: string;
-  hasGps: boolean;
-  manualGps: boolean;
-  lat: number | null;
-  lng: number | null;
-  altitude: number | null;
-  imgDirection: number | null;
-  dateTaken: string | null;
-  surveyDate: string | null;
-  cameraMake: string | null;
-  cameraModel: string | null;
-  focalLength: number | null;
-  focalLengthIn35mm: number | null;
-  panoHFov: number | null;
-  fNumber: number | null;
-  iso: number | null;
-  exposureTime: string | null;
-  locationName: string | null;
-  description: string | null;
-  tags: string[];
-  projectId: string | null;
 }
 
 /** The fields written when a photo is uploaded. */
@@ -105,35 +79,12 @@ interface ProjectRow {
   photo_count: number;
 }
 
-/** A project as the API returns it. */
-export interface Project {
-  id: string;
-  name: string;
-  clientId: string | null;
-  clientName: string | null;
-  status: string;
-  color: string;
-  shareToken: string | null;
-  createdAt: string;
-  updatedAt: string;
-  photoCount: number;
-}
-
 interface ClientRow {
   id: string;
   name: string;
   created_at: string;
   updated_at: string;
   project_count: number;
-}
-
-/** A client as the API returns it. */
-export interface Client {
-  id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  projectCount: number;
 }
 
 /**

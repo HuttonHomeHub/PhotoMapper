@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { usePhotos } from '../../src/hooks/usePhotos.js';
-import { useClients } from '../../src/hooks/useClients.js';
-import { useProjects } from '../../src/hooks/useProjects.js';
+import { usePhotos } from '../../src/hooks/usePhotos.ts';
+import { useClients } from '../../src/hooks/useClients.ts';
+import { useProjects } from '../../src/hooks/useProjects.ts';
 
 afterEach(() => vi.unstubAllGlobals());
 
