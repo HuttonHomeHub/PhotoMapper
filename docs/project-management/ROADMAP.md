@@ -22,11 +22,15 @@ fix needs a config primitive (env/config, Phase 2).
 ---
 
 ## Phase 0 — Programme setup ✅ (Session 001)
+
 Establish PM documentation, import findings, build backlog + dependency graph.
+
 - **Deliverable:** `docs/project-management/*` populated. **Status: Complete.**
 
 ## Phase 1 — Verification foundation (enabler)
-*Goal: make quality gates real before touching risky code.*
+
+_Goal: make quality gates real before touching risky code._
+
 - **TEST-01** ✅ Vitest harness + db-layer unit tests (pure-helper tests → CQ-01)
 - **OPS-01 / DEP-04** ✅ CI runs tests + advisory `npm audit`; triggers on `claude/**`
 - **DEP-05** apply `npm audit fix`; then flip CI audit gate to blocking `[P1, next]`
@@ -34,8 +38,10 @@ Establish PM documentation, import findings, build backlog + dependency graph.
 - **Exit criteria:** `npm test` runs green in CI; known vulns cleared; audit gate blocking.
 
 ## Phase 2 — Critical security & reliability ✅ COMPLETE (Session 002)
-*Goal: close the disqualifying holes; all low-risk, high-value, verifiable.*
-- **DEP-02** ✅ (helmet, rate-limit, compression, async-errors, zod, supertest; no session lib — auth at proxy). *Closes fully with pino at CQ-05.*
+
+_Goal: close the disqualifying holes; all low-risk, high-value, verifiable._
+
+- **DEP-02** ✅ (helmet, rate-limit, compression, async-errors, zod, supertest; no session lib — auth at proxy). _Closes fully with pino at CQ-05._
 - **OPS-07** ✅ `server/config.js` (zod) + `.env.example`
 - **BE-01** ✅ async error handling + regression test
 - **SEC-02** ✅ reset gated behind `ALLOW_RESET`
@@ -51,7 +57,9 @@ Establish PM documentation, import findings, build backlog + dependency graph.
 - **Outcome:** no unauthenticated public surface once behind the documented proxy; no unauth wipe; async errors return 500; 24 tests incl. security-header + async-error assertions.
 
 ## Phase 3 — Backend architecture & correctness
-*Goal: remove root causes that later phases would otherwise fight.*
+
+_Goal: remove root causes that later phases would otherwise fight._
+
 - **ARCH-03** versioned migration runner + DB backup on destructive steps `[P2, high-risk → needs Phase 1]`
 - **ARCH-01** split server into routes/services/repositories `[P2]`
 - **BE-02** zod validation layer `[P1]`
@@ -64,6 +72,7 @@ Establish PM documentation, import findings, build backlog + dependency graph.
 - **Exit criteria:** thin handlers; all inputs validated; migrations versioned; geocoding off the request path.
 
 ## Phase 4 — Frontend architecture & code quality
+
 - **ARCH-02** decompose `App.jsx` (Timeline/LocationSearch/FilterBar) + reducer/context `[P3]`
 - **ARCH-06** split `usePhotos`; context to cut prop drilling `[P3]`
 - **CQ-06** context-based Toast `[P3]`
@@ -77,6 +86,7 @@ Establish PM documentation, import findings, build backlog + dependency graph.
 - **Exit criteria:** no god components; single toast/error pattern; components under test.
 
 ## Phase 5 — Performance
+
 - **PERF-03** DB indexes (migration) `[P2]`
 - **PERF-02** return-only-affected-row `[P2]`
 - **PERF-01 / FEAT-01** pagination + bbox querying `[P2]`
@@ -86,11 +96,13 @@ Establish PM documentation, import findings, build backlog + dependency graph.
 - **Exit criteria:** smooth interaction at 5k+ photos; measured before/after.
 
 ## Phase 6 — Testing depth
+
 - **TEST-04** Playwright E2E `[P2]`
 - **TEST-05** ratchet coverage thresholds up `[P2]`
 - **Exit criteria:** critical journeys covered E2E; coverage gate meaningful.
 
 ## Phase 7 — Documentation
+
 - **DOC-01** README `[P1 — may be pulled earlier once architecture is less volatile]`
 - **DOC-03** API reference `[P2, after ARCH-01/BE-02]`
 - **DOC-02** resolve name mismatch `[P3]`
@@ -99,7 +111,9 @@ Establish PM documentation, import findings, build backlog + dependency graph.
 - **DOC-04** architecture diagram `[P2, ongoing]`
 
 ## Phase 8 — DevOps, infrastructure & dependencies
-*Gated on ADR-0003 (deploy target).*
+
+_Gated on ADR-0003 (deploy target)._
+
 - **OPS-02** Dockerfile + `.dockerignore` `[P2]`
 - **OPS-03 / FEAT-03** persistent volume + backups + restore doc `[P2]`
 - **OPS-04** health/ready + error tracking `[P2]`
@@ -109,6 +123,7 @@ Establish PM documentation, import findings, build backlog + dependency graph.
 - **DEP-03** evaluate Express 5 (may retire BE-01 shim) `[P3]`
 
 ## Deferred (revisit triggers noted)
+
 - **ARCH-05** TypeScript migration — revisit after Phase 3/4 stabilize modules.
 - **ARCH-07** multi-tenancy — revisit only if ADR-0002 changes to multi-tenant.
 - **PERF-04** async DB / Postgres — revisit if concurrency grows (ADR-0003).
@@ -118,6 +133,7 @@ Establish PM documentation, import findings, build backlog + dependency graph.
 ---
 
 ## Current focus
+
 **Phase 1 → TEST-01** is the single highest-value next task. Rationale and plan
 live in `SESSION_LOG.md`; live status in `BACKLOG.md` (Programme status).
 
@@ -132,6 +148,7 @@ live in `SESSION_LOG.md`; live status in `BACKLOG.md` (Programme status).
 **Notation:** `A → B` A blocks B · `A ⊢ B` A enables/eases B · `A ⊗ B` A obsoletes B.
 
 ## Foundational enablers (unblock the most work)
+
 ```
 TEST-01 (test harness)
   → TEST-02, TEST-03, TEST-04, TEST-05, OPS-01
@@ -144,6 +161,7 @@ OPS-07 (config/env)
 ```
 
 ## Security chain
+
 ```
 SEC-01 (auth) → SEC-03 (protect /uploads) ⊢ SEC-02, SEC-10, FEAT-05
 OPS-07 ⊢ SEC-01, SEC-04       DEP-02 → SEC-04, SEC-07, SEC-09
@@ -151,6 +169,7 @@ BE-07  → SEC-05 (geocoding off request path)     CQ-05/OPS-06 ⊢ SEC-08
 ```
 
 ## Backend chain
+
 ```
 DEP-02 → BE-01           [DEP-03 Express 5 ⊗ BE-01 shim]
 ARCH-01 ⊢ BE-02, BE-04, BE-06, BE-07, SEC-05, DOC-03
@@ -159,6 +178,7 @@ ARCH-03 → PERF-03, ARCH-04, FEAT-07      TEST-01 ⊢ ARCH-01, ARCH-03
 ```
 
 ## Frontend chain
+
 ```
 ARCH-02 ⊢ PERF-05, FE-03, CQ-01, CQ-03, CQ-04
 ARCH-06 ⊢ CQ-03, CQ-06, FE-06
@@ -166,12 +186,14 @@ SEC-12 ⊢ PERF-06     FE-01, FE-04 independent     BE-07 ⊢ FE-05
 ```
 
 ## Performance chain
+
 ```
 ARCH-01 ⊢ PERF-01, PERF-02      ARCH-03 → PERF-03      ARCH-02 → PERF-05
 PERF-01 ⊢ PERF-06      PERF-07 ⊗ SEC-10, BE-05      PERF-01 = FEAT-01
 ```
 
 ## DevOps / infra chain (gated by ADR-0003)
+
 ```
 TEST-01 → OPS-01 (⊇ DEP-04 npm audit)
 ADR-0003 → OPS-02 → OPS-03, SEC-11        CQ-05 = OPS-06 ⊢ OPS-04
@@ -179,20 +201,24 @@ OPS-02 ⊢ OPS-05
 ```
 
 ## Obsolescence watch (items that may close for free)
+
 - **SEC-10, BE-05** → likely closed by **PERF-07**.
 - **BE-01 shim** → may be replaced by **DEP-03** (Express 5).
 - **FEAT-01** ← **PERF-01** · **FEAT-04** ← **SEC-07**.
 
 ## Decision gates
+
 - **ADR-0002** (user model = single-operator, accepted) gates SEC-01 scope, ARCH-07/FEAT-05.
 - **ADR-0003** (deploy = single VPS, accepted) gates OPS-02/03, SEC-11, FEAT-09, PERF-04.
 - **ARCH-04** (drop dead tables) and **DOC-02** (canonical name) need product decisions.
 
 ## Critical path (longest hard-block chain)
+
 ```
 TEST-01 → OPS-01        DEP-02 → BE-01
 TEST-01 ⊢ ARCH-03 → PERF-03
 DEP-02/OPS-07 → SEC-01 → SEC-03
 ARCH-01 → BE-07 → SEC-05
 ```
+
 The two true Phase-1 gates are **TEST-01** and **DEP-02**.

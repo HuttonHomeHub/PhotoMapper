@@ -104,7 +104,6 @@ describe('photos API', () => {
     expect(res.headers['content-type']).toContain('application/vnd.google-earth.kml+xml');
     expect(res.text).toContain('<kml');
   });
-
 });
 
 describe('clients & projects API', () => {
@@ -350,9 +349,7 @@ describe('FEAT: project share links', () => {
     const up = await request(app).post('/api/photos').attach('photo', jpeg, 'shared.jpg');
     sharedPhotoId = up.body.id;
     await request(app).patch(`/api/photos/${sharedPhotoId}`).send({ projectId });
-    await request(app)
-      .put(`/api/photos/${sharedPhotoId}/location`)
-      .send({ lat: 40.4, lng: -3.7 });
+    await request(app).put(`/api/photos/${sharedPhotoId}/location`).send({ lat: 40.4, lng: -3.7 });
   });
 
   it('an un-shared project 404s on the public endpoint even with a guessed token', async () => {

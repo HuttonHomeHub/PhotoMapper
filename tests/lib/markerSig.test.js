@@ -21,14 +21,22 @@ const base = {
 
 describe('photoMarkerSignature (PERF-06)', () => {
   it('is stable when only editable fields change', () => {
-    const edited = { ...base, description: 'y', tags: [], projectId: 'p2', surveyDate: '2026-02-02' };
+    const edited = {
+      ...base,
+      description: 'y',
+      tags: [],
+      projectId: 'p2',
+      surveyDate: '2026-02-02',
+    };
     expect(photoMarkerSignature(edited)).toBe(photoMarkerSignature(base));
   });
 
   it('changes when a marker/FOV field changes', () => {
     expect(photoMarkerSignature({ ...base, lat: 9 })).not.toBe(photoMarkerSignature(base));
     expect(photoMarkerSignature({ ...base, lng: 9 })).not.toBe(photoMarkerSignature(base));
-    expect(photoMarkerSignature({ ...base, imgDirection: 180 })).not.toBe(photoMarkerSignature(base));
+    expect(photoMarkerSignature({ ...base, imgDirection: 180 })).not.toBe(
+      photoMarkerSignature(base)
+    );
     expect(photoMarkerSignature({ ...base, panoHFov: 200 })).not.toBe(photoMarkerSignature(base));
   });
 

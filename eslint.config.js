@@ -1,46 +1,28 @@
-import js from '@eslint/js';
-import reactPlugin from 'eslint-plugin-react';
-import reactHooks from 'eslint-plugin-react-hooks';
-import globals from 'globals';
+import { hhhConfig } from '@hhh/config/eslint';
 
+const config = hhhConfig({
+  browser: ['src/**/*.{js,jsx,ts,tsx}', 'tests/components/**', 'tests/hooks/**'],
+  react: ['src/**/*.{jsx,tsx}', 'tests/**/*.{jsx,tsx}'],
+  node: ['server/**/*.{js,ts}', 'tests/**/*.{js,ts}', '*.config.{js,ts}', 'scripts/**/*.ts'],
+  ignores: ['dist/**', 'coverage/**', 'src/lib/heatmap-patched.js'],
+});
+
+// Transition (phase 3): the JavaScript that hasn't been converted to TypeScript yet
+// keeps its default exports. Remove this block once nothing under src/ or server/ is
+// .js/.jsx (phase 3, PR 4).
 export default [
-  js.configs.recommended,
+  ...config,
   {
-    files: ['src/**/*.{js,jsx}'],
-    plugins: {
-      react: reactPlugin,
-      'react-hooks': reactHooks,
-    },
-    languageOptions: {
-      globals: {
-        ...globals.browser,
-        ...globals.es2022,
-      },
-      parserOptions: {
-        ecmaFeatures: { jsx: true },
-      },
-    },
-    settings: {
-      react: { version: 'detect' },
-    },
+    files: ['**/*.{js,jsx}'],
     rules: {
-      ...reactPlugin.configs.recommended.rules,
-      ...reactHooks.configs.recommended.rules,
-      'react/react-in-jsx-scope': 'off',
-      'react/prop-types': 'off',
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      'no-restricted-exports': 'off',
+      // Fixed during the TypeScript conversion (Maps instead of delete; derived state
+      // instead of setState in effects).
+      '@typescript-eslint/no-dynamic-delete': 'off',
+      'react-hooks/set-state-in-effect': 'off',
     },
   },
-  {
-    files: ['server/**/*.js'],
-    languageOptions: {
-      globals: {
-        ...globals.node,
-        ...globals.es2022,
-      },
-    },
-    rules: {
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-    },
-  },
+  // `x == null` (null or undefined) is a deliberate idiom. The shared rule allows it from
+  // hhh-platform's next release; remove this block when PhotoMapper vendors that release.
+  { rules: { eqeqeq: ['error', 'always', { null: 'ignore' }] } },
 ];

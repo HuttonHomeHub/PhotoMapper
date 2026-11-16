@@ -10,12 +10,19 @@ Stack and scripts are in `package.json`. Backend listens on port `3001` (overrid
 
 ## CT 106 (dev box)
 
-- **Checks:** `npm run check` runs every CI check (lint, Prettier, Vitest with coverage, build, `npm audit`). Node is not installed on CT 106, so run it in Docker from the repo root:
+- **Checks:** `npm run check` runs every CI check: the vendored-platform check, typecheck, lint, Prettier, Vitest with coverage, build, `npm audit`. Node is not installed on CT 106, so run it in Docker from the repo root:
   `docker run --rm --user 1000:1000 -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$PWD":/app -w /app node:22-bookworm sh -c 'npm ci && npm run check'`
   It writes only the gitignored `node_modules/`, `dist/` and `coverage/`.
 - **Dev server:** `npm run dev` (Vite plus the API on `:3001`), in the same Docker image.
 - **Test stack:** `docker compose up -d --build`, test data only. The git-excluded `compose.override.yaml` publishes port 3001 on all interfaces (the tracked `docker-compose.yml` binds loopback only, for the live layout). code-server's `/proxy/3001/` does not work, because the app loads its files from root paths.
 - `.devcontainer/` is a leftover from Codespaces and is not used on CT 106.
+
+## Shared platform (phase 3 of the HuttonHomeHub App Standard)
+
+- `vendor/hhh-platform/` is a vendored hhh-platform release (version in its `VERSION`). Never edit it: `npm run vendor:check` fails CI if it differs from the release. Upgrade with `node vendor/hhh-platform/scripts/vendor.ts X.Y.Z` in its own PR. The Dockerfile copies `vendor/` before `npm ci`.
+- TypeScript, ESLint, Prettier and Vitest come from `@hhh/config`. Two TypeScript projects: `tsconfig.json` (server, tests) and `tsconfig.app.json` (browser, JSX). JavaScript files are allowed but not type-checked until they're converted.
+- Transition overrides live at the end of `eslint.config.js`, each with when to remove it.
+- Coverage gate: `LINES_FLOOR` in `vitest.config.js` is the measured level and only goes up; every phase 3 PR raises it, ending at the standard's 80%.
 
 ## Settings
 
@@ -75,11 +82,13 @@ Use these for focused work to avoid loading irrelevant context:
 ## AI Assistant Rules
 
 **Do:**
+
 - Read relevant files before making changes
 - Extend `usePhotos.js` for new API interactions; keep Leaflet logic inside `PhotoMap.jsx`
 - New routes → `server/index.js`; new DB ops → `server/db.js`
 
 **Don't:**
+
 - Add error handling, comments, or refactors beyond what was asked
 - Introduce new dependencies without discussing first (Dependabot bumps of existing ones are fine)
 - Create backup files, scratch files, or temporary docs

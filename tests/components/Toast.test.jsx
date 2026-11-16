@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from 'vitest'
-import '@testing-library/jest-dom/vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
-import { ToastProvider, useToast } from '../../src/components/Toast.jsx'
+import { describe, it, expect, afterEach } from 'vitest';
+import '@testing-library/jest-dom/vitest';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { ToastProvider, useToast } from '../../src/components/Toast.jsx';
 
-afterEach(cleanup)
+afterEach(cleanup);
 
 function Trigger() {
-  const { toast } = useToast()
+  const { toast } = useToast();
   // long duration so the auto-dismiss timer doesn't fire during the test
-  return <button onClick={() => toast('Saved!', 'success', 100000)}>go</button>
+  return <button onClick={() => toast('Saved!', 'success', 100000)}>go</button>;
 }
 
 describe('Toast (context)', () => {
@@ -18,24 +18,24 @@ describe('Toast (context)', () => {
       <ToastProvider>
         <Trigger />
       </ToastProvider>
-    )
-    expect(screen.queryByText('Saved!')).not.toBeInTheDocument()
+    );
+    expect(screen.queryByText('Saved!')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'go' }))
-    expect(screen.getByText('Saved!')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'go' }));
+    expect(screen.getByText('Saved!')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /dismiss/i }))
-    expect(screen.queryByText('Saved!')).not.toBeInTheDocument()
-  })
+    fireEvent.click(screen.getByRole('button', { name: /dismiss/i }));
+    expect(screen.queryByText('Saved!')).not.toBeInTheDocument();
+  });
 
   it('useToast is a safe no-op outside a provider', () => {
     function Solo() {
-      const { toast } = useToast()
-      return <button onClick={() => toast('x')}>solo</button>
+      const { toast } = useToast();
+      return <button onClick={() => toast('x')}>solo</button>;
     }
-    render(<Solo />)
+    render(<Solo />);
     // clicking must not throw
-    fireEvent.click(screen.getByRole('button', { name: 'solo' }))
-    expect(screen.getByRole('button', { name: 'solo' })).toBeInTheDocument()
-  })
-})
+    fireEvent.click(screen.getByRole('button', { name: 'solo' }));
+    expect(screen.getByRole('button', { name: 'solo' })).toBeInTheDocument();
+  });
+});

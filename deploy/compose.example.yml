@@ -10,7 +10,7 @@
 services:
   photomapper:
     container_name: photomapper
-    image: ghcr.io/huttonhomehub/photomapper:latest   # or pin a version, e.g. :1.2.0
+    image: ghcr.io/huttonhomehub/photomapper:latest # or pin a version, e.g. :1.2.0
     ports:
       - 3001:3001
     environment:
@@ -27,4 +27,4 @@ services:
     volumes:
       - /apps/photomapper/config:/config
     restart: unless-stopped
-    stop_grace_period: 15s          # lets the graceful shutdown drain requests
+    stop_grace_period: 15s # lets the graceful shutdown drain requests

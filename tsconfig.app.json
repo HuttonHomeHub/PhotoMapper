@@ -1,0 +1,12 @@
+{
+  "extends": "./vendor/hhh-platform/packages/config/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["vite/client"],
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.js", "src/**/*.jsx", "tests/**/*.tsx"],
+  "exclude": ["node_modules", "dist", "vendor", "src/lib/heatmap-patched.js"]
+}

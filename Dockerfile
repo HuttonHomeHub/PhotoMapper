@@ -12,6 +12,8 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
+# The shared platform is vendored; npm resolves its file: dependencies from here.
+COPY vendor ./vendor
 RUN npm ci
 
 COPY . .

@@ -10,15 +10,27 @@ that section as the GitHub Release notes.
 
 ## Unreleased
 
+### Changed
+
+- **Shared tooling from hhh-platform.** The hhh-platform v0.1.0 release is vendored in
+  `vendor/hhh-platform/` (checked in CI against the release); TypeScript 6, ESLint, Prettier and
+  Vitest 5 settings now come from `@hhh/config`, with every tool pinned exactly. Lint, format and
+  coverage now cover the whole repository, and the coverage gate covers the whole app at its
+  measured level (35%), rising with each change to the standard's 80%.
+- Removed unused code: an uncalled `clearSelection`, unused props in the photo list and comparison
+  panel, and an unattached focus trap in the photo list (its confirm dialog already traps focus).
+
 ## v1.2.0 — shared container standard: DATA_DIR, DB_PATH, version at /health
 
 ### Added
+
 - **The running version is reported** at `GET /health` (`{"status":"ok","version":"X.Y.Z"}`)
   and `GET /version`, from `APP_VERSION`, which the publish workflow sets from the release.
 - **`deploy/compose.example.yml`** in the live layout (published port, one `/config` mount,
   shared settings).
 
 ### Changed
+
 - **Settings follow the shared container standard**, the same as Crane Charts. The image sets
   `DATA_DIR=/config`, and `DB_PATH` / `UPLOADS_DIR` default inside it. `PHOTOS_DB_PATH` is
   renamed `DB_PATH`; **the old name still works** and logs a one-line warning naming the
@@ -27,6 +39,7 @@ that section as the GitHub Release notes.
 ## v1.1.1 — real client IP behind Cloudflare (docs)
 
 ### Changed
+
 - **Deployment docs: real client IP behind Cloudflare.** nginx restores the visitor's IP from
   Cloudflare's `CF-Connecting-IP` header, and PhotoMapper trusts one hop (`TRUST_PROXY=1`,
   previously documented as `2`). Same setup as Crane Charts.
@@ -34,12 +47,14 @@ that section as the GitHub Release notes.
 ## v1.1.0 — versioned releases, React 19 and dependency updates
 
 ### Added
+
 - **Version numbers for releases.** Each release now publishes the image as `X.Y.Z`, `X.Y`,
   `latest` and `sha-<short>`, and gets a `vX.Y.Z` tag and a GitHub Release with these notes,
   so you can see what is running and pin or roll back to a known version.
 - **This changelog.**
 
 ### Changed
+
 - **React 19.** `react` and `react-dom` move from 18.3 to 19.3 together. No app code changes
   were needed.
 - **Dependency updates** (Dependabot): express-rate-limit 8.7, helmet 8.3, pino 10.4, prettier
@@ -51,6 +66,7 @@ that section as the GitHub Release notes.
   image. Pushing a `v*` tag and running the workflow by hand no longer publish.
 
 ## Before versioned releases
+
 Releases up to 2026-11-15 (PRs #33 and #35) were published as `:latest` and `:sha-<short>`
 only, with `package.json` left at `1.0.0`. They included the dev-branch workflow, dependency
 security fixes, Dependabot, CI-gated publishing and the Ship It skill. The first numbered

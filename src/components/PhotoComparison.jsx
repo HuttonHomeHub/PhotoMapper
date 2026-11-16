@@ -11,15 +11,7 @@ function MetaRow({ label, value }) {
   );
 }
 
-function ComparisonPanel({
-  photo,
-  photos,
-  onChangePrev,
-  onChangeNext,
-  focused,
-  onFocus,
-  downloadFilename,
-}) {
+function ComparisonPanel({ photo, onChangePrev, onChangeNext, focused, onFocus }) {
   if (!photo) {
     return (
       <div className="comparison-panel" onClick={onFocus}>

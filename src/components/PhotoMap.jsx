@@ -179,7 +179,8 @@ export const PhotoMap = forwardRef(function PhotoMap(
   const prevGeoCountRef = useRef(0);
 
   const [heatmapActive, setHeatmapActive] = useState(false);
-  const [heatExtrema, setHeatExtrema] = useState(null);
+  // The extremes aren't shown yet (no heatmap legend); kept so the plugin's callback stays wired.
+  const [, setHeatExtrema] = useState(null);
   const [heatControlEl, setHeatControlEl] = useState(null);
   const [legendEl, setLegendEl] = useState(null);
   const [exportEl, setExportEl] = useState(null);
