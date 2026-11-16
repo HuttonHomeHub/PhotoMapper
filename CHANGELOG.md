@@ -10,7 +10,19 @@ that section as the GitHub Release notes.
 
 ## Unreleased
 
+### Added
+
+- **Backups and restore**, the same as Crane Charts (shared kit): a zip of the database and uploads
+  every `BACKUP_INTERVAL_HOURS` (24) into `BACKUP_DIR` (default `/config/backups`), keeping
+  `BACKUP_KEEP` (7). `/api/backup` lists them, backs up now, downloads one or restores one (by name or
+  an uploaded zip, checked first, with a `prerestore` backup taken). `/api/info` reports how the
+  instance is set up. The Settings panel for these comes with the new look.
+
 ### Changed
+
+- **Database:** opened in WAL mode by the shared kit. New schema changes are numbered SQL files run by
+  the kit (from `007`); the original migrations 1–6 are frozen and stay recorded where v1.2.0 expects
+  them, so rolling back to v1.2.0 still works.
 
 - **Server on the shared kit (`@hhh/server`, hhh-platform 0.2.0) and Express 5.** The same security
   headers, request logs (one small line per request, no headers or cookies), health routes,

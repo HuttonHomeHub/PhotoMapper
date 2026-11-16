@@ -540,7 +540,8 @@ Category counts: SEC 12 · BE 7 · ARCH 7 · CQ 8 · PERF 8 · FE 6 · TEST 5 ·
 
 ### OPS-03 — No persistence/backup strategy for DB + uploads
 
-- **Category:** DevOps · **Severity:** High · **Priority:** P2 · **Effort:** M · **Risk:** Medium · **Status:** ⏸️ Deferred (Session 002 — awaiting backup destination)
+- **Category:** DevOps · **Severity:** High · **Priority:** P2 · **Effort:** M · **Risk:** Medium · **Status:** Done (phase 3)
+- **Resolution:** Scheduled and on-demand backups (database snapshot + uploads, one zip) into `BACKUP_DIR`, pruned to `BACKUP_KEEP`, with download and a checked restore, from the shared kit. Off-host copies: mount `BACKUP_DIR` from another disk or NAS (see DEPLOYMENT-SECURITY.md).
 - **Description:** `photos.db` + `uploads/` on local disk; no backups. **Top open production risk.**
 - **Partial mitigation (OPS-02):** Both now live on the persistent `/config` Docker volume, and `DEPLOYMENT-SECURITY.md` documents a **manual** off-box backup command + the risk. This does NOT close the item — there is still no _automated, scheduled, off-box_ backup or tested restore.
 - **Deferral reason:** The scripted target depends on a backup destination the user has not yet chosen (S3-compatible bucket / second SSH host / local disk). Asked Session 002; user answered "decide later." Resume trigger: user picks a destination → deliver `scripts/backup.sh` (SQLite `VACUUM INTO` + uploads sync via cron/restic) + documented restore.

@@ -3,23 +3,23 @@ import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync, readdirSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { runMigrations } from '../server/migrate.ts';
+import { runLegacyMigrations } from '../server/migrate.ts';
 
 const cleanup = [];
 afterAll(() => cleanup.forEach((d) => rmSync(d, { recursive: true, force: true })));
 
-describe('runMigrations', () => {
+describe('runLegacyMigrations (frozen; versions 1-6)', () => {
   it('applies pending migrations once and records versions', () => {
     const db = new Database(':memory:');
     const migrations = [
       { version: 1, name: 'a', up: (d) => d.exec('CREATE TABLE a (x)') },
       { version: 2, name: 'b', up: (d) => d.exec('CREATE TABLE b (x)') },
     ];
-    const first = runMigrations(db, migrations);
+    const first = runLegacyMigrations(db, migrations);
     expect(first.applied).toEqual([1, 2]);
 
     // second run is a no-op (already recorded)
-    const second = runMigrations(db, migrations);
+    const second = runLegacyMigrations(db, migrations);
     expect(second.applied).toEqual([]);
 
     const rows = db.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
@@ -39,7 +39,7 @@ describe('runMigrations', () => {
         },
       },
     ];
-    expect(() => runMigrations(db, migrations)).toThrow('migration failed');
+    expect(() => runLegacyMigrations(db, migrations)).toThrow('migration failed');
     const recorded = db
       .prepare('SELECT version FROM schema_migrations')
       .all()
@@ -50,7 +50,7 @@ describe('runMigrations', () => {
   });
 });
 
-describe('legacy upgrade path (db.js baseline)', () => {
+describe('legacy upgrade path (db.ts baseline)', () => {
   it('preserves existing data, adds new columns, and writes a backup', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'photomapper-upgrade-'));
     cleanup.push(dir);
@@ -74,7 +74,7 @@ describe('legacy upgrade path (db.js baseline)', () => {
       .run('legacy-1', 'f.jpg', 'F.jpg', '2020-01-01T00:00:00.000Z', 0, '2020-05-05T10:00:00.000Z');
     legacy.close();
 
-    // Import db.js against it → the baseline migration runs.
+    // Import db.ts against it → the baseline migration runs.
     process.env.DB_PATH = dbPath;
     const dbmod = await import('../server/db.ts');
 

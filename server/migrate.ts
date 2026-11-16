@@ -1,8 +1,11 @@
-// ARCH-03: a small, versioned migration runner.
+// ARCH-03: PhotoMapper's original migration runner, now frozen with its six
+// migrations (see db.ts). It records them in `schema_migrations` (versions 1-6), the
+// table the shared kit's runner then uses for the numbered SQL files from 007.
+//
 //
 // Improvements over the previous approach (a pile of `try { ALTER } catch {}`
 // that swallowed every error):
-//   - records applied versions in `schema_migrations` (skips them next boot);
+//   - records applied versions (skips them next boot);
 //   - takes a consistent VACUUM INTO backup before applying anything to a DB
 //     that already holds data (safety net for the destructive steps);
 //   - fails loudly — a genuine migration error propagates instead of being
@@ -18,15 +21,15 @@ import type Database from 'better-sqlite3';
 
 type Db = Database.Database;
 
-export interface Migration {
+export interface LegacyMigration {
   version: number;
   name: string;
   up(db: Db): void;
 }
 
-export function runMigrations(
+export function runLegacyMigrations(
   db: Db,
-  migrations: Migration[]
+  migrations: LegacyMigration[]
 ): { applied: number[]; backup: string | null } {
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (

@@ -25,6 +25,22 @@ const shape = {
     .default(60 * 1024 * 1024),
   // Per-IP request budget over all of /api (SEC-07), e.g. "1000 per 15 minutes".
   API_RATE: z.string().optional(),
+  // Backups, named as in Crane Charts: a zip of the database (and uploads) every
+  // BACKUP_INTERVAL_HOURS into BACKUP_DIR (default: backups/ beside the database),
+  // keeping the newest BACKUP_KEEP of each kind.
+  BACKUP_DIR: z.string().min(1).optional(),
+  BACKUP_ENABLED: z
+    .enum(['1', '0', 'true', 'false', 'yes', 'no', 'on', 'off'])
+    .default('1')
+    .transform((v) => ['1', 'true', 'yes', 'on'].includes(v)),
+  BACKUP_INTERVAL_HOURS: z.coerce.number().positive().default(24),
+  BACKUP_KEEP: z.coerce.number().int().positive().default(7),
+  BACKUP_INCLUDE_UPLOADS: z
+    .enum(['1', '0', 'true', 'false', 'yes', 'no', 'on', 'off'])
+    .default('1')
+    .transform((v) => ['1', 'true', 'yes', 'on'].includes(v)),
+  // Largest uncompressed restore accepted, in MB (guards against zip bombs).
+  MAX_RESTORE_MB: z.coerce.number().int().positive().default(4096),
   // The old form of API_RATE, as two numbers.
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().optional(),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().optional(),
@@ -42,6 +58,14 @@ export interface Config {
   logLevel: z.infer<typeof sharedSettings.LOG_LEVEL>;
   trustProxyHops: number;
   appVersion: string;
+  backup: {
+    dir: string | undefined;
+    enabled: boolean;
+    intervalHours: number;
+    keep: number;
+    includeUploads: boolean;
+    maxRestoreBytes: number;
+  };
   dataDir: string | undefined;
   dbPath: string | undefined;
   uploadsDir: string | undefined;
@@ -92,6 +116,14 @@ export function readConfig(env: Record<string, string | undefined>): {
       logLevel: s.NODE_ENV === 'test' ? 'silent' : s.LOG_LEVEL,
       trustProxyHops: s.TRUST_PROXY,
       appVersion: s.APP_VERSION,
+      backup: {
+        dir: s.BACKUP_DIR,
+        enabled: s.BACKUP_ENABLED,
+        intervalHours: s.BACKUP_INTERVAL_HOURS,
+        keep: s.BACKUP_KEEP,
+        includeUploads: s.BACKUP_INCLUDE_UPLOADS,
+        maxRestoreBytes: s.MAX_RESTORE_MB * 1024 * 1024,
+      },
       dataDir: s.DATA_DIR,
       dbPath: s.DB_PATH,
       uploadsDir: s.UPLOADS_DIR,

@@ -28,6 +28,7 @@ Stack and scripts are in `package.json`. Backend listens on port `3001` (overrid
 
 - Named to the shared container standard in `~/projects/CLAUDE.md` and read once in `server/config.ts` with the kit's `loadSettings` (shared settings plus PhotoMapper's own). Old names (`PHOTOS_DB_PATH`, `RATE_LIMIT_WINDOW_MS`/`RATE_LIMIT_MAX`) still work and are collected in `deprecatedSettings`, which `server/index.ts` logs at startup. `server/paths.ts` resolves `DATA_DIR`, `DB_PATH` and `UPLOADS_DIR`.
 - The Express app is built on `@hhh/server` (`createBaseApp` … `finishApp` in `server/app.ts`): every write needs the CSRF header, so browser code calls the API with `apiFetch` from `@hhh/ui`, never bare `fetch`, and API tests send writes through their `write()` helper.
+- Backups use Crane Charts' setting names (`BACKUP_DIR`, `BACKUP_ENABLED`, `BACKUP_INTERVAL_HOURS`, `BACKUP_KEEP`, `BACKUP_INCLUDE_UPLOADS`, `MAX_RESTORE_MB`) and routes (`/api/backup…`, `/api/info`).
 - `deploy/compose.example.yml` is the live layout; the root `docker-compose.yml` builds from source for local use.
 
 ## Release
@@ -56,9 +57,11 @@ server/
   index.ts              Entry point: listens, graceful shutdown
   app.ts                Express app: middleware, probes, routers, error handler
   routes/*.ts           API routers (named exports)
-  db.ts                 SQLite schema migrations + every query; API row types
+  db.ts                 openDb/closeDb, frozen migrations 1-6, every query; API row types
+  migrations/           numbered SQL migrations from 007 (README there); never edit an applied one
+  lock.ts               write lock: uploads, deletes, reset and restore take it
   validation.ts         zod request-body schemas
-  services/*.ts         EXIF, thumbnails, hashing, geocoding, export
+  services/*.ts         EXIF, thumbnails, hashing, geocoding, export, backups
   uploads/              Runtime only — gitignored
   photos.db             Runtime only — gitignored
 ```

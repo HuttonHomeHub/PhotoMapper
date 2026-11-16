@@ -266,6 +266,34 @@ Readiness — runs a trivial DB query.
 - **200** `{ "status": "ready" }` — database reachable.
 - **503** `{ "status": "unavailable" }` — database unreachable.
 
+### `GET /api/backup`
+
+Backup settings, every backup in `BACKUP_DIR` (newest first) and the schedule's health:
+`{ enabled, dir, intervalHours, keep, includeUploads, backups: [{ name, size, createdAt }],
+scheduler: { enabled, intervalHours, lastSuccessAt?, lastError?, nextRunAt? } }`.
+
+### `POST /api/backup`
+
+Makes a backup now. **201** `{ name, size }`.
+
+### `GET /api/backup/download` and `GET /api/backup/download/:name`
+
+A freshly made backup (not kept), or one listed by `GET /api/backup`, as a `.zip`
+download. **404** for any name the app didn't write.
+
+### `POST /api/backup/restore`
+
+Replaces the database and uploads with a backup: JSON `{ "name": "…" }` for one in
+`BACKUP_DIR`, or multipart with a `file` (`.zip`). A `prerestore` backup is taken first.
+**200** `{ safetyBackup, restoredUploads, counts: { photos, projects, clients } }`;
+**400** for a bad name or an archive that fails the checks; **404** for a missing backup.
+
+### `GET /api/info`
+
+How this instance is set up, for the Settings panel: `{ version, counts: { photos,
+projects, clients }, paths: { database, uploads, backups }, limits: { maxUploadMb,
+apiRate: { limit, windowMs } }, trustProxyHops }`.
+
 ### `DELETE /api/reset`
 
 Destructive full wipe (all photos, projects, clients, uploads). Disabled by default.

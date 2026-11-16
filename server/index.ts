@@ -3,6 +3,7 @@ import { app } from './app.ts';
 import { config, deprecatedSettings } from './config.ts';
 import { logger } from './logger.ts';
 import { closeDb } from './db.ts';
+import { startBackups } from './services/backups.ts';
 
 for (const [oldName, newName] of deprecatedSettings) {
   logger.warn(`setting ${oldName} is deprecated; use ${newName}`);
@@ -15,8 +16,16 @@ if (!config.isTest) {
   });
 
   // OPS-05: on SIGTERM/SIGINT stop accepting connections, let in-flight requests
-  // finish, close the database, then exit (forced after 10 s).
-  gracefulShutdown(server, { logger, onClose: closeDb });
+  // finish, stop the backup schedule, close the database, then exit (forced after 10 s).
+  // Scheduled backups (BACKUP_INTERVAL_HOURS); the first runs five minutes after start.
+  const stopBackups = startBackups();
+  gracefulShutdown(server, {
+    logger,
+    onClose: () => {
+      stopBackups();
+      closeDb();
+    },
+  });
 }
 
 export { app };
