@@ -25,7 +25,7 @@ export function createApp() {
 
   // Behind a reverse proxy, trust it so req.ip, the rate limiter, and protocol
   // detection use the real client from X-Forwarded-For instead of the proxy IP.
-  // Off by default; set TRUST_PROXY (e.g. "2" for Cloudflare→nginx→app).
+  // Off by default; set TRUST_PROXY (e.g. "1" when nginx restores the real client IP).
   app.set('trust proxy', config.trustProxy);
 
   // SEC-09: security headers + CSP. The CSP allowlists the map tile hosts and the
