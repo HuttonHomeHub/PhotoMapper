@@ -4055,8 +4055,15 @@ textarea:focus-visible {
   gap: 2px;
   flex-shrink: 0;
 }
-.client-tree-row:hover .client-tree-actions {
+.client-tree-row:hover .client-tree-actions,
+.client-tree-row:focus-within .client-tree-actions {
   display: flex;
+}
+/* No hover on touch screens: the row actions are always there. */
+@media (hover: none) {
+  .client-tree-actions {
+    display: flex;
+  }
 }
 
 .client-tree-add-btn,

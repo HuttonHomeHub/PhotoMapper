@@ -8,3 +8,4 @@ src/lib/heatmap-patched.js
 # Vendored hhh-platform release: never edited here (vendor:check enforces it).
 vendor/
 package-lock.json
+e2e-results/

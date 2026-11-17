@@ -3,6 +3,11 @@ import type { Client, Project } from '../../shared/api.ts';
 import { DuplicatePhotoError, useUpload } from '../hooks/useUpload.ts';
 import type { UploadResult } from './UploadDrawer.tsx';
 
+// Keys for the upload log's rows. Not crypto.randomUUID: that only exists on HTTPS or
+// localhost pages, and the app is also used over plain HTTP (the dev copy, tests).
+let nextUploadId = 0;
+const uploadId = () => `upload-${++nextUploadId}`;
+
 interface AssignModalProps {
   fileCount: number;
   clients: Client[];
@@ -190,15 +195,14 @@ export function DropZone({
 }: DropZoneProps) {
   const { uploadPhoto } = useUpload();
   const [isDragOver, setIsDragOver] = useState(false);
-  const [pendingFiles, setPendingFiles] = useState<FileList | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  async function processFiles(fileList: FileList, projectId: string | null) {
-    const files = Array.from(fileList);
+  async function processFiles(files: File[], projectId: string | null) {
     if (!files.length) return;
 
     const entries: UploadResult[] = files.map((f) => ({
-      id: crypto.randomUUID(),
+      id: uploadId(),
       name: f.name,
       status: 'uploading',
     }));
@@ -208,7 +212,7 @@ export function DropZone({
     const updates = await Promise.all(
       files.map(async (file, i): Promise<UploadResult> => {
         const entry = entries[i] ?? {
-          id: crypto.randomUUID(),
+          id: uploadId(),
           name: file.name,
           status: 'uploading',
         };
@@ -240,11 +244,14 @@ export function DropZone({
   }
 
   function handleFiles(fileList: FileList | null) {
-    if (!fileList?.length) return;
+    // Copy the files out now: the FileList belongs to the input, and clearing the input
+    // (so the same file can be picked again) empties it in Chrome.
+    const files = Array.from(fileList ?? []);
+    if (!files.length) return;
     if (activeProjectId) {
-      void processFiles(fileList, activeProjectId);
+      void processFiles(files, activeProjectId);
     } else {
-      setPendingFiles(fileList);
+      setPendingFiles(files);
     }
   }
 

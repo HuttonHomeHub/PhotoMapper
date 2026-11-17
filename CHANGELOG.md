@@ -26,6 +26,10 @@ that section as the GitHub Release notes.
 
 ### Changed
 
+- **End-to-end tests:** 11 Playwright tests drive the built image in a browser (upload with GPS,
+  placing a pin by hand, duplicates, notes and tags, delete, clients and projects, share links,
+  backup and restore, theme, shortcuts, the phone menu). `scripts/check.sh` runs them after the
+  unit checks, the same way on the dev box and in CI.
 - **Front end in TypeScript.** Everything under `src/` is strictly typed, with the API's shapes
   defined once in `shared/api.ts` for both server and browser. Every API call now goes through a hook
   (location search, the share page, uploads and reset included). React's stricter hook rules apply
@@ -59,6 +63,12 @@ that section as the GitHub Release notes.
 
 ### Fixed
 
+- Picking photos with the file picker while no project was selected uploaded nothing (the dialog
+  said "0 photos"); dragging and dropping was unaffected.
+- Uploading crashed when the app was opened over plain HTTP (e.g. on the local network), because
+  the upload log used a browser feature only available on HTTPS.
+- A project's Share and Delete buttons in the tree only appeared on mouse hover, so they couldn't be
+  reached by keyboard or on a touch screen.
 - An unknown `/api` path returns a JSON 404 instead of the app's page; an unsupported upload type is
   a 400 and an oversize upload a 413, instead of a 500.
 - A failed client, project or batch photo delete no longer leaves the list showing it as gone.
