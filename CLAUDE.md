@@ -36,7 +36,7 @@ Stack and scripts are in `package.json`. Backend listens on port `3001` (overrid
 - A release is merging `dev` into `main`. `.github/workflows/publish-image.yml` then runs CI (`ci.yml`), fails if `vX.Y.Z` already exists, publishes `ghcr.io/huttonhomehub/photomapper` as `X.Y.Z`, `X.Y`, `latest` and `sha-<short>`, and creates the `vX.Y.Z` tag and GitHub Release from that CHANGELOG section. Pushing a tag or running the workflow by hand publishes nothing.
 - "Ship It" follows `.claude/skills/ship-it/SKILL.md`, which sets the version and CHANGELOG on `dev` before merging the release PR.
 - `ci.yml` runs on pushes to `dev` and `claude/**` and PRs into `dev` and `main`. Its one job, `build`, is the required check.
-- Dependabot (`.github/dependabot.yml`) opens weekly PRs into `dev` for npm, GitHub Actions and the Node base image. New Node major versions aren't proposed: changing Node also means changing `ci.yml` and the Dockerfile.
+- Dependabot (`.github/dependabot.yml`) opens weekly PRs into `dev` for npm, GitHub Actions and the Node base image. New Node major versions aren't proposed, nor `@types/node` majors: changing Node also means changing `scripts/check.sh`, the Dockerfile and `@types/node` together.
 
 ## File Map
 
