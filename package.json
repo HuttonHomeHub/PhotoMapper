@@ -61,7 +61,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "4.7.0",
     "@vitest/coverage-v8": "5.1.0",
-    "concurrently": "9.2.5",
+    "concurrently": "10.0.7",
     "eslint": "9.39.5",
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "7.1.1",
