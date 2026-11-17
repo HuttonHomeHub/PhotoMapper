@@ -6,10 +6,10 @@ import { join } from 'path';
 // Shared container standard: DATA_DIR holds all state; DB_PATH and UPLOADS_DIR default
 // inside it; the old PHOTOS_DB_PATH still works and is reported as deprecated.
 const NAMES = ['DATA_DIR', 'DB_PATH', 'PHOTOS_DB_PATH', 'UPLOADS_DIR'];
-let saved;
-let tmpDir;
+let saved: Record<string, string | undefined>;
+let tmpDir: string;
 
-async function loadPaths(env) {
+async function loadPaths(env: Record<string, string>) {
   for (const n of NAMES) Reflect.deleteProperty(process.env, n);
   Object.assign(process.env, env);
   vi.resetModules();
@@ -24,7 +24,7 @@ beforeEach(() => {
 afterEach(() => {
   for (const n of NAMES) {
     if (saved[n] === undefined) Reflect.deleteProperty(process.env, n);
-    else process.env[n] = saved[n];
+    else process.env[n] = saved[n] as string;
   }
   rmSync(tmpDir, { recursive: true, force: true });
 });

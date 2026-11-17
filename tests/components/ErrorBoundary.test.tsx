@@ -8,7 +8,7 @@ import { ErrorBoundary } from '../../src/components/ErrorBoundary.tsx';
 
 afterEach(cleanup);
 
-function Boom() {
+function Boom(): never {
   throw new Error('kaboom');
 }
 
@@ -35,5 +35,12 @@ describe('ErrorBoundary (render)', () => {
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument();
     spy.mockRestore();
+  });
+});
+
+describe('ErrorBoundary (state)', () => {
+  it('derives error state from a thrown error', () => {
+    const err = new Error('boom');
+    expect(ErrorBoundary.getDerivedStateFromError(err)).toEqual({ error: err });
   });
 });

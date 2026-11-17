@@ -2,14 +2,17 @@ import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import type * as DbModule from '../server/db.ts';
+import type * as GeocodeQueue from '../server/services/geocodeQueue.ts';
 import { geoKey, searchPlaces, _clearSearchCache } from '../server/services/geocode.ts';
+import { must } from './factories.ts';
 
 // BE-07/SEC-05: exercises the cache + background-queue logic without touching
 // the network (only the cache-hit path is driven).
 
-let db;
-let queue;
-let tmpDir;
+let db: typeof DbModule;
+let queue: typeof GeocodeQueue;
+let tmpDir: string;
 
 beforeAll(async () => {
   tmpDir = mkdtempSync(join(tmpdir(), 'photomapper-geo-'));
@@ -73,7 +76,7 @@ describe('geocode cache', () => {
   });
 });
 
-function seedPhoto(id, lat, lng, hash) {
+function seedPhoto(id: string, lat: number, lng: number, hash: string) {
   db.insertPhoto({
     id,
     filename: `${id}.jpg`,
@@ -109,7 +112,10 @@ describe('enqueueGeocode (cache-hit path, no network)', () => {
     expect(queue.cachedLocation(10, 20)).toBe('Testville');
     await queue.enqueueGeocode('geo-1', 10, 20);
 
-    const photo = db.getAllPhotos().find((p) => p.id === 'geo-1');
+    const photo = must(
+      db.getAllPhotos().find((p) => p.id === 'geo-1'),
+      'photo'
+    );
     expect(photo.locationName).toBe('Testville');
   });
 });

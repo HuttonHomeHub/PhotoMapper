@@ -8,7 +8,7 @@ const LINES_FLOOR = 41.1;
 
 export default mergeConfig(
   hhhVitest({
-    include: ['tests/**/*.test.{js,jsx,ts,tsx}'],
+    include: ['tests/**/*.test.{ts,tsx}'],
     coverageInclude: ['server/**/*.{js,ts}', 'src/**/*.{js,jsx,ts,tsx}'],
   }),
   defineConfig({

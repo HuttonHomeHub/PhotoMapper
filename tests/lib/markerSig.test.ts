@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { photoMarkerSignature } from '../../src/lib/markerSig.ts';
+import { photo } from '../factories.ts';
 
 // PERF-06: the incremental map sync uses this signature to decide whether an
 // existing marker can be left untouched.
-const base = {
+const base = photo({
   id: 'a',
   lat: 1,
   lng: 2,
@@ -17,7 +18,7 @@ const base = {
   tags: ['a'],
   projectId: 'p1',
   surveyDate: '2026-01-01',
-};
+});
 
 describe('photoMarkerSignature (PERF-06)', () => {
   it('is stable when only editable fields change', () => {

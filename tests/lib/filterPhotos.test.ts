@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { pointInPolygon } from '../../src/lib/geo.ts';
-import { filterPhotos } from '../../src/lib/filterPhotos.ts';
+import { filterPhotos, type PhotoFilters } from '../../src/lib/filterPhotos.ts';
+import { photo, project } from '../factories.ts';
 
 const square = [
   { lat: 0, lng: 0 },
@@ -18,7 +19,7 @@ describe('pointInPolygon', () => {
 
 describe('filterPhotos', () => {
   const photos = [
-    {
+    photo({
       id: 'a',
       dateTaken: '2021-06-01T10:00:00Z',
       hasGps: true,
@@ -27,8 +28,8 @@ describe('filterPhotos', () => {
       tags: ['x'],
       projectId: 'p1',
       surveyDate: '2021-06-01',
-    },
-    {
+    }),
+    photo({
       id: 'b',
       dateTaken: '2020-01-01T10:00:00Z',
       hasGps: true,
@@ -37,8 +38,8 @@ describe('filterPhotos', () => {
       tags: [],
       projectId: 'p2',
       surveyDate: '2020-01-01',
-    },
-    {
+    }),
+    photo({
       id: 'c',
       dateTaken: null,
       hasGps: false,
@@ -47,13 +48,10 @@ describe('filterPhotos', () => {
       tags: ['x'],
       projectId: null,
       surveyDate: null,
-    },
+    }),
   ];
-  const projects = [
-    { id: 'p1', clientId: 'c1' },
-    { id: 'p2', clientId: 'c2' },
-  ];
-  const none = {
+  const projects = [project({ id: 'p1', clientId: 'c1' }), project({ id: 'p2', clientId: 'c2' })];
+  const none: PhotoFilters = {
     dateFrom: '',
     dateTo: '',
     mapBounds: null,
@@ -63,7 +61,7 @@ describe('filterPhotos', () => {
     activeProjectId: null,
     activeClientId: null,
   };
-  const ids = (f) => filterPhotos(photos, f, projects).map((p) => p.id);
+  const ids = (f: PhotoFilters) => filterPhotos(photos, f, projects).map((p) => p.id);
 
   it('returns everything with no filters', () => {
     expect(ids(none)).toEqual(['a', 'b', 'c']);

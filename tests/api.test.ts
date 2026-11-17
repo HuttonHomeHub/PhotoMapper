@@ -2,15 +2,18 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import type { Express } from 'express';
 import request from 'supertest';
 import sharp from 'sharp';
+import type { Photo, SharedPhoto } from '../shared/api.ts';
+import { csrfWriter } from './helpers.ts';
 
 // Seeds TEST-02 (API integration) and locks in BE-01 (async error handling).
 // The app is imported with NODE_ENV=test so it does not bind a port, and with a
 // throwaway DB_PATH + UPLOADS_DIR so it never touches real data.
 
-let app;
-let tmpDir;
+let app: Express;
+let tmpDir: string;
 
 beforeAll(async () => {
   tmpDir = mkdtempSync(join(tmpdir(), 'photomapper-api-'));
@@ -25,11 +28,7 @@ afterAll(() => {
 });
 
 // Writes carry the CSRF cookie and the same token in the header, as apiFetch sends them.
-const CSRF_TOKEN = 'test-csrf-token';
-function write(method, url) {
-  const req = request(app);
-  return req[method](url).set('Cookie', `hhh_csrf=${CSRF_TOKEN}`).set('X-CSRF-Token', CSRF_TOKEN);
-}
+const write = csrfWriter(() => app);
 
 describe('CSRF protection', () => {
   it('issues the token cookie on a page load', async () => {
@@ -105,7 +104,7 @@ describe('photos API', () => {
 
     // It shows up in the listing and can be deleted.
     const list = await request(app).get('/api/photos');
-    expect(list.body.some((p) => p.id === up.body.id)).toBe(true);
+    expect((list.body as Photo[]).some((p) => p.id === up.body.id)).toBe(true);
     const del = await write('delete', `/api/photos/${up.body.id}`);
     expect(del.status).toBe(200);
   });
@@ -174,8 +173,8 @@ describe('clients & projects API', () => {
 });
 
 describe('BE-03/BE-04: update semantics', () => {
-  let clientId;
-  let projectId;
+  let clientId: string;
+  let projectId: string;
 
   it('sets up a client and a project', async () => {
     const c = await write('post', '/api/clients').send({ name: 'Update Co' });
@@ -318,7 +317,7 @@ describe('BE-01: async error handling', () => {
 });
 
 describe('FEAT: manual GPS placement', () => {
-  let photoId;
+  let photoId: string;
 
   it('uploads a no-GPS photo to place', async () => {
     const jpeg = await sharp({
@@ -369,9 +368,9 @@ describe('FEAT: manual GPS placement', () => {
 });
 
 describe('FEAT: project share links', () => {
-  let projectId;
-  let sharedPhotoId;
-  let token;
+  let projectId: string;
+  let sharedPhotoId: string;
+  let token: string;
 
   it('sets up a project with one placed photo', async () => {
     const p = await write('post', '/api/projects').send({ name: 'Shared Job' });
@@ -409,7 +408,7 @@ describe('FEAT: project share links', () => {
     expect(res.status).toBe(200);
     expect(res.body.project.name).toBe('Shared Job');
     expect(res.body.project).not.toHaveProperty('shareToken');
-    expect(res.body.photos.some((p) => p.id === sharedPhotoId)).toBe(true);
+    expect((res.body.photos as SharedPhoto[]).some((p) => p.id === sharedPhotoId)).toBe(true);
     // Only safe fields are exposed — no file hash, project id, or client data.
     const sample = res.body.photos[0];
     expect(sample).not.toHaveProperty('fileHash');

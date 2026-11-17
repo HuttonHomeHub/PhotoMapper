@@ -1,19 +1,23 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
-import { UploadDrawer } from '../../src/components/UploadDrawer.tsx';
+import {
+  UploadDrawer,
+  type UploadDrawerProps,
+  type UploadResult,
+} from '../../src/components/UploadDrawer.tsx';
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
 });
 
-const done = [
+const done: UploadResult[] = [
   { id: '1', name: 'a.jpg', status: 'success' },
   { id: '2', name: 'b.jpg', status: 'duplicate', detail: 'Already uploaded' },
 ];
 
-function drawer(props) {
+function drawer(props: Partial<UploadDrawerProps>) {
   return <UploadDrawer results={done} open onClose={() => {}} onClear={() => {}} {...props} />;
 }
 
@@ -22,7 +26,7 @@ describe('UploadDrawer', () => {
     vi.useFakeTimers();
     const onAllDone = vi.fn();
     const { rerender } = render(
-      drawer({ results: [{ id: '1', name: 'a.jpg', status: 'uploading' }], onAllDone })
+      drawer({ results: [{ id: '1', name: 'a.jpg', status: 'uploading' as const }], onAllDone })
     );
     expect(screen.getByText('Uploading…')).toBeTruthy();
     rerender(drawer({ onAllDone }));

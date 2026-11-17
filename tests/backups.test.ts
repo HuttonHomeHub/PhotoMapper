@@ -2,21 +2,16 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { mkdtempSync, rmSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import type { Express } from 'express';
 import request from 'supertest';
 import sharp from 'sharp';
+import type { BackupsReply, Photo } from '../shared/api.ts';
+import { binary, csrfWriter } from './helpers.ts';
 
 // Backups and restore through the API, on a throwaway data folder.
-let app;
-let dir;
-const TOKEN = 'test-csrf-token';
-const write = (method, url) =>
-  request(app)[method](url).set('Cookie', `hhh_csrf=${TOKEN}`).set('X-CSRF-Token', TOKEN);
-
-function binary(res, done) {
-  const chunks = [];
-  res.on('data', (c) => chunks.push(c));
-  res.on('end', () => done(null, Buffer.concat(chunks)));
-}
+let app: Express;
+let dir: string;
+const write = csrfWriter(() => app);
 
 beforeAll(async () => {
   dir = mkdtempSync(join(tmpdir(), 'photomapper-backups-'));
@@ -31,8 +26,8 @@ beforeAll(async () => {
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 describe('backups and restore', () => {
-  let photo;
-  let backupName;
+  let photo: Photo;
+  let backupName: string;
 
   it('backs up the database and uploads on demand', async () => {
     const jpeg = await sharp({
@@ -60,7 +55,7 @@ describe('backups and restore', () => {
       includeUploads: true,
       scheduler: { enabled: true, intervalHours: 24 },
     });
-    expect(res.body.backups.map((b) => b.name)).toEqual([backupName]);
+    expect((res.body as BackupsReply).backups.map((b) => b.name)).toEqual([backupName]);
   });
 
   it('downloads a listed backup, and only names it wrote', async () => {
@@ -90,7 +85,7 @@ describe('backups and restore', () => {
     expect(res.body.safetyBackup).toMatch(/-prerestore\.zip$/);
     expect(res.body.counts.photos).toBe(1);
 
-    const photos = (await request(app).get('/api/photos')).body;
+    const photos = (await request(app).get('/api/photos')).body as Photo[];
     expect(photos.map((p) => p.id)).toEqual([photo.id]);
     expect(existsSync(join(dir, 'uploads', photo.filename))).toBe(true);
     // The reopened database keeps working for writes.

@@ -4,6 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen, cleanup, renderHook, act } from '@testing-library/react';
 import { TimelinePanel } from '../../src/components/TimelinePanel.tsx';
 import { useTimeline } from '../../src/hooks/useTimeline.ts';
+import { photo } from '../factories.ts';
 
 afterEach(cleanup);
 
@@ -50,9 +51,9 @@ describe('TimelinePanel', () => {
 describe('useTimeline', () => {
   it('sorts chronologically and slices to the current index', () => {
     const photos = [
-      { id: 'a', dateTaken: '2021-01-01' },
-      { id: 'b', dateTaken: '2020-01-01' },
-      { id: 'c', dateTaken: '2022-01-01' },
+      photo({ id: 'a', dateTaken: '2021-01-01' }),
+      photo({ id: 'b', dateTaken: '2020-01-01' }),
+      photo({ id: 'c', dateTaken: '2022-01-01' }),
     ];
     const { result } = renderHook(() => useTimeline(photos));
     expect(result.current.sorted.map((p) => p.id)).toEqual(['b', 'a', 'c']);
@@ -60,6 +61,6 @@ describe('useTimeline', () => {
 
     act(() => result.current.setIndex(1));
     expect(result.current.slicePhotos.map((p) => p.id)).toEqual(['b', 'a']);
-    expect(result.current.currentPhoto.id).toBe('a');
+    expect(result.current.currentPhoto?.id).toBe('a');
   });
 });

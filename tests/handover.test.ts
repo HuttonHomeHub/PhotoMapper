@@ -49,7 +49,11 @@ describe('migration hand-over from v1.2.0', () => {
     dbmod.closeDb();
     vi.resetModules();
     dbmod = await import('../server/db.ts');
-    expect(dbmod.getDb().prepare('SELECT COUNT(*) AS n FROM schema_migrations').get().n).toBe(6);
+    const count = dbmod
+      .getDb()
+      .prepare<[], { n: number }>('SELECT COUNT(*) AS n FROM schema_migrations')
+      .get();
+    expect(count?.n).toBe(6);
     dbmod.closeDb();
   });
 });

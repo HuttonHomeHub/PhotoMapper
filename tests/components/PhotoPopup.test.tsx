@@ -3,10 +3,11 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { PhotoPopup } from '../../src/components/PhotoPopup.tsx';
+import { photo as makePhoto } from '../factories.ts';
 
 afterEach(cleanup);
 
-const photo = {
+const photo = makePhoto({
   id: 'p1',
   originalName: 'IMG_1234.jpg',
   dateTaken: '2021-06-01T10:00:00.000Z',
@@ -17,7 +18,7 @@ const photo = {
   hasGps: true,
   lat: 51.5,
   lng: -0.12,
-};
+});
 
 describe('PhotoPopup', () => {
   it('renders the title, metadata and a Google Maps link', () => {
@@ -32,7 +33,7 @@ describe('PhotoPopup', () => {
   it('does not render an XSS payload as markup', () => {
     render(
       <PhotoPopup
-        photo={{ ...photo, originalName: '<img src=x onerror=alert(1)>' }}
+        photo={makePhoto({ ...photo, originalName: '<img src=x onerror=alert(1)>' })}
         onView={vi.fn()}
         onDelete={vi.fn()}
       />
