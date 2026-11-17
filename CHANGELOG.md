@@ -10,6 +10,8 @@ that section as the GitHub Release notes.
 
 ## Unreleased
 
+## v1.3.0 — new look and light theme, backups, the shared platform
+
 ### Added
 
 - **New look, the HuttonHomeHub design system** (shared with Crane Charts): an app bar with the name,
