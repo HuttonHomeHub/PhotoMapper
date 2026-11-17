@@ -36,6 +36,10 @@ test('the theme choice is kept, and applied before the page draws', async ({ pag
   expect(chosen).toMatch(/^(dark|light)$/);
   await page.reload({ waitUntil: 'commit' });
   await expect(root).toHaveAttribute('data-theme', chosen ?? '');
+  // Behind Cloudflare, Rocket Loader would rewrite any script without this (and the CSP
+  // would then block it), including theme-init.js, which the kit's plugin adds.
+  await expect(page.locator('script[src]:not([data-cfasync="false"])')).toHaveCount(0);
+  await expect(page.locator('script[src="/theme-init.js"]')).toHaveCount(1);
 });
 
 test('the app bar shows the running version and opens the shortcuts', async ({ page }) => {

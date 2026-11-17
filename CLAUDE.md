@@ -75,7 +75,7 @@ server/
 - **UUID filenames** — uploaded files get UUID names on disk; original name stored in `original_name` DB column
 - **Non-fatal EXIF** — photos without GPS still upload successfully; `has_gps = 0`
 - **Look** — the shell is the kit's `AppBar` (brand and version, shortcuts, theme toggle, Settings). Colours, type and spacing are `@hhh/ui` tokens (`tokens.css`, then `base.css` and `components.css`, imported in `main.tsx`); `index.css` maps its older `--color-*`/`--font-*` names onto them. Never hard-code a colour or font size. Accent or status text never sits on `--bg-surface-sunken`.
-- `index.html` loads `/theme-init.js` (the kit's, served and emitted by a plugin in `vite.config.js`) so a saved theme applies before first paint.
+- The kit's `hhhThemeInit()` Vite plugin (`@hhh/config/vite`, in `vite.config.js`) adds `/theme-init.js` to `index.html` and serves/emits it, so a saved theme applies before first paint.
 - Vite dev server proxies `/api` and `/uploads` to `:3001`
 - Unit tests live under `tests/` (Vitest), end-to-end tests under `e2e/` (Playwright). Run `sh scripts/check.sh` before every push.
 
