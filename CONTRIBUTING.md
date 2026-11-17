@@ -63,7 +63,8 @@ npm run test:coverage # with coverage thresholds (enforced in CI)
 - Node tests (data layer, API via supertest, pure libs) run in the default
   environment; component/hook tests opt into jsdom with a
   `// @vitest-environment jsdom` docblock at the top of the file.
-- Add tests under `tests/` mirroring the source layout. New behaviour should ship
+- Add tests under `tests/` mirroring the source layout, in TypeScript (`.ts`, or `.tsx` for
+  components and hooks); build test data with `tests/factories.ts`. New behaviour should ship
   with a test; bug fixes should add a regression test.
 - A user-visible flow gets an end-to-end test in `e2e/` (Playwright, against the
   built image): `sh scripts/e2e.sh`. `sh scripts/check.sh` runs everything CI runs.

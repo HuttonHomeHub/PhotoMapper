@@ -8,18 +8,28 @@ import { useGeocode } from '../../src/hooks/useGeocode.ts';
 import { useTimeline } from '../../src/hooks/useTimeline.ts';
 import { useMediaQuery } from '../../src/hooks/useMediaQuery.ts';
 import { useApiList } from '../../src/hooks/useApiList.ts';
+import { must, photo } from '../factories.ts';
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 
-const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
-function stubFetch(handler) {
-  const fetchMock = vi.fn(async (url, opts = {}) => handler(String(url), opts));
+// Answers each fetch with the handler's Response (these tests check exact bodies).
+function stubFetch(handler: (url: string, init: RequestInit) => Response) {
+  const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit = {}) =>
+    handler(String(input), init)
+  );
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
+}
+
+/** The URL and options of the nth fetch call. */
+function call(fetchMock: ReturnType<typeof stubFetch>, n: number) {
+  const args = must(fetchMock.mock.calls[n], `fetch call ${n}`);
+  return { url: String(args[0]), init: args[1] ?? {} };
 }
 
 describe('useShare', () => {
@@ -28,7 +38,8 @@ describe('useShare', () => {
     const { result } = renderHook(() => useShare('tok'));
     expect(result.current.status).toBe('loading');
     await waitFor(() => expect(result.current.status).toBe('ok'));
-    expect(result.current.share.project.name).toBe('P');
+    const state = result.current;
+    expect(state.status === 'ok' ? state.share.project.name : null).toBe('P');
   });
 
   it('tells a missing share from a failure', async () => {
@@ -47,8 +58,8 @@ describe('useUpload', () => {
     const { result } = renderHook(() => useUpload());
     const file = new File(['x'], 'a.jpg', { type: 'image/jpeg' });
     await expect(result.current.uploadPhoto(file, 'proj1')).resolves.toMatchObject({ id: 'p1' });
-    const body = fetchMock.mock.calls[0][1].body;
-    expect(body.get('projectId')).toBe('proj1');
+    const body = call(fetchMock, 0).init.body;
+    expect(body instanceof FormData ? body.get('projectId') : null).toBe('proj1');
 
     stubFetch(() => json({ error: 'duplicate' }, 409));
     await expect(result.current.uploadPhoto(file, null)).rejects.toBeInstanceOf(
@@ -59,12 +70,12 @@ describe('useUpload', () => {
   });
 
   it('creates a client and, when named, its first project', async () => {
-    const fetchMock = stubFetch((url) =>
+    const fetchMock = stubFetch((url: string) =>
       url === '/api/clients' ? json({ id: 'c1' }, 201) : json({ id: 'pr1' }, 201)
     );
     const { result } = renderHook(() => useUpload());
     await expect(result.current.createClientWithProject('Acme', 'Survey')).resolves.toBe('pr1');
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({
+    expect(JSON.parse(String(call(fetchMock, 1).init.body))).toMatchObject({
       name: 'Survey',
       clientId: 'c1',
     });
@@ -77,11 +88,11 @@ describe('useReset and useGeocode', () => {
     const fetchMock = stubFetch(() => json([]));
     const reset = renderHook(() => useReset()).result.current;
     await reset();
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/reset');
-    expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
+    expect(call(fetchMock, 0).url).toBe('/api/reset');
+    expect(call(fetchMock, 0).init.method).toBe('DELETE');
     const geocode = renderHook(() => useGeocode()).result.current;
     await geocode('Leeds & York');
-    expect(fetchMock.mock.calls[1][0]).toBe('/api/geocode/search?q=Leeds%20%26%20York');
+    expect(call(fetchMock, 1).url).toBe('/api/geocode/search?q=Leeds%20%26%20York');
   });
 });
 
@@ -100,11 +111,9 @@ describe('useApiList', () => {
 });
 
 describe('useTimeline', () => {
-  const photos = ['2026-01-03', '2026-01-01', '2026-01-02'].map((d, i) => ({
-    id: `p${i}`,
-    dateTaken: `${d}T10:00:00Z`,
-    uploadedAt: d,
-  }));
+  const photos = ['2026-01-03', '2026-01-01', '2026-01-02'].map((d, i) =>
+    photo({ id: `p${i}`, dateTaken: `${d}T10:00:00Z`, uploadedAt: d })
+  );
 
   it('starts from the beginning when activated, and stops at the end', () => {
     vi.useFakeTimers();
@@ -124,14 +133,16 @@ describe('useTimeline', () => {
 
 describe('useMediaQuery', () => {
   it('follows the media query', () => {
-    let listener;
+    let listener = () => {};
     const list = {
       matches: false,
-      addEventListener: (_e, fn) => (listener = fn),
+      addEventListener: (_event: string, fn: () => void) => {
+        listener = fn;
+      },
       removeEventListener: () => {},
     };
-    vi.stubGlobal('matchMedia', () => list);
-    window.matchMedia = () => list;
+    // Only the parts useMediaQuery uses.
+    vi.stubGlobal('matchMedia', () => list as unknown as MediaQueryList);
     const { result } = renderHook(() => useMediaQuery('(max-width: 599px)'));
     expect(result.current).toBe(false);
     list.matches = true;

@@ -3,13 +3,16 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import Database from 'better-sqlite3';
+import type * as DbModule from '../server/db.ts';
+import type { NewPhoto } from '../server/db.ts';
+import { must } from './factories.ts';
 
 // TEST-01 seed suite: exercises the SQLite data layer against a throwaway DB.
 // This is the most defect-prone code in the repo (hand-written camelCase <->
 // snake_case mappers), so it is the highest-value first target.
 
-let dbmod;
-let tmpDir;
+let dbmod: typeof DbModule;
+let tmpDir: string;
 
 beforeAll(async () => {
   tmpDir = mkdtempSync(join(tmpdir(), 'photomapper-db-'));
@@ -22,7 +25,7 @@ afterAll(() => {
   rmSync(tmpDir, { recursive: true, force: true });
 });
 
-function makePhoto(overrides = {}) {
+function makePhoto(overrides: Partial<NewPhoto> = {}): NewPhoto {
   return {
     id: overrides.id ?? 'photo-1',
     filename: 'abc.jpg',
@@ -55,8 +58,10 @@ describe('photos data layer', () => {
   it('inserts and maps a row to camelCase with a boolean hasGps', () => {
     dbmod.insertPhoto(makePhoto());
     const all = dbmod.getAllPhotos();
-    const row = all.find((p) => p.id === 'photo-1');
-    expect(row).toBeDefined();
+    const row = must(
+      all.find((p) => p.id === 'photo-1'),
+      'row'
+    );
     expect(row.originalName).toBe('Original Name.jpg');
     expect(row.hasGps).toBe(true); // stored as INTEGER 1, mapped to boolean
     expect(row.lat).toBe(51.5);
@@ -66,8 +71,7 @@ describe('photos data layer', () => {
   });
 
   it('finds a photo by hash with the same mapping', () => {
-    const row = dbmod.getPhotoByHash('hash-1');
-    expect(row).not.toBeNull();
+    const row = must(dbmod.getPhotoByHash('hash-1'), 'row');
     expect(row.id).toBe('photo-1');
     expect(row.hasGps).toBe(true);
     expect(row.surveyDate).toBe('2026-01-01');
@@ -78,8 +82,7 @@ describe('photos data layer', () => {
   });
 
   it('PERF-02: getPhotoFullById returns the full DTO or null', () => {
-    const row = dbmod.getPhotoFullById('photo-1');
-    expect(row).not.toBeNull();
+    const row = must(dbmod.getPhotoFullById('photo-1'), 'row');
     expect(row.id).toBe('photo-1');
     expect(row.hasGps).toBe(true);
     expect(row.projectId).toBeNull();
@@ -89,14 +92,20 @@ describe('photos data layer', () => {
 
   it('round-trips description and JSON tags through updatePhoto', () => {
     dbmod.updatePhoto('photo-1', { description: 'field note', tags: ['a', 'b'] });
-    const row = dbmod.getAllPhotos().find((p) => p.id === 'photo-1');
+    const row = must(
+      dbmod.getAllPhotos().find((p) => p.id === 'photo-1'),
+      'row'
+    );
     expect(row.description).toBe('field note');
     expect(row.tags).toEqual(['a', 'b']);
   });
 
   it('updates survey date independently', () => {
     dbmod.updatePhotoSurveyDate('photo-1', '2025-12-31');
-    const row = dbmod.getAllPhotos().find((p) => p.id === 'photo-1');
+    const row = must(
+      dbmod.getAllPhotos().find((p) => p.id === 'photo-1'),
+      'row'
+    );
     expect(row.surveyDate).toBe('2025-12-31');
   });
 
@@ -117,8 +126,10 @@ describe('clients and projects', () => {
       updatedAt: '2026-01-01T00:00:00.000Z',
     });
     const clients = dbmod.getAllClients();
-    const acme = clients.find((c) => c.id === 'client-1');
-    expect(acme).toBeDefined();
+    const acme = must(
+      clients.find((c) => c.id === 'client-1'),
+      'acme'
+    );
     expect(acme.projectCount).toBe(0);
   });
 
@@ -132,32 +143,35 @@ describe('clients and projects', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     });
-    const proj = dbmod.getAllProjects().find((p) => p.id === 'project-1');
-    expect(proj).toBeDefined();
+    const proj = must(
+      dbmod.getAllProjects().find((p) => p.id === 'project-1'),
+      'proj'
+    );
     expect(proj.clientName).toBe('Acme');
     expect(proj.photoCount).toBe(0);
     // client project count now reflects the new project
-    expect(dbmod.getAllClients().find((c) => c.id === 'client-1').projectCount).toBe(1);
+    expect(must(dbmod.getAllClients().find((c) => c.id === 'client-1')).projectCount).toBe(1);
   });
 
   it('PERF-02: getProjectById / getClientById return the same aggregate shape', () => {
-    const proj = dbmod.getProjectById('project-1');
-    expect(proj).not.toBeNull();
+    const proj = must(dbmod.getProjectById('project-1'), 'proj');
     expect(proj.clientName).toBe('Acme');
     expect(proj.photoCount).toBe(0);
     expect(dbmod.getProjectById('nope')).toBeNull();
 
-    const client = dbmod.getClientById('client-1');
-    expect(client).not.toBeNull();
+    const client = must(dbmod.getClientById('client-1'), 'client');
     expect(client.projectCount).toBe(1);
     expect(dbmod.getClientById('nope')).toBeNull();
   });
 
   it('assigns a photo to a project and reflects it in the photo count', () => {
     dbmod.assignPhotosToProject('project-1', ['photo-1']);
-    const row = dbmod.getAllPhotos().find((p) => p.id === 'photo-1');
+    const row = must(
+      dbmod.getAllPhotos().find((p) => p.id === 'photo-1'),
+      'row'
+    );
     expect(row.projectId).toBe('project-1');
-    expect(dbmod.getAllProjects().find((p) => p.id === 'project-1').photoCount).toBe(1);
+    expect(must(dbmod.getAllProjects().find((p) => p.id === 'project-1')).photoCount).toBe(1);
   });
 
   it('deletes a project and returns the change count', () => {
@@ -240,7 +254,7 @@ describe('PERF-03: performance indexes', () => {
   it('creates indexes on the hot photo columns', () => {
     const raw = new Database(process.env.DB_PATH, { readonly: true });
     const names = raw
-      .prepare("SELECT name FROM sqlite_master WHERE type='index'")
+      .prepare<[], { name: string }>("SELECT name FROM sqlite_master WHERE type='index'")
       .all()
       .map((r) => r.name);
     raw.close();

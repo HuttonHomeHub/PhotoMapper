@@ -11,11 +11,11 @@ afterEach(() => {
 
 // A real Response each call, as fetch returns.
 const reply =
-  (body, status = 200) =>
+  (body: unknown, status = 200) =>
   () =>
     Promise.resolve(new Response(JSON.stringify(body), { status }));
 
-function search(value) {
+function search(value: string) {
   fireEvent.change(screen.getByLabelText('Search for a location'), { target: { value } });
   fireEvent.click(screen.getByRole('button', { name: /search location/i }));
 }
@@ -32,8 +32,9 @@ describe('LocationSearch', () => {
     render(<LocationSearch onFlyTo={onFlyTo} />);
     search('London');
     await waitFor(() => expect(onFlyTo).toHaveBeenCalledWith(51.5, -0.12, 12));
-    expect(fetchMock.mock.calls[0][0]).toContain('/api/geocode/search');
-    expect(fetchMock.mock.calls[0][0]).not.toContain('nominatim');
+    const url = String(fetchMock.mock.calls[0]?.[0]);
+    expect(url).toContain('/api/geocode/search');
+    expect(url).not.toContain('nominatim');
   });
 
   it('lists multiple results', async () => {

@@ -3,6 +3,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { FilterChips } from '../../src/components/FilterChips.tsx';
+import { client, project } from '../factories.ts';
 
 afterEach(cleanup);
 
@@ -37,8 +38,8 @@ describe('FilterChips', () => {
         activeTag="foo"
         activeClientId="c1"
         activeProjectId="p1"
-        clients={[{ id: 'c1', name: 'Acme' }]}
-        projects={[{ id: 'p1', name: 'Survey' }]}
+        clients={[client({ id: 'c1', name: 'Acme' })]}
+        projects={[project({ id: 'p1', name: 'Survey' })]}
       />
     );
     expect(screen.getByRole('button', { name: /#foo/i })).toBeInTheDocument();

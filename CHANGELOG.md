@@ -26,6 +26,8 @@ that section as the GitHub Release notes.
 
 ### Changed
 
+- **Tests in TypeScript:** every unit test is typed and type-checked, with shared factories for test
+  data (development only; no change to the app).
 - **Build: Vite 8** (Rolldown) with `@vitejs/plugin-react` 6; builds take about a second. The heatmap
   no longer needs its CommonJS build setting, and a new end-to-end test checks the heatmap really
   draws. Also updated: concurrently 10 and jsdom 31 (development tools).

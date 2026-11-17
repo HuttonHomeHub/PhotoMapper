@@ -5,15 +5,15 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { runLegacyMigrations } from '../server/migrate.ts';
 
-const cleanup = [];
+const cleanup: string[] = [];
 afterAll(() => cleanup.forEach((d) => rmSync(d, { recursive: true, force: true })));
 
 describe('runLegacyMigrations (frozen; versions 1-6)', () => {
   it('applies pending migrations once and records versions', () => {
     const db = new Database(':memory:');
     const migrations = [
-      { version: 1, name: 'a', up: (d) => d.exec('CREATE TABLE a (x)') },
-      { version: 2, name: 'b', up: (d) => d.exec('CREATE TABLE b (x)') },
+      { version: 1, name: 'a', up: (d: Database.Database) => d.exec('CREATE TABLE a (x)') },
+      { version: 2, name: 'b', up: (d: Database.Database) => d.exec('CREATE TABLE b (x)') },
     ];
     const first = runLegacyMigrations(db, migrations);
     expect(first.applied).toEqual([1, 2]);
@@ -22,7 +22,9 @@ describe('runLegacyMigrations (frozen; versions 1-6)', () => {
     const second = runLegacyMigrations(db, migrations);
     expect(second.applied).toEqual([]);
 
-    const rows = db.prepare('SELECT version FROM schema_migrations ORDER BY version').all();
+    const rows = db
+      .prepare<[], { version: number }>('SELECT version FROM schema_migrations ORDER BY version')
+      .all();
     expect(rows.map((r) => r.version)).toEqual([1, 2]);
     db.close();
   });
@@ -30,7 +32,7 @@ describe('runLegacyMigrations (frozen; versions 1-6)', () => {
   it('fails loudly and does not record a throwing migration', () => {
     const db = new Database(':memory:');
     const migrations = [
-      { version: 1, name: 'ok', up: (d) => d.exec('CREATE TABLE ok (x)') },
+      { version: 1, name: 'ok', up: (d: Database.Database) => d.exec('CREATE TABLE ok (x)') },
       {
         version: 2,
         name: 'boom',
@@ -41,7 +43,7 @@ describe('runLegacyMigrations (frozen; versions 1-6)', () => {
     ];
     expect(() => runLegacyMigrations(db, migrations)).toThrow('migration failed');
     const recorded = db
-      .prepare('SELECT version FROM schema_migrations')
+      .prepare<[], { version: number }>('SELECT version FROM schema_migrations')
       .all()
       .map((r) => r.version);
     expect(recorded).toContain(1);
@@ -80,10 +82,11 @@ describe('legacy upgrade path (db.ts baseline)', () => {
 
     const all = dbmod.getAllPhotos();
     expect(all).toHaveLength(1);
-    expect(all[0].id).toBe('legacy-1');
+    const [legacyPhoto] = all;
+    expect(legacyPhoto?.id).toBe('legacy-1');
     // new columns exist and back-fill worked
-    expect(all[0].tags).toEqual([]);
-    expect(all[0].surveyDate).toBe('2020-05-05'); // derived from date_taken by the migration
+    expect(legacyPhoto?.tags).toEqual([]);
+    expect(legacyPhoto?.surveyDate).toBe('2020-05-05'); // derived from date_taken by the migration
 
     // a backup snapshot was written before mutating the existing DB
     const backups = readdirSync(dir).filter((f) => f.startsWith('legacy.db.backup-'));
@@ -92,7 +95,7 @@ describe('legacy upgrade path (db.ts baseline)', () => {
     // ARCH-04: the unused collections tables are dropped by migration v4.
     const inspect = new Database(dbPath, { readonly: true });
     const tables = inspect
-      .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+      .prepare<[], { name: string }>("SELECT name FROM sqlite_master WHERE type='table'")
       .all()
       .map((r) => r.name);
     inspect.close();

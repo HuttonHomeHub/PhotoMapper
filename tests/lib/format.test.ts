@@ -11,6 +11,6 @@ describe('formatDate', () => {
   it('formats a valid ISO date to a non-empty locale string', () => {
     const out = formatDate('2021-06-01T10:00:00.000Z');
     expect(typeof out).toBe('string');
-    expect(out.length).toBeGreaterThan(0);
+    expect(out?.length).toBeGreaterThan(0);
   });
 });

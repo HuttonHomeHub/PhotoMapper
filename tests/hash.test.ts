@@ -10,7 +10,7 @@ import { hashFile } from '../server/services/hash.ts';
 const dir = mkdtempSync(join(tmpdir(), 'photomapper-hash-'));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-function fileWith(name, contents) {
+function fileWith(name: string, contents: string | Buffer) {
   const p = join(dir, name);
   writeFileSync(p, contents);
   return p;
