@@ -26,6 +26,8 @@ that section as the GitHub Release notes.
 
 ### Changed
 
+- Dependabot no longer proposes major versions of `@types/node`: they follow the Node version the
+  app runs on (22).
 - **End-to-end tests:** 11 Playwright tests drive the built image in a browser (upload with GPS,
   placing a pin by hand, duplicates, notes and tags, delete, clients and projects, share links,
   backup and restore, theme, shortcuts, the phone menu). `scripts/check.sh` runs them after the
