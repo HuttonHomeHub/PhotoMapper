@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@hhh/server": "file:vendor/hhh-platform/packages/server",
-    "better-sqlite3": "^13.1.1",
+    "better-sqlite3": "^13.2.0",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "exifr": "^7.1.3",
