@@ -166,6 +166,14 @@ component/hook tests (Testing Library). Component test files opt into jsdom with
 a `// @vitest-environment jsdom` docblock. Coverage thresholds are enforced in
 CI.
 
+End-to-end tests (`e2e/`, Playwright) drive the real Docker image in a browser:
+`sh scripts/e2e.sh` builds the image, starts it on a throwaway network with an
+in-memory `/config`, and runs the tests from the pinned Playwright image (no browser
+is installed on the host). `sh scripts/check.sh` runs everything CI runs: `npm run
+check` in the Node 22 container, then the end-to-end tests. Each test starts from an
+empty library, stubs the map tiles, and fails on any console error. The test photos
+in `e2e/fixtures/` are made by `make-fixtures.ts` (one carries real EXIF GPS).
+
 ## Production deployment
 
 **Authentication is enforced at a reverse proxy, not in the app** — see

@@ -10,9 +10,8 @@ Stack and scripts are in `package.json`. Backend listens on port `3001` (overrid
 
 ## CT 106 (dev box)
 
-- **Checks:** `npm run check` runs every CI check: the vendored-platform check, typecheck, lint, Prettier, Vitest with coverage, build, `npm audit`. Node is not installed on CT 106, so run it in Docker from the repo root:
-  `docker run --rm --user 1000:1000 -e HOME=/tmp -e npm_config_cache=/tmp/.npm -v "$PWD":/app -w /app node:22-bookworm sh -c 'npm ci && npm run check'`
-  It writes only the gitignored `node_modules/`, `dist/` and `coverage/`.
+- **Checks:** `sh scripts/check.sh`, from the repo root, runs exactly what CI runs (`ci.yml` calls the same script): `npm run check` in the `node:22-bookworm` container (vendored-platform check, typecheck, lint, Prettier, Vitest with coverage, build, `npm audit`), then `scripts/e2e.sh`. It writes only the gitignored `node_modules/`, `dist/`, `coverage/` and `e2e-results/`.
+- **End-to-end tests:** `sh scripts/e2e.sh [filter]` builds the image, runs it on a throwaway Docker network as host `photomapper` (not `app`: browsers force `.app` onto HTTPS) with an in-memory `/config` and `ALLOW_RESET=true`, and runs `e2e/` from the pinned Playwright image (Node 26 there, so the tests never start the app themselves). The user has agreed to these running on CT 106. The app is reached over plain HTTP there, as on the dev copy: browser-only APIs that need HTTPS (`crypto.randomUUID`, clipboard reads) must not be relied on.
 - **Dev server:** `npm run dev` (Vite plus the API on `:3001`), in the same Docker image.
 - **Test stack:** `docker compose up -d --build`, test data only. The git-excluded `compose.override.yaml` publishes port 3001 on all interfaces (the tracked `docker-compose.yml` binds loopback only, for the live layout). code-server's `/proxy/3001/` does not work, because the app loads its files from root paths.
 - `.devcontainer/` is a leftover from Codespaces and is not used on CT 106.
@@ -78,7 +77,7 @@ server/
 - **Look** — the shell is the kit's `AppBar` (brand and version, shortcuts, theme toggle, Settings). Colours, type and spacing are `@hhh/ui` tokens (`tokens.css`, then `base.css` and `components.css`, imported in `main.tsx`); `index.css` maps its older `--color-*`/`--font-*` names onto them. Never hard-code a colour or font size. Accent or status text never sits on `--bg-surface-sunken`.
 - `index.html` loads `/theme-init.js` (the kit's, served and emitted by a plugin in `vite.config.js`) so a saved theme applies before first paint.
 - Vite dev server proxies `/api` and `/uploads` to `:3001`
-- Tests live under `tests/` (Vitest). Run `npm run lint`, `npm run format:check` and `npm run test:coverage` before handing work back, because CI enforces them.
+- Unit tests live under `tests/` (Vitest), end-to-end tests under `e2e/` (Playwright). Run `sh scripts/check.sh` before every push.
 
 ## Subagents
 

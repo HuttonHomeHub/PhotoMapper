@@ -65,6 +65,8 @@ npm run test:coverage # with coverage thresholds (enforced in CI)
   `// @vitest-environment jsdom` docblock at the top of the file.
 - Add tests under `tests/` mirroring the source layout. New behaviour should ship
   with a test; bug fixes should add a regression test.
+- A user-visible flow gets an end-to-end test in `e2e/` (Playwright, against the
+  built image): `sh scripts/e2e.sh`. `sh scripts/check.sh` runs everything CI runs.
 
 ## Branches, commits, PRs
 
