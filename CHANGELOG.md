@@ -26,6 +26,8 @@ that section as the GitHub Release notes.
 
 ### Changed
 
+- **Test coverage 91.7%** (from 35% at the start of this work, against the standard's 80%): 343 unit
+  and component tests, including the map with real Leaflet, plus 12 end-to-end tests.
 - **Tests in TypeScript:** every unit test is typed and type-checked, with shared factories for test
   data (development only; no change to the app).
 - **Build: Vite 8** (Rolldown) with `@vitejs/plugin-react` 6; builds take about a second. The heatmap
@@ -70,6 +72,14 @@ that section as the GitHub Release notes.
 
 ### Fixed
 
+- In multi-select mode, clicking a photo's thumbnail selected and immediately deselected it.
+- Pressing Enter twice in the upload dialog's new-client fields created the client twice and uploaded
+  every photo twice. A failed client creation now says why instead of silently re-enabling the button.
+- Adding a tag to several photos said it had worked before the save finished, even when it failed.
+- Changing a project between active and archived failed silently on an error; it now says so.
+- The elevation chart drew nothing (NaN coordinates) when all photos were taken from one spot; it now
+  spaces them evenly.
+- The photo viewer's "Saved" note carried over to the next photo.
 - With no photos on the map, the page re-rendered in an endless loop, quietly keeping a CPU core
   busy: resetting the map's view reported "new" bounds, which re-filtered the photos, which reset the
   view again.

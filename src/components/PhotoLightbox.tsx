@@ -51,6 +51,7 @@ export function PhotoLightbox({ photo, photos, onClose, onUpdate }: PhotoLightbo
     setTagInput('');
     setSurveyDate(photo.surveyDate ?? '');
     setCopied(false);
+    setSavedState(null);
   }
 
   function prev() {

@@ -89,14 +89,19 @@ export function ElevationProfile({ photos, hoveredPhotoId, onHover }: ElevationP
   const maxAlt = Math.max(...allAlts);
   const altRange = maxAlt - minAlt || 1;
 
-  const toX = (dist: number) => PAD.left + (dist / maxDist) * INNER_W;
+  // Photos all taken from one spot have no distance to spread over; fall back to
+  // spacing them evenly, so the chart still shows how the altitude changed.
+  const spacing = new Map(points.map((p, i) => [p, i / (points.length - 1)]));
+  const xOf = (p: Point) =>
+    PAD.left + (maxDist > 0 ? p.dist / maxDist : (spacing.get(p) ?? 0)) * INNER_W;
+  const toX = (dist: number) => PAD.left + (maxDist > 0 ? dist / maxDist : 0) * INNER_W;
   const toY = (alt: number) => PAD.top + INNER_H - ((alt - minAlt) / altRange) * INNER_H;
 
-  const polyline = points.map((p) => `${toX(p.dist)},${toY(p.alt)}`).join(' ');
+  const polyline = points.map((p) => `${xOf(p)},${toY(p.alt)}`).join(' ');
   const area = [
     `${toX(0)},${PAD.top + INNER_H}`,
-    ...points.map((p) => `${toX(p.dist)},${toY(p.alt)}`),
-    `${toX(maxDist)},${PAD.top + INNER_H}`,
+    ...points.map((p) => `${xOf(p)},${toY(p.alt)}`),
+    `${PAD.left + INNER_W},${PAD.top + INNER_H}`,
   ].join(' ');
 
   const yTicks = 3;
@@ -176,7 +181,7 @@ export function ElevationProfile({ photos, hoveredPhotoId, onHover }: ElevationP
 
         {/* Dots */}
         {points.map((p) => {
-          const cx = toX(p.dist);
+          const cx = xOf(p);
           const cy = toY(p.alt);
           const isHovered = hoveredPhotoId === p.id;
           return (

@@ -25,6 +25,7 @@ function AssignModal({ fileCount, clients, projects, onConfirm, onSkip }: Assign
   const [newClientName, setNewClientName] = useState('');
   const [newProjectName, setNewProjectName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const clientProjects = clientId ? projects.filter((p) => p.clientId === clientId) : projects;
 
@@ -37,7 +38,8 @@ function AssignModal({ fileCount, clients, projects, onConfirm, onSkip }: Assign
     mode === 'existing' || mode === 'skip' || (mode === 'new' && newClientName.trim().length > 0);
 
   async function handleUpload() {
-    if (!canUpload) return;
+    // `creating`: a second Enter while the client is being made must not run again.
+    if (!canUpload || creating) return;
     if (mode === 'skip') {
       onSkip();
       return;
@@ -48,10 +50,12 @@ function AssignModal({ fileCount, clients, projects, onConfirm, onSkip }: Assign
     }
     // mode === 'new'
     setCreating(true);
+    setCreateError(null);
     try {
       onConfirm(await createClientWithProject(newClientName.trim(), newProjectName.trim()));
-    } catch {
+    } catch (err) {
       setCreating(false);
+      setCreateError((err as Error).message || 'Could not create the client');
     }
   }
 
@@ -162,6 +166,11 @@ function AssignModal({ fileCount, clients, projects, onConfirm, onSkip }: Assign
           </p>
         )}
 
+        {createError && (
+          <p className="assign-modal-error" role="alert">
+            {createError}
+          </p>
+        )}
         <div className="assign-modal-actions">
           <button
             className="assign-modal-primary"

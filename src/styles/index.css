@@ -3872,6 +3872,12 @@ textarea:focus-visible {
   border-color: var(--color-accent);
 }
 
+.assign-modal-error {
+  margin: 0 0 var(--space-sm);
+  color: var(--danger-fg);
+  font-size: var(--text-sm);
+}
+
 .assign-modal-actions {
   display: flex;
   flex-direction: column;
