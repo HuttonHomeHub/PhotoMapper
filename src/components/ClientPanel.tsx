@@ -358,7 +358,12 @@ export function ClientPanel({
                                 clientId: proj.clientId,
                                 color: proj.color,
                                 status: proj.status === 'active' ? 'archived' : 'active',
-                              });
+                              }).catch((err: unknown) =>
+                                toast?.(
+                                  (err as Error).message || 'Could not change the status',
+                                  'error'
+                                )
+                              );
                             }}
                             title={proj.status === 'active' ? 'Mark as archived' : 'Mark as active'}
                           >

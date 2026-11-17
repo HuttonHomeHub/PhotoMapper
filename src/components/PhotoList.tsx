@@ -275,16 +275,20 @@ export function PhotoList({
                     onChange={(e) => setBatchTagValue(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && batchTagValue.trim()) {
-                        onBatchUpdate([...selectedPhotoIds], {
-                          tags: [batchTagValue.trim()],
-                          mergeTags: true,
-                        });
-                        toast?.(
-                          `Tag "${batchTagValue.trim()}" added to ${selectedPhotoIds.size} photo${selectedPhotoIds.size !== 1 ? 's' : ''}`,
-                          'success'
-                        );
+                        const tag = batchTagValue.trim();
+                        const count = selectedPhotoIds.size;
                         setBatchTagValue('');
                         setTagPromptOpen(false);
+                        // Say it's done only once it is.
+                        onBatchUpdate([...selectedPhotoIds], { tags: [tag], mergeTags: true }).then(
+                          () =>
+                            toast?.(
+                              `Tag "${tag}" added to ${count} photo${count !== 1 ? 's' : ''}`,
+                              'success'
+                            ),
+                          (err: unknown) =>
+                            toast?.(`Could not add the tag: ${(err as Error).message}`, 'error')
+                        );
                       }
                       if (e.key === 'Escape') {
                         setBatchTagValue('');
@@ -343,7 +347,12 @@ export function PhotoList({
           >
             <button
               className="photo-list-thumb-btn"
-              onClick={() => (selectionMode ? onToggleSelection(photo.id) : onView(photo))}
+              onClick={(e) => {
+                // In selection mode the row handles the click; stop it toggling twice.
+                e.stopPropagation();
+                if (selectionMode) onToggleSelection(photo.id);
+                else onView(photo);
+              }}
               aria-label={`View ${photo.originalName}`}
               tabIndex={-1}
               style={{ position: 'relative' }}
