@@ -15,7 +15,7 @@ const BLANK_TILE = Buffer.from(
 
 /** Wipes every photo, project and client (the e2e server runs with ALLOW_RESET=true). */
 export async function resetData(request: APIRequestContext): Promise<void> {
-  await request.get('/'); // issues the CSRF cookie
+  await request.get('/api/photos'); // issues the CSRF cookie (an API route, so it works via Vite's dev proxy too)
   const { cookies } = await request.storageState();
   const token = cookies.find((c) => c.name === 'hhh_csrf')?.value ?? '';
   const res = await request.delete('/api/reset', { headers: { 'X-CSRF-Token': token } });

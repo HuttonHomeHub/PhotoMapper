@@ -691,8 +691,11 @@ export const PhotoMap = forwardRef<PhotoMapHandle, PhotoMapProps>(function Photo
     }
 
     if (!geoPhotos.length) {
+      // Back to the default view only when the last mapped photo goes away. Leaflet
+      // fires moveend even for an unchanged view, and resetting on every render looped
+      // through App's bounds filter.
+      if (prevGeoCountRef.current > 0) map.setView([54.5, -3], 5);
       prevGeoCountRef.current = 0;
-      map.setView([54.5, -3], 5);
       return;
     }
 

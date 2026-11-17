@@ -26,6 +26,9 @@ that section as the GitHub Release notes.
 
 ### Changed
 
+- **Build: Vite 8** (Rolldown) with `@vitejs/plugin-react` 6; builds take about a second. The heatmap
+  no longer needs its CommonJS build setting, and a new end-to-end test checks the heatmap really
+  draws. Also updated: concurrently 10 and jsdom 31 (development tools).
 - Dependabot no longer proposes major versions of `@types/node`: they follow the Node version the
   app runs on (22).
 - **End-to-end tests:** 11 Playwright tests drive the built image in a browser (upload with GPS,
@@ -65,6 +68,10 @@ that section as the GitHub Release notes.
 
 ### Fixed
 
+- With no photos on the map, the page re-rendered in an endless loop, quietly keeping a CPU core
+  busy: resetting the map's view reported "new" bounds, which re-filtered the photos, which reset the
+  view again.
+- In development (`npm run dev`), the app bar's version didn't load (`/version` wasn't proxied).
 - Picking photos with the file picker while no project was selected uploaded nothing (the dialog
   said "0 photos"); dragging and dropping was unaffected.
 - Uploading crashed when the app was opened over plain HTTP (e.g. on the local network), because
