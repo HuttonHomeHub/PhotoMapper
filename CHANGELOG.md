@@ -26,6 +26,8 @@ that section as the GitHub Release notes.
 
 ### Changed
 
+- **hhh-platform 0.3.0:** the theme loads through the kit's Vite plugin, and the kit's dialogs centre
+  themselves; PhotoMapper's local copies of both are removed. No visible change.
 - **Test coverage 91.7%** (from 35% at the start of this work, against the standard's 80%): 343 unit
   and component tests, including the map with real Leaflet, plus 12 end-to-end tests.
 - **Tests in TypeScript:** every unit test is typed and type-checked, with shared factories for test
