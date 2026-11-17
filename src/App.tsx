@@ -127,6 +127,18 @@ export function App() {
   const [uploadOpen, setUploadOpen] = useState(true);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
   const [mapBounds, setMapBounds] = useState<Bounds | null>(null);
+  // The map reports its bounds after every move, including moves that change nothing;
+  // keep the same object then, so the photo filter doesn't run again for nothing.
+  const updateMapBounds = (next: Bounds) =>
+    setMapBounds((prev) =>
+      prev &&
+      prev.north === next.north &&
+      prev.south === next.south &&
+      prev.east === next.east &&
+      prev.west === next.west
+        ? prev
+        : next
+    );
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [regionPolygon, setRegionPolygon] = useState<LatLng[] | null>(null);
   const [elevationOpen, setElevationOpen] = useState(false);
@@ -645,7 +657,7 @@ export function App() {
             hoveredPhotoId={hoveredPhotoId}
             onPhotoHover={setHoveredPhotoId}
             onRegionChange={setRegionPolygon}
-            onBoundsChange={setMapBounds}
+            onBoundsChange={updateMapBounds}
             exportPhotos={exportPhotos}
             hasGps={photos.some((p) => p.hasGps)}
             placingPhoto={placingPhoto}

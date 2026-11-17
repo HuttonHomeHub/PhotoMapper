@@ -50,18 +50,12 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:3001',
       '/uploads': 'http://localhost:3001',
+      // The app bar reads the running version from here.
+      '/version': 'http://localhost:3001',
     },
   },
   build: {
     outDir: 'dist',
-    commonjsOptions: {
-      // heatmap-patched.js is a UMD living in src/. Include it in Rollup's
-      // CommonJS transform so it takes the `module.exports = factory()` branch
-      // (proper default export, no undefined top-level `this`) instead of being
-      // treated as ESM — which crashed on `this.h337` and left leaflet-heatmap's
-      // `require('heatmap.js')` empty. Mirrors how dev's optimizeDeps handles it.
-      include: [/heatmap-patched\.js$/, /node_modules/],
-    },
   },
   optimizeDeps: {
     include: ['leaflet.markercluster', 'leaflet-heatmap', 'heatmap.js'],
