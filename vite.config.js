@@ -1,9 +1,10 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
-import { fileURLToPath } from 'url'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { hhhThemeInit } from '@hhh/config/vite';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Cloudflare Rocket Loader rewrites <script> tags and injects an inline loader to
 // run them. Our strict CSP (script-src 'self', no unsafe-inline) blocks that
@@ -12,36 +13,35 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // the CSP stays strict, with no Cloudflare-wide setting change needed.
 const cfAsyncFalse = {
   name: 'cf-async-false',
-  transformIndexHtml(html) {
-    return html.replace(/<script /g, '<script data-cfasync="false" ')
-  }
-}
+  // 'post': after other plugins have added their tags (e.g. theme-init.js).
+  transformIndexHtml: {
+    order: 'post',
+    handler(html) {
+      return html.replace(/<script /g, '<script data-cfasync="false" ');
+    },
+  },
+};
 
 export default defineConfig({
-  plugins: [react(), cfAsyncFalse],
+  // hhhThemeInit: loads the design system's theme before first paint (no inline script).
+  plugins: [react(), cfAsyncFalse, hhhThemeInit()],
   resolve: {
     alias: {
-      'heatmap.js': path.resolve(__dirname, 'src/lib/heatmap-patched.js')
-    }
+      'heatmap.js': path.resolve(__dirname, 'src/lib/heatmap-patched.js'),
+    },
   },
   server: {
     proxy: {
       '/api': 'http://localhost:3001',
-      '/uploads': 'http://localhost:3001'
-    }
+      '/uploads': 'http://localhost:3001',
+      // The app bar reads the running version from here.
+      '/version': 'http://localhost:3001',
+    },
   },
   build: {
     outDir: 'dist',
-    commonjsOptions: {
-      // heatmap-patched.js is a UMD living in src/. Include it in Rollup's
-      // CommonJS transform so it takes the `module.exports = factory()` branch
-      // (proper default export, no undefined top-level `this`) instead of being
-      // treated as ESM — which crashed on `this.h337` and left leaflet-heatmap's
-      // `require('heatmap.js')` empty. Mirrors how dev's optimizeDeps handles it.
-      include: [/heatmap-patched\.js$/, /node_modules/]
-    }
   },
   optimizeDeps: {
-    include: ['leaflet.markercluster', 'leaflet-heatmap', 'heatmap.js']
-  }
-})
+    include: ['leaflet.markercluster', 'leaflet-heatmap', 'heatmap.js'],
+  },
+});

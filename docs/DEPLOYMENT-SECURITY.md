@@ -157,7 +157,7 @@ Key points:
   (the shared container standard); the image sets `DATA_DIR=/config`, so the
   database (`/config/photos.db`) and uploads (`/config/uploads`) live there and
   survive rebuilds. `DB_PATH` and `UPLOADS_DIR` override them if you want a
-  different layout. **Back this volume up** — see Backups (OPS-03) below.
+  different layout. Backups are written inside it by default — see Backups (OPS-03) below.
 - **Loopback only** — compose publishes `127.0.0.1:3001:3001`, so the Node port is
   never exposed to the internet directly. Point your reverse proxy (above) at
   `127.0.0.1:3001`. If the proxy runs in its own container, put both on a shared
@@ -194,18 +194,18 @@ photomapper:
   container_name: photomapper
   image: ghcr.io/huttonhomehub/photomapper:latest
   ports:
-    - 127.0.0.1:3001:3001   # loopback only — the reverse proxy fronts it (no in-app auth)
+    - 127.0.0.1:3001:3001 # loopback only — the reverse proxy fronts it (no in-app auth)
   environment:
     - PUID=1000
     - PGID=1000
     - TZ=Europe/London
     - NODE_ENV=production
-    - TRUST_PROXY=1       # one hop: nginx (which restores the real client IP from Cloudflare)
-    - LOG_LEVEL=warn      # quieter logs (drop the per-request info lines)
+    - TRUST_PROXY=1 # one hop: nginx (which restores the real client IP from Cloudflare)
+    - LOG_LEVEL=warn # quieter logs (drop the per-request info lines)
     # - ALLOWED_ORIGINS=https://photos.example.com
     # - ALLOW_RESET=false
   volumes:
-    - /apps/photomapper/config:/config   # holds photos.db + uploads
+    - /apps/photomapper/config:/config # holds photos.db + uploads
   restart: unless-stopped
 ```
 
@@ -213,7 +213,7 @@ Notes:
 
 - **No manual chown needed** — the entrypoint chowns `/config` to `PUID:PGID` at
   startup (like linuxserver/hotio images), so a bare bind mount just works. `PUID`/
-  `PGID` default to `1000` if unset. (One edge case: to adopt a *pre-existing* photo
+  `PGID` default to `1000` if unset. (One edge case: to adopt a _pre-existing_ photo
   library owned by a different uid, `chown -R` it once — the startup chown is
   non-recursive so it stays fast as the library grows.)
 - **Package visibility** — GHCR packages are **private by default**. Either make the
@@ -221,39 +221,45 @@ Notes:
   for anonymous pulls, or `docker login ghcr.io` on the host with a token that has
   `read:packages`.
 - **First publish** — if the workflow's push step 403s, allow Actions to write
-  packages: repo Settings → Actions → General → Workflow permissions → *Read and
-  write permissions* (the workflow already requests `packages: write`).
+  packages: repo Settings → Actions → General → Workflow permissions → _Read and
+  write permissions_ (the workflow already requests `packages: write`).
 
 ## Environment variables
 
-| Var | Default | Purpose |
-|---|---|---|
-| `PORT` | `3001` | App listen port (keep behind the proxy). |
-| `DATA_DIR` | `/config` in the image | Where all state lives (shared container standard). |
-| `DB_PATH` | `$DATA_DIR/photos.db` | SQLite file location (OPS-03). Replaces `PHOTOS_DB_PATH`, which still works and logs a deprecation warning. |
-| `UPLOADS_DIR` | `$DATA_DIR/uploads` | Uploaded-image + thumbnail directory. |
-| `APP_VERSION` | `dev` | Release version, set at build time; reported at `/health` and `/version`. |
-| `ALLOW_RESET` | _unset_ | Set to `true` only if you want `DELETE /api/reset` enabled. |
-| `NODE_ENV` | _unset_ | `production` in prod; `test` is used by the test suite. |
-| `TRUST_PROXY` | _(off)_ | Express `trust proxy` for reverse-proxy deploys. A hop count (`1` when nginx restores the real client IP, see "Behind Cloudflare"), `true`/`false`, or an IP/subnet list. Makes `req.ip`, rate-limiting and protocol use the real client. Prefer a hop count over `true` (the rate limiter rejects fully-permissive trust). |
-| `LOG_LEVEL` | `info` | pino level; set `warn` to drop per-request access logs. |
+| Var           | Default                | Purpose                                                                                                                                                                                                                                                |
+| ------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PORT`        | `3001`                 | App listen port (keep behind the proxy).                                                                                                                                                                                                               |
+| `DATA_DIR`    | `/config` in the image | Where all state lives (shared container standard).                                                                                                                                                                                                     |
+| `DB_PATH`     | `$DATA_DIR/photos.db`  | SQLite file location (OPS-03). Replaces `PHOTOS_DB_PATH`, which still works and logs a deprecation warning.                                                                                                                                            |
+| `UPLOADS_DIR` | `$DATA_DIR/uploads`    | Uploaded-image + thumbnail directory.                                                                                                                                                                                                                  |
+| `APP_VERSION` | `dev`                  | Release version, set at build time; reported at `/health` and `/version`.                                                                                                                                                                              |
+| `ALLOW_RESET` | _unset_                | Set to `true` only if you want `DELETE /api/reset` enabled.                                                                                                                                                                                            |
+| `NODE_ENV`    | _unset_                | `production` in prod; `test` is used by the test suite.                                                                                                                                                                                                |
+| `TRUST_PROXY` | _(off)_                | Proxy hops in front whose forwarded headers are trusted: `1` when nginx restores the real client IP (see "Behind Cloudflare"). `true` means 1; anything but a hop count stops startup. Makes `req.ip`, rate-limiting and protocol use the real client. |
+| `LOG_LEVEL`   | `info`                 | pino level; set `warn` to drop per-request access logs.                                                                                                                                                                                                |
 
-> Full config reference is in `.env.example` and validated in `server/config.js` (OPS-07).
+> Full config reference is in `.env.example` and validated in `server/config.ts` (OPS-07).
 
-## Backups (OPS-03) — ⚠️ not yet implemented
+## Backups (OPS-03)
 
-**This is the single largest open production risk.** The SQLite database and the
-`uploads/` directory (both on the `/config` volume under Docker) hold **all** state,
-and there is currently **no automated backup**. If the volume or host is lost,
-everything is gone.
+PhotoMapper backs itself up, the same way as Crane Charts (the shared kit):
 
-Until OPS-03 is delivered, run a manual off-box backup, e.g.:
+- **What:** one zip per backup, holding a consistent snapshot of the database (SQLite's
+  online backup, safe while the app runs) and the `uploads/` folder
+  (`BACKUP_INCLUDE_UPLOADS=0` leaves uploads out).
+- **When:** every `BACKUP_INTERVAL_HOURS` (default 24; the first five minutes after
+  start), and on demand with `POST /api/backup`. `BACKUP_ENABLED=0` turns the schedule
+  off, e.g. if a host cron calls `POST /api/backup` instead.
+- **Where:** `BACKUP_DIR`, default `/config/backups`, keeping the newest `BACKUP_KEEP`
+  (default 7) of each kind. **That is on the same disk as the data.** For copies that
+  survive losing the host, mount `BACKUP_DIR` from another disk or a NAS share, e.g.
+  `- /mnt/nas/photomapper-backups:/backups` with `BACKUP_DIR=/backups`, or download a
+  backup (`GET /api/backup/download`) and keep it elsewhere.
+- **Health:** `GET /api/backup` reports the last success, the last error and the next
+  run, so a failing nightly backup is visible, not just logged.
 
-```bash
-# DB: use SQLite's online backup (safe while the app is running)
-docker compose exec app node -e "new (require('better-sqlite3'))('/config/photos.db').backup('/config/backup-'+Date.now()+'.db')"
-# then copy /config (DB backup + uploads) OFF the host — to another server or object storage
-```
-
-A scripted, scheduled, off-box backup + a tested restore procedure are tracked as
-**OPS-03** (deferred pending a chosen backup destination).
+**Restore** (`POST /api/backup/restore`, a backup by name or an uploaded zip) checks
+the archive before touching anything: entry names, sizes against `MAX_RESTORE_MB`, the
+database's integrity and its tables. It then takes a `prerestore` backup, so a restore
+can itself be undone, and swaps the uploads and then the database under the write lock.
+A restored backup from an older version is migrated as it opens.

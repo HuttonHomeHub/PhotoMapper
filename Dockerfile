@@ -12,6 +12,8 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
+# The shared platform is vendored; npm resolves its file: dependencies from here.
+COPY vendor ./vendor
 RUN npm ci
 
 COPY . .
@@ -44,6 +46,8 @@ ENV APP_VERSION=$APP_VERSION
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server ./server
+# @hhh/server is a runtime dependency, installed as a link into the vendored platform.
+COPY --from=build /app/vendor ./vendor
 COPY --from=build /app/package.json ./package.json
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
@@ -56,7 +60,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3001)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 # Entrypoint runs as root, chowns /config to PUID:PGID (default 1000:1000), then
-# drops privileges via gosu and runs the CMD. server/index.js handles SIGTERM
+# drops privileges via gosu and runs the CMD. server/index.ts handles SIGTERM
 # for graceful shutdown (OPS-05).
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["node", "server/index.js"]
+CMD ["node", "server/index.ts"]

@@ -1,46 +1,15 @@
-import js from '@eslint/js';
-import reactPlugin from 'eslint-plugin-react';
-import reactHooks from 'eslint-plugin-react-hooks';
-import globals from 'globals';
+import { hhhConfig } from '@hhh/config/eslint';
 
-export default [
-  js.configs.recommended,
-  {
-    files: ['src/**/*.{js,jsx}'],
-    plugins: {
-      react: reactPlugin,
-      'react-hooks': reactHooks,
-    },
-    languageOptions: {
-      globals: {
-        ...globals.browser,
-        ...globals.es2022,
-      },
-      parserOptions: {
-        ecmaFeatures: { jsx: true },
-      },
-    },
-    settings: {
-      react: { version: 'detect' },
-    },
-    rules: {
-      ...reactPlugin.configs.recommended.rules,
-      ...reactHooks.configs.recommended.rules,
-      'react/react-in-jsx-scope': 'off',
-      'react/prop-types': 'off',
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-    },
-  },
-  {
-    files: ['server/**/*.js'],
-    languageOptions: {
-      globals: {
-        ...globals.node,
-        ...globals.es2022,
-      },
-    },
-    rules: {
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
-    },
-  },
-];
+export default hhhConfig({
+  browser: ['src/**/*.{js,jsx,ts,tsx}', 'tests/components/**', 'tests/hooks/**'],
+  // The React rules (hooks included) cover hooks in .ts files too.
+  react: ['src/**/*.{ts,tsx}', 'tests/**/*.tsx'],
+  node: [
+    'server/**/*.{js,ts}',
+    'tests/**/*.ts',
+    'e2e/**/*.ts',
+    '*.config.{js,ts}',
+    'scripts/**/*.ts',
+  ],
+  ignores: ['dist/**', 'coverage/**', 'e2e-results/**', 'src/lib/heatmap-patched.js'],
+});

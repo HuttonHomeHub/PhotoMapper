@@ -1,6 +1,7 @@
 node_modules/
-dist/
+/dist/
 coverage/
+e2e-results/
 server/uploads/
 server/photos.db
 server/photos.db.backup-*

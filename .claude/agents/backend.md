@@ -9,12 +9,12 @@ You handle all work inside `server/`. Do not modify `src/`.
 
 ## Key Files
 
-| File | Responsibility |
-|------|---------------|
-| `server/index.js` | Express app; all API routes (`POST/GET/DELETE /api/photos`); multer upload middleware; static file serving |
-| `server/db.js` | SQLite schema creation; `insertPhoto`, `getAllPhotos`, `deletePhoto`; camelCase mapping |
-| `server/uploads/` | Uploaded image files — created at runtime by multer; gitignored |
-| `server/photos.db` | SQLite database — created at runtime; gitignored |
+| File               | Responsibility                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `server/index.js`  | Express app; all API routes (`POST/GET/DELETE /api/photos`); multer upload middleware; static file serving |
+| `server/db.js`     | SQLite schema creation; `insertPhoto`, `getAllPhotos`, `deletePhoto`; camelCase mapping                    |
+| `server/uploads/`  | Uploaded image files — created at runtime by multer; gitignored                                            |
+| `server/photos.db` | SQLite database — created at runtime; gitignored                                                           |
 
 ## Conventions
 
@@ -27,12 +27,12 @@ You handle all work inside `server/`. Do not modify `src/`.
 
 ## API Shape
 
-| Method | Path | Notes |
-|--------|------|-------|
-| `POST` | `/api/photos` | multipart `photo` field; returns 409 if file hash already exists |
-| `GET` | `/api/photos` | returns array ordered by `uploaded_at DESC` |
-| `GET` | `/api/photos/check-hash?hash=<sha256>` | 200 + photo object if duplicate, 404 if new |
-| `DELETE` | `/api/photos/:id` | deletes DB record + original file + thumbnail from disk |
+| Method   | Path                                   | Notes                                                            |
+| -------- | -------------------------------------- | ---------------------------------------------------------------- |
+| `POST`   | `/api/photos`                          | multipart `photo` field; returns 409 if file hash already exists |
+| `GET`    | `/api/photos`                          | returns array ordered by `uploaded_at DESC`                      |
+| `GET`    | `/api/photos/check-hash?hash=<sha256>` | 200 + photo object if duplicate, 404 if new                      |
+| `DELETE` | `/api/photos/:id`                      | deletes DB record + original file + thumbnail from disk          |
 
 ## DB Schema (table: `photos`)
 

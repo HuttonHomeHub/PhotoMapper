@@ -21,14 +21,15 @@ tools for organising them into clients, projects and survey dates.
 - **Organisation** — clients → projects → survey dates; tags and field notes
 - **Timeline playback**, elevation profile, photo comparison, full-screen
   lightbox, GeoJSON/KML export, PNG map export
-- Keyboard shortcuts, dark theme, responsive/mobile layout
+- Keyboard shortcuts, light and dark themes (following the system, or the toggle), responsive/mobile layout
+- Settings panel: instance information, and backups with download and restore
 
 ## Tech stack
 
 - **Frontend:** React 18 + Vite 6, Leaflet (+ markercluster, heatmap)
-- **Backend:** Express 4, better-sqlite3 (SQLite), `sharp` (thumbnails),
-  `exifr` (EXIF), `zod` (validation), `helmet`/`compression`/`express-rate-limit`,
-  `pino` (structured logging)
+- **Backend:** Express 5 on the shared `@hhh/server` kit (security headers and CSP,
+  CSRF, rate limits, logging, settings), better-sqlite3 (SQLite), `sharp` (thumbnails),
+  `exifr` (EXIF), `zod` (validation)
 - **Tests:** Vitest (Node + jsdom), Testing Library, supertest
 
 ## Quick start
@@ -45,45 +46,51 @@ URL it prints (or the Codespaces forwarded port).
 
 ### Scripts
 
-| Script | Purpose |
-|---|---|
-| `npm run dev` | API + Vite dev server (concurrently) |
-| `npm run server` | API only (`node server/index.js`) |
-| `npm run build` | Production build to `dist/` |
-| `npm start` | Serve the built app + API from one process |
-| `npm test` | Run the Vitest suite once |
-| `npm run test:watch` | Vitest in watch mode |
-| `npm run test:coverage` | Tests with coverage (enforces thresholds) |
-| `npm run lint` | ESLint over `src` and `server` |
-| `npm run format` | Prettier over `src` and `server` |
+| Script                  | Purpose                                    |
+| ----------------------- | ------------------------------------------ |
+| `npm run dev`           | API + Vite dev server (concurrently)       |
+| `npm run server`        | API only (`node server/index.ts`)          |
+| `npm run build`         | Production build to `dist/`                |
+| `npm start`             | Serve the built app + API from one process |
+| `npm test`              | Run the Vitest suite once                  |
+| `npm run test:watch`    | Vitest in watch mode                       |
+| `npm run test:coverage` | Tests with coverage (enforces thresholds)  |
+| `npm run lint`          | ESLint over `src` and `server`             |
+| `npm run format`        | Prettier over `src` and `server`           |
 
 ## Configuration
 
-All runtime config is validated on startup (`server/config.js`). Copy
+All runtime config is validated on startup (`server/config.ts`). Copy
 `.env.example` to `.env` for local overrides. Key variables:
 
 Shared with every HuttonHomeHub app (same name and meaning everywhere):
 
-| Var | Default | Purpose |
-|---|---|---|
-| `PUID` / `PGID` | `1000` | User and group the app runs as in the image; data directories are chowned to them |
-| `TZ` | UTC | Time zone, e.g. `Europe/London` |
-| `TRUST_PROXY` | _(off)_ | Number of reverse-proxy hops in front whose `X-Forwarded-*` headers are trusted (`1` when nginx restores the real client IP). Also accepts `true`/`false` or an IP/subnet list |
-| `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` (`silent` under test; `warn` drops per-request logs) |
-| `DATA_DIR` | `/config` in the image | Where all state lives; the next two default inside it |
-| `DB_PATH` | `$DATA_DIR/photos.db` (locally `server/photos.db`) | SQLite file. Replaces `PHOTOS_DB_PATH`, which still works and logs a deprecation warning |
-| `UPLOADS_DIR` | `$DATA_DIR/uploads` (locally `server/uploads`) | Uploaded-image + thumbnail directory |
-| `APP_VERSION` | `dev` | Release version, set from the image tag at build time; reported at `/health` and `/version` |
+| Var             | Default                                            | Purpose                                                                                                                                                                           |
+| --------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PUID` / `PGID` | `1000`                                             | User and group the app runs as in the image; data directories are chowned to them                                                                                                 |
+| `TZ`            | UTC                                                | Time zone, e.g. `Europe/London`                                                                                                                                                   |
+| `TRUST_PROXY`   | _(off)_                                            | Number of reverse-proxy hops in front whose `X-Forwarded-*` headers are trusted (`1` when nginx restores the real client IP). `true` means 1; anything but a number stops startup |
+| `LOG_LEVEL`     | `info`                                             | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` (`silent` under test; `warn` drops per-request logs)                                                                 |
+| `DATA_DIR`      | `/config` in the image                             | Where all state lives; the next two default inside it                                                                                                                             |
+| `DB_PATH`       | `$DATA_DIR/photos.db` (locally `server/photos.db`) | SQLite file. Replaces `PHOTOS_DB_PATH`, which still works and logs a deprecation warning                                                                                          |
+| `UPLOADS_DIR`   | `$DATA_DIR/uploads` (locally `server/uploads`)     | Uploaded-image + thumbnail directory                                                                                                                                              |
+| `APP_VERSION`   | `dev`                                              | Release version, set from the image tag at build time; reported at `/health` and `/version`                                                                                       |
 
 PhotoMapper only:
 
-| Var | Default | Purpose |
-|---|---|---|
-| `PORT` | `3001` | API port inside the container (keep behind the reverse proxy in prod) |
-| `ALLOWED_ORIGINS` | _(empty)_ | Comma-separated CORS allowlist; empty = same-origin |
-| `ALLOW_RESET` | `false` | Enables the destructive `DELETE /api/reset` |
-| `UPLOAD_MAX_BYTES` | `62914560` (60 MB) | Upload size cap |
-| `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` | `900000` / `1000` | Per-IP API rate limit |
+| Var                      | Default                        | Purpose                                                                                                                                                        |
+| ------------------------ | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                   | `3001`                         | API port inside the container (keep behind the reverse proxy in prod)                                                                                          |
+| `ALLOWED_ORIGINS`        | _(empty)_                      | Comma-separated CORS allowlist; empty = same-origin                                                                                                            |
+| `ALLOW_RESET`            | `false`                        | Enables the destructive `DELETE /api/reset`                                                                                                                    |
+| `UPLOAD_MAX_BYTES`       | `62914560` (60 MB)             | Upload size cap                                                                                                                                                |
+| `API_RATE`               | `1000 per 15 minutes`          | Per-IP rate limit over all of `/api`, e.g. `60 per minute`. Replaces `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX`, which still work and log a deprecation warning |
+| `BACKUP_DIR`             | `backups/` beside the database | Where backups are written                                                                                                                                      |
+| `BACKUP_ENABLED`         | `1`                            | `0` turns off the schedule (backing up on demand still works)                                                                                                  |
+| `BACKUP_INTERVAL_HOURS`  | `24`                           | Time between scheduled backups                                                                                                                                 |
+| `BACKUP_KEEP`            | `7`                            | Backups kept of each kind (scheduled, prerestore)                                                                                                              |
+| `BACKUP_INCLUDE_UPLOADS` | `1`                            | `0` for database-only backups, e.g. when uploads live on storage with its own snapshots                                                                        |
+| `MAX_RESTORE_MB`         | `4096`                         | Largest backup (uncompressed) a restore accepts                                                                                                                |
 
 A deployment in the standard layout is in [deploy/compose.example.yml](deploy/compose.example.yml).
 
@@ -91,36 +98,53 @@ A deployment in the standard layout is in [deploy/compose.example.yml](deploy/co
 
 ```
 server/
-  index.js         entry point (imports app, listens)
-  app.js           createApp(): middleware, routers, static/SPA, error handler
-  config.js        zod-validated runtime configuration
-  db.js            SQLite schema + data access (repository layer)
-  migrate.js       versioned migration runner (records versions, backs up, fails loudly)
-  validation.js    zod request-body schemas + validate() middleware
-  logger.js        pino structured logger
-  paths.js         shared uploads/dist dirs
-  routes/          photos.js, clients.js, projects.js (Express routers)
-  services/        hash, exif, geocode, geocodeQueue, thumbnail, exportPhotos
+  index.ts         entry point: listens, backup schedule, graceful shutdown
+  app.ts           createApp() on the @hhh/server kit: routers, static/SPA
+  config.ts        every setting, read with the kit's loadSettings
+  db.ts            SQLite open/close, frozen migrations 1-6, data access
+  migrate.ts       the frozen runner for migrations 1-6
+  migrations/      numbered SQL migrations from 007, run by the kit
+  lock.ts          the write lock shared by uploads, deletes, reset and restore
+  validation.ts    zod request-body schemas + validate() middleware
+  logger.ts        the kit's pino logger
+  paths.ts         data, uploads, backups, dist and migrations dirs
+  routes/          photos, clients, projects, geocode, public, backups (Express routers)
+  services/        hash, exif, geocode, geocodeQueue, thumbnail, exportPhotos, backups
 src/
-  main.jsx         entry (ErrorBoundary + ToastProvider + App)
-  App.jsx          root layout: sidebar + map
+  main.tsx         entry (ErrorBoundary + ToastProvider + App)
+  App.tsx          root layout: app bar, sidebar + map
   components/      PhotoMap, PhotoList, PhotoLightbox, DropZone, FilterChips,
                    TimelinePanel, LocationSearch, PhotoPopup, Toast, …
-  hooks/           usePhotos, useClients, useProjects, useTimeline, useFocusTrap
+  hooks/           every API call (usePhotos, useClients, useProjects, useUpload, useSettings,
+                   useShare, useGeocode, useReset) plus useTimeline, useFocusTrap, useMediaQuery
+  types/           types for libraries that ship none
+shared/
+  api.ts           the API's types, used by server and browser
   lib/             filterPhotos, geo, format, heatmap-patched
 ```
 
 Conventions: ES modules only; DB columns are `snake_case` and mapped to
-`camelCase` in `db.js`; uploaded files get UUID names on disk (original name
+`camelCase` in `db.ts` (the shapes are in `shared/api.ts`); uploaded files get UUID names on disk (original name
 stored in the DB).
 
 ## Database & migrations
 
-SQLite via better-sqlite3. Schema changes are versioned migrations in
-`server/db.js`, applied by `server/migrate.js`, which records applied versions in
-a `schema_migrations` table, takes a `VACUUM INTO` backup before mutating an
-existing database, and fails loudly on error. Add a new schema change as the next
-`{ version, name, up(db) }` entry — never edit an applied migration.
+SQLite via better-sqlite3, opened by the shared kit in WAL mode. Schema changes are
+numbered SQL files in `server/migrations/`, starting at `007-…sql` and run by the kit,
+which records each with its checksum in `schema_migrations` and copies a database that
+holds data before migrating it. Never edit an applied migration. Versions 1–6 are
+PhotoMapper's original JavaScript migrations in `server/db.ts`, frozen (see
+[server/migrations/README.md](server/migrations/README.md)).
+
+## Backups
+
+A backup is one zip: a consistent snapshot of the database plus the `uploads/` folder.
+PhotoMapper writes one every `BACKUP_INTERVAL_HOURS` (24) into `BACKUP_DIR` (default
+`/config/backups`) and keeps the newest `BACKUP_KEEP` (7). `/api/backup` lists them,
+makes one now, downloads one, or restores one (by name, or an uploaded zip). A restore
+checks the archive thoroughly first and takes a `prerestore` backup, so it can be
+undone. For copies that survive losing the host, mount `BACKUP_DIR` from another
+disk or a NAS. Details in [docs/DEPLOYMENT-SECURITY.md](docs/DEPLOYMENT-SECURITY.md).
 
 ## API
 
@@ -142,6 +166,14 @@ component/hook tests (Testing Library). Component test files opt into jsdom with
 a `// @vitest-environment jsdom` docblock. Coverage thresholds are enforced in
 CI.
 
+End-to-end tests (`e2e/`, Playwright) drive the real Docker image in a browser:
+`sh scripts/e2e.sh` builds the image, starts it on a throwaway network with an
+in-memory `/config`, and runs the tests from the pinned Playwright image (no browser
+is installed on the host). `sh scripts/check.sh` runs everything CI runs: `npm run
+check` in the Node 22 container, then the end-to-end tests. Each test starts from an
+empty library, stubs the map tiles, and fails on any console error. The test photos
+in `e2e/fixtures/` are made by `make-fixtures.ts` (one carries real EXIF GPS).
+
 ## Production deployment
 
 **Authentication is enforced at a reverse proxy, not in the app** — see
@@ -157,9 +189,9 @@ login, no upload/edit/delete, no client data or other projects. It is opt-in per
 project and revocable (**Stop sharing** invalidates the old link immediately).
 
 This is the **one deliberately public surface** in the otherwise
-proxy-authenticated app. For a client to open a link *without* your proxy's
+proxy-authenticated app. For a client to open a link _without_ your proxy's
 auth, allowlist the two public paths ahead of your catch-all `location /` — for
-example, in Nginx (or an NPM host's *Advanced → Custom Nginx Configuration*):
+example, in Nginx (or an NPM host's _Advanced → Custom Nginx Configuration_):
 
 ```nginx
 # Read-only share view + its data API — no auth. Everything else stays gated.

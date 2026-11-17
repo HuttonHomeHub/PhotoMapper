@@ -1,29 +1,27 @@
-import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { defineConfig, mergeConfig } from 'vitest/config';
+import { hhhVitest } from '@hhh/config/vitest';
 
-export default defineConfig({
-  // React plugin so component tests can render JSX (server/logic tests ignore it).
-  plugins: [react()],
-  test: {
-    // Default environment is Node (server/db/logic). Component tests opt into
-    // jsdom per-file via a `// @vitest-environment jsdom` docblock (TEST-03).
-    environment: 'node',
-    include: ['tests/**/*.test.{js,jsx}'],
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'lcov'],
-      include: ['server/**/*.js', 'src/**/*.{js,jsx}'],
-      // TEST-05: gate only the surface currently under test so the threshold is
-      // meaningful and non-flaky. Ratchet up and add global thresholds as
-      // TEST-02 (server routes) and TEST-03 (components) land.
-      thresholds: {
-        'server/db.js': {
-          statements: 75,
-          branches: 50,
-          functions: 65,
-          lines: 75,
-        },
+// Coverage gate: the standard asks for at least 80% of lines. PhotoMapper started
+// phase 3 at 35.2% (2026-11-16) and reached 91.7% (2026-11-17). The floor is the
+// measured level and only goes up.
+const LINES_FLOOR = 91.6;
+
+export default mergeConfig(
+  hhhVitest({
+    include: ['tests/**/*.test.{ts,tsx}'],
+    coverageInclude: ['server/**/*.{js,ts}', 'src/**/*.{js,jsx,ts,tsx}'],
+  }),
+  defineConfig({
+    // React plugin so component tests can render JSX. Server and logic tests run in
+    // Node; component tests opt into jsdom with a `// @vitest-environment jsdom` docblock.
+    plugins: [react()],
+    test: {
+      coverage: {
+        // A patched copy of the third-party heatmap.js library, not PhotoMapper's code.
+        exclude: ['src/lib/heatmap-patched.js'],
+        thresholds: { lines: LINES_FLOOR },
       },
     },
-  },
-});
+  })
+);
